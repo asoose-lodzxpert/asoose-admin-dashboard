@@ -5,19 +5,21 @@ import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
 import { cn } from '@/app/lib/utils'
 import { formatNaira } from '@/app/lib/utils'
-import type { City, PopularRoute, CityPricing } from '@/app/lib/types'
+import type { City, PopularRoute, CityPricing, ParcelPricing } from '@/app/lib/types'
 import {
   getPopularRoutes,
   createPopularRoute,
   deletePopularRoute,
   getCityPricing,
   updateCityPricing,
+  getParcelPricing,
+  updateParcelPricing,
 } from '@/app/actions/cities'
 
 const INPUT_CLS =
   'w-full rounded-xl border-0 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow'
 
-type Tab = 'routes' | 'pricing'
+type Tab = 'routes' | 'pricing' | 'parcel-pricing'
 
 /* ─── Route form ──────────────────────────────────────── */
 
@@ -68,6 +70,38 @@ const EMPTY_PRICING_FORM: PricingForm = {
   commissionPercent: '',
 }
 
+/* ─── Parcel Pricing form ────────────────────────────── */
+
+interface ParcelPricingForm {
+  baseFare: string
+  perKmRate: string
+  minFare: string
+  maxFare: string
+  smallMultiplier: string
+  mediumMultiplier: string
+  largeMultiplier: string
+  commissionPercent: string
+}
+
+function parcelPricingToForm(p: ParcelPricing): ParcelPricingForm {
+  return {
+    baseFare: String(p.baseFare),
+    perKmRate: String(p.perKmRate),
+    minFare: String(p.minFare),
+    maxFare: String(p.maxFare),
+    smallMultiplier: String(p.smallMultiplier),
+    mediumMultiplier: String(p.mediumMultiplier),
+    largeMultiplier: String(p.largeMultiplier),
+    commissionPercent: String(p.commissionPercent),
+  }
+}
+
+const EMPTY_PARCEL_PRICING_FORM: ParcelPricingForm = {
+  baseFare: '', perKmRate: '', minFare: '', maxFare: '',
+  smallMultiplier: '', mediumMultiplier: '', largeMultiplier: '',
+  commissionPercent: '',
+}
+
 /* ─── Component ───────────────────────────────────────── */
 
 export function LocationsClient({ initialCities }: { initialCities: City[] }) {
@@ -90,6 +124,13 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
   const [pricingError, setPricingError] = useState('')
   const [pricingSuccess, setPricingSuccess] = useState(false)
 
+  /* parcel pricing state */
+  const [parcelPricing, setParcelPricing] = useState<ParcelPricing | null>(null)
+  const [parcelPricingLoaded, setParcelPricingLoaded] = useState(false)
+  const [parcelPricingForm, setParcelPricingForm] = useState<ParcelPricingForm>(EMPTY_PARCEL_PRICING_FORM)
+  const [parcelPricingError, setParcelPricingError] = useState('')
+  const [parcelPricingSuccess, setParcelPricingSuccess] = useState(false)
+
   const [isPending, startTransition] = useTransition()
 
   /* ── city selection ────────────────────────────────── */
@@ -104,6 +145,11 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
     setPricingForm(EMPTY_PRICING_FORM)
     setPricingError('')
     setPricingSuccess(false)
+    setParcelPricing(null)
+    setParcelPricingLoaded(false)
+    setParcelPricingForm(EMPTY_PARCEL_PRICING_FORM)
+    setParcelPricingError('')
+    setParcelPricingSuccess(false)
     // Load the active tab's data
     loadTabData(city, activeTab)
   }
@@ -124,6 +170,13 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
         setPricingForm(data ? pricingToForm(data) : EMPTY_PRICING_FORM)
         setPricingLoaded(true)
       })
+    } else if (tab === 'parcel-pricing' && !parcelPricingLoaded) {
+      startTransition(async () => {
+        const data = await getParcelPricing(selectedCity.id)
+        setParcelPricing(data)
+        setParcelPricingForm(data ? parcelPricingToForm(data) : EMPTY_PARCEL_PRICING_FORM)
+        setParcelPricingLoaded(true)
+      })
     }
   }
 
@@ -134,12 +187,19 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
         setRoutes(data)
         setRoutesLoaded(true)
       })
-    } else {
+    } else if (tab === 'pricing') {
       startTransition(async () => {
         const data = await getCityPricing(city.id)
         setPricing(data)
         setPricingForm(data ? pricingToForm(data) : EMPTY_PRICING_FORM)
         setPricingLoaded(true)
+      })
+    } else if (tab === 'parcel-pricing') {
+      startTransition(async () => {
+        const data = await getParcelPricing(city.id)
+        setParcelPricing(data)
+        setParcelPricingForm(data ? parcelPricingToForm(data) : EMPTY_PARCEL_PRICING_FORM)
+        setParcelPricingLoaded(true)
       })
     }
   }
@@ -240,13 +300,54 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
     })
   }
 
+  /* ── parcel pricing actions ─────────────────────────── */
+
+  function setParcelPricingField(key: keyof ParcelPricingForm, val: string) {
+    setParcelPricingForm((prev) => ({ ...prev, [key]: val }))
+    setParcelPricingError('')
+    setParcelPricingSuccess(false)
+  }
+
+  function handleSaveParcelPricing() {
+    if (!selectedCity) return
+
+    const baseFare = parsePositive(parcelPricingForm.baseFare, 'Base fare')
+    const perKmRate = parsePositive(parcelPricingForm.perKmRate, 'Per km rate')
+    const minFare = parsePositive(parcelPricingForm.minFare, 'Min fare')
+    const maxFare = parsePositive(parcelPricingForm.maxFare, 'Max fare')
+    const smallMultiplier = parsePositive(parcelPricingForm.smallMultiplier, 'Small multiplier')
+    const mediumMultiplier = parsePositive(parcelPricingForm.mediumMultiplier, 'Medium multiplier')
+    const largeMultiplier = parsePositive(parcelPricingForm.largeMultiplier, 'Large multiplier')
+    const commissionPercent = parsePositive(parcelPricingForm.commissionPercent, 'Commission %')
+
+    for (const v of [baseFare, perKmRate, minFare, maxFare, smallMultiplier, mediumMultiplier, largeMultiplier, commissionPercent]) {
+      if (typeof v === 'string') { setParcelPricingError(v); return }
+    }
+
+    startTransition(async () => {
+      const res = await updateParcelPricing(selectedCity.id, {
+        baseFare: baseFare as number,
+        perKmRate: perKmRate as number,
+        minFare: minFare as number,
+        maxFare: maxFare as number,
+        smallMultiplier: smallMultiplier as number,
+        mediumMultiplier: mediumMultiplier as number,
+        largeMultiplier: largeMultiplier as number,
+        commissionPercent: commissionPercent as number,
+      })
+      if (res.error) { setParcelPricingError(res.error); return }
+      setParcelPricing(res.data as ParcelPricing)
+      setParcelPricingSuccess(true)
+    })
+  }
+
   /* ── render ────────────────────────────────────────── */
 
   return (
     <main className="flex h-full flex-col px-8 py-8">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-900">Locations</h1>
-        <p className="mt-0.5 text-sm text-slate-500">Manage popular routes and ride pricing per city.</p>
+        <p className="mt-0.5 text-sm text-slate-500">Manage popular routes, ride pricing, and parcel pricing per city.</p>
       </div>
 
       <div className="flex flex-1 gap-6 min-h-0">
@@ -320,9 +421,14 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
                       Save Pricing
                     </Button>
                   )}
+                  {activeTab === 'parcel-pricing' && (
+                    <Button size="sm" loading={isPending} onClick={handleSaveParcelPricing}>
+                      Save Parcel Pricing
+                    </Button>
+                  )}
                 </div>
                 <div className="flex gap-1">
-                  {([['routes', 'Popular Routes'], ['pricing', 'Pricing']] as [Tab, string][]).map(([tab, label]) => (
+                  {([['routes', 'Popular Routes'], ['pricing', 'Ride Pricing'], ['parcel-pricing', 'Parcel Pricing']] as [Tab, string][]).map(([tab, label]) => (
                     <button
                       key={tab}
                       onClick={() => switchTab(tab)}
@@ -355,6 +461,14 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
                   error={pricingError}
                   success={pricingSuccess}
                   onChange={setPricingField}
+                />}
+                {activeTab === 'parcel-pricing' && <ParcelPricingTab
+                  form={parcelPricingForm}
+                  loaded={parcelPricingLoaded}
+                  isPending={isPending}
+                  error={parcelPricingError}
+                  success={parcelPricingSuccess}
+                  onChange={setParcelPricingField}
                 />}
               </div>
             </div>
@@ -581,6 +695,67 @@ function PricingTab({
       )}
       <div className="grid grid-cols-2 gap-x-6 gap-y-5">
         {PRICING_FIELDS.map(({ key, label, suffix, placeholder }) => (
+          <div key={key}>
+            <label className="mb-1.5 flex items-center gap-1 text-[13px] font-medium text-slate-700">
+              {label}
+              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">{suffix}</span>
+            </label>
+            <input
+              type="number"
+              step="any"
+              min="0"
+              value={form[key]}
+              onChange={(e) => onChange(key, e.target.value)}
+              placeholder={placeholder}
+              className={
+                'w-full rounded-xl border-0 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow'
+              }
+              disabled={isPending}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/* ─── Parcel Pricing tab ─────────────────────────────── */
+
+const PARCEL_PRICING_FIELDS: { key: keyof ParcelPricingForm; label: string; suffix: string; placeholder: string }[] = [
+  { key: 'baseFare',          label: 'Base Fare',           suffix: '₦', placeholder: 'e.g. 500' },
+  { key: 'perKmRate',         label: 'Per Km Rate',         suffix: '₦', placeholder: 'e.g. 100' },
+  { key: 'minFare',           label: 'Min Fare',            suffix: '₦', placeholder: 'e.g. 800' },
+  { key: 'maxFare',           label: 'Max Fare',            suffix: '₦', placeholder: 'e.g. 5000' },
+  { key: 'smallMultiplier',   label: 'Small Multiplier',    suffix: 'x', placeholder: 'e.g. 1.0' },
+  { key: 'mediumMultiplier',  label: 'Medium Multiplier',   suffix: 'x', placeholder: 'e.g. 1.3' },
+  { key: 'largeMultiplier',   label: 'Large Multiplier',    suffix: 'x', placeholder: 'e.g. 1.8' },
+  { key: 'commissionPercent', label: 'Commission',          suffix: '%', placeholder: 'e.g. 15' },
+]
+
+function ParcelPricingTab({
+  form, loaded, isPending, error, success, onChange,
+}: {
+  form: ParcelPricingForm
+  loaded: boolean
+  isPending: boolean
+  error: string
+  success: boolean
+  onChange: (key: keyof ParcelPricingForm, val: string) => void
+}) {
+  if (isPending && !loaded) return <Spinner />
+
+  return (
+    <div className="px-6 py-6">
+      {error && (
+        <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>
+      )}
+      {success && (
+        <div className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          Parcel pricing saved successfully.
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-x-6 gap-y-5">
+        {PARCEL_PRICING_FIELDS.map(({ key, label, suffix, placeholder }) => (
           <div key={key}>
             <label className="mb-1.5 flex items-center gap-1 text-[13px] font-medium text-slate-700">
               {label}

@@ -725,3 +725,76 @@ export interface Application {
   documents: Record<string, string | null>
   bankDetails: Record<string, string | null> | null
 }
+
+/* ─── Parcels ────────────────────────────────────────── */
+
+export type ParcelStatus =
+  | 'PENDING'
+  | 'SEARCHING_RIDER'
+  | 'RIDER_ASSIGNED'
+  | 'RIDER_ACCEPTED'
+  | 'PICKED_UP'
+  | 'IN_TRANSIT'
+  | 'DELIVERED'
+  | 'CANCELLED_BY_USER'
+  | 'CANCELLED_BY_RIDER'
+  | 'CANCELLED_BY_SYSTEM'
+
+export type ParcelSize = 'SMALL' | 'MEDIUM' | 'LARGE'
+
+export interface ParcelCustomer {
+  name: string
+  phone: string
+  email: string
+}
+
+export interface ParcelSummary {
+  id: string
+  trackingId: string
+  status: ParcelStatus
+  size: ParcelSize
+  fare: number
+  distance: number
+  paymentMethod: string
+  paymentStatus: string
+  recipientName: string
+  recipientPhone: string
+  customer: ParcelCustomer
+  pickupAddress: RideAddress
+  dropoffAddress: RideAddress
+  rider: { name: string; phone: string } | null
+  createdAt: string
+}
+
+export interface ParcelDetail extends Omit<ParcelSummary, 'rider'> {
+  customerId: string
+  riderId: string | null
+  sizeMultiplier: number
+  description: string | null
+  earning: number
+  duration: number | null
+  pickedUpAt: string | null
+  deliveredAt: string | null
+  cancelledAt: string | null
+  cancelReason: string | null
+  matchingAttempts: number
+  updatedAt: string
+  customer: ParcelCustomer
+  rider: { name: string; phone: string; vehicleType?: string; rating?: number } | null
+}
+
+export interface ParcelPricing {
+  id: string
+  cityId: string
+  baseFare: number
+  perKmRate: number
+  minFare: number
+  maxFare: number
+  smallMultiplier: number
+  mediumMultiplier: number
+  largeMultiplier: number
+  commissionPercent: number
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
