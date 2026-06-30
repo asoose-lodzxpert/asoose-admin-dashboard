@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
+import { DocCard } from '@/app/components/ui/doc-card'
 import { DetailCard, InfoRow, InfoGrid, formatDate } from '@/app/components/ui/detail'
 import { cn } from '@/app/lib/utils'
 import { formatNaira } from '@/app/lib/utils'
@@ -270,6 +271,15 @@ export function ParcelDetailClient({ parcel: initialParcel }: { parcel: ParcelDe
                   <InfoRow label="Vehicle Type" value={parcel.rider.vehicleType} />
                   <InfoRow label="Rating" value={parcel.rider.rating} />
                 </InfoGrid>
+              </DetailCard>
+            )}
+
+            {/* Proof of Delivery */}
+            {parcel.proofOfDelivery && (
+              <DetailCard title="Proof of Delivery">
+                <div className="max-w-[160px]">
+                  <DocCard label="Proof of Delivery" url={parcel.proofOfDelivery} />
+                </div>
               </DetailCard>
             )}
 

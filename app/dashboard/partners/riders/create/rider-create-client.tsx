@@ -6,6 +6,11 @@ import { cn } from '@/app/lib/utils'
 import { ImageUploader } from '@/app/components/ui/image-uploader'
 import { adminProvisionRider, getBanks, resolveBankAccount } from '@/app/actions/partner-provision'
 import type { AdminProvisionResult } from '@/app/actions/partner-provision'
+import type { VehicleType, VehicleBrand } from '@/app/lib/types'
+
+const VEHICLE_COLORS = ['Black', 'White', 'Silver', 'Grey', 'Red', 'Blue', 'Green', 'Yellow', 'Orange', 'Brown', 'Gold', 'Maroon']
+const CURRENT_YEAR = new Date().getFullYear()
+const VEHICLE_YEARS = Array.from({ length: CURRENT_YEAR - 1989 }, (_, i) => CURRENT_YEAR - i)
 
 interface AccountForm { firstName: string; lastName: string; email: string; phone: string }
 interface RiderForm {
@@ -45,6 +50,53 @@ function Input({ label, required, error, ...props }: React.InputHTMLAttributes<H
         error ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-slate-50'
       )} />
       <FieldError msg={error} />
+    </div>
+  )
+}
+
+function Select({ label, required, error, children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement> & { label: string; required?: boolean; error?: string }) {
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      <select {...props} className={cn(
+        'w-full rounded-xl border px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500',
+        error ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-slate-50'
+      )}>
+        {children}
+      </select>
+      <FieldError msg={error} />
+    </div>
+  )
+}
+
+function ColorField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [custom, setCustom] = useState(value !== '' && !VEHICLE_COLORS.includes(value))
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-slate-700 mb-1.5">Color</label>
+      <select
+        value={custom ? '__other__' : value}
+        onChange={(e) => {
+          if (e.target.value === '__other__') { setCustom(true); onChange('') }
+          else { setCustom(false); onChange(e.target.value) }
+        }}
+        className="w-full rounded-xl border px-3.5 py-2.5 text-sm text-slate-900 border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+      >
+        <option value="">Select color</option>
+        {VEHICLE_COLORS.map((c) => <option key={c} value={c}>{c}</option>)}
+        <option value="__other__">Other…</option>
+      </select>
+      {custom && (
+        <input
+          autoFocus
+          placeholder="Enter color"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="mt-2 w-full rounded-xl border px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+        />
+      )}
     </div>
   )
 }
@@ -103,7 +155,12 @@ function BankCombobox({ banks, selectedBank, onSelect, error }: {
   )
 }
 
-export function RiderCreateClient() {
+interface Props {
+  vehicleTypes: VehicleType[]
+  vehicleBrands: VehicleBrand[]
+}
+
+export function RiderCreateClient({ vehicleTypes, vehicleBrands }: Props) {
   const router = useRouter()
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [account, setAccount] = useState<AccountForm>(INIT_ACCOUNT)
@@ -264,15 +321,28 @@ export function RiderCreateClient() {
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
             <SectionLabel>Vehicle Info</SectionLabel>
             <div className="grid grid-cols-2 gap-4">
-              <Input label="Vehicle type" required placeholder="MOTORCYCLE" value={rider.vehicleType} onChange={(e) => setR('vehicleType', e.target.value)} error={riderErrors.vehicleType} />
-              <Input label="Brand" placeholder="Honda" value={rider.vehicleBrand} onChange={(e) => setR('vehicleBrand', e.target.value)} />
+              <Select label="Vehicle type" required value={rider.vehicleType} onChange={(e) => setR('vehicleType', e.target.value)} error={riderErrors.vehicleType}>
+                <option value="">Select vehicle type</option>
+                {vehicleTypes.filter((t) => t.appliesTo === 'RIDER').map((t) => (
+                  <option key={t.id} value={t.code}>{t.name}</option>
+                ))}
+              </Select>
+              <Select label="Brand" value={rider.vehicleBrand} onChange={(e) => setR('vehicleBrand', e.target.value)}>
+                <option value="">Select brand</option>
+                {vehicleBrands.map((b) => (
+                  <option key={b.id} value={b.name}>{b.name}</option>
+                ))}
+              </Select>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <Input label="Model" placeholder="CG 125" value={rider.vehicleModel} onChange={(e) => setR('vehicleModel', e.target.value)} />
-              <Input label="Year" type="number" placeholder="2022" value={rider.vehicleYear} onChange={(e) => setR('vehicleYear', e.target.value)} />
+              <Select label="Year" value={rider.vehicleYear} onChange={(e) => setR('vehicleYear', e.target.value)}>
+                <option value="">Select year</option>
+                {VEHICLE_YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+              </Select>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <Input label="Color" placeholder="Red" value={rider.vehicleColor} onChange={(e) => setR('vehicleColor', e.target.value)} />
+              <ColorField value={rider.vehicleColor} onChange={(v) => setR('vehicleColor', v)} />
               <Input label="Plate number" placeholder="ABC-123-XY" value={rider.vehiclePlate} onChange={(e) => setR('vehiclePlate', e.target.value)} />
             </div>
             <Input label="Max delivery distance (km)" type="number" value={rider.maxDeliveryDistance} onChange={(e) => setR('maxDeliveryDistance', e.target.value)} />

@@ -763,6 +763,7 @@ export interface ParcelSummary {
   pickupAddress: RideAddress
   dropoffAddress: RideAddress
   rider: { name: string; phone: string } | null
+  proofOfDelivery: string | null
   createdAt: string
 }
 
