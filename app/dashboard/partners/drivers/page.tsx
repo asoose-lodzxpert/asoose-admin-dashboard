@@ -6,5 +6,5 @@ export const metadata: Metadata = { title: 'Drivers' }
 
 export default async function DriversPage() {
   const { drivers, pagination } = await getDrivers({ page: 1, limit: 20 })
-  return <DriversTable initialDrivers={drivers} total={pagination.total} />
+  return <DriversTable initialDrivers={drivers} initialPagination={pagination} />
 }

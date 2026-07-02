@@ -31,15 +31,19 @@ interface ListResponse {
 }
 
 export async function getRiders(params?: {
+  search?: string
   status?: string
+  isVerified?: string
   page?: number
   limit?: number
 }): Promise<ListResponse> {
   try {
     const q = new URLSearchParams()
-    if (params?.status) q.set('status', params.status)
     q.set('page', String(params?.page ?? 1))
     q.set('limit', String(params?.limit ?? 20))
+    if (params?.search) q.set('search', params.search)
+    if (params?.status) q.set('status', params.status)
+    if (params?.isVerified !== undefined && params.isVerified !== '') q.set('isVerified', params.isVerified)
     return await apiFetch<ListResponse>(`/api/v1/riders/admin?${q}`, { token: await token() })
   } catch {
     return { riders: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } }

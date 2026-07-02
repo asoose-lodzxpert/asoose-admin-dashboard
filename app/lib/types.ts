@@ -114,7 +114,7 @@ export interface VendorSummary {
   businessPhone: string
   verificationStatus: 'PENDING' | 'VERIFIED' | 'REJECTED' | 'SUSPENDED'
   isVerified: boolean
-  store: VendorStore
+  store: VendorStore | null
   createdAt: string
 }
 
@@ -131,7 +131,7 @@ export interface VendorDetail {
   taxId: string | null
   verificationStatus: 'PENDING' | 'VERIFIED' | 'REJECTED' | 'SUSPENDED'
   isVerified: boolean
-  store: VendorStoreDetail
+  store: VendorStoreDetail | null
   street: string | null
   city: string | null
   state: string | null

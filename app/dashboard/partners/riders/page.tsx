@@ -6,5 +6,5 @@ export const metadata: Metadata = { title: 'Riders' }
 
 export default async function RidersPage() {
   const { riders, pagination } = await getRiders({ page: 1, limit: 20 })
-  return <RidersTable initialRiders={riders} total={pagination.total} />
+  return <RidersTable initialRiders={riders} initialPagination={pagination} />
 }

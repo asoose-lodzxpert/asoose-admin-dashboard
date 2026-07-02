@@ -5,6 +5,6 @@ import { CustomersTable } from './customers-table'
 export const metadata: Metadata = { title: 'Customers' }
 
 export default async function CustomersPage() {
-  const { customers, pagination } = await getCustomers({ page: 1, limit: 20 })
-  return <CustomersTable initialCustomers={customers} total={pagination.total} />
+  const { customers, pagination } = await getCustomers({ page: 1, limit: 50 })
+  return <CustomersTable initialCustomers={customers} initialPagination={pagination} />
 }
