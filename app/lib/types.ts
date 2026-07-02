@@ -799,3 +799,26 @@ export interface ParcelPricing {
   createdAt: string
   updatedAt: string
 }
+
+/* ─── Catalog ────────────────────────────────────────── */
+
+export interface CatalogItem {
+  id: string
+  type: 'PRODUCT' | 'MENU_ITEM'
+  name: string
+  image: string | null
+  price: number
+  isAvailable: boolean
+  isFeatured: boolean
+  vendorName: string
+  storefront: { id: string; name: string; kind: 'STORE' | 'RESTAURANT' }
+  category: string | null
+  createdAt: string
+}
+
+export interface CatalogPagination {
+  page: number
+  limit: number
+  total: number
+  totalPages: number
+}
