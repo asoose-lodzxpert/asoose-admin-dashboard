@@ -44,7 +44,7 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   )
 }
 
-type ModalAction = { status: UserStatus; label: string; needsReason: boolean }
+type ModalAction = { status: UserStatus; label: string; needsReason: boolean; destructive?: boolean }
 
 const REASON_PLACEHOLDER: Record<string, string> = {
   SUSPENDED:   'Reason for suspension…',
@@ -62,27 +62,29 @@ export function CustomerDetailClient({ customer: initial }: { customer: Customer
 
   const { status } = customer
 
+  const isDeleted = customer.deletedAt !== null
+
   const actions: ModalAction[] = []
   if (status === 'ACTIVE') {
     actions.push(
-      { status: 'SUSPENDED',   label: 'Suspend',     needsReason: true  },
-      { status: 'BANNED',      label: 'Ban',         needsReason: true  },
-      { status: 'DEACTIVATED', label: 'Deactivate',  needsReason: true  },
+      { status: 'SUSPENDED',   label: 'Suspend',         needsReason: true              },
+      { status: 'BANNED',      label: 'Ban',             needsReason: true              },
+      { status: 'DEACTIVATED', label: 'Delete account',  needsReason: true, destructive: true },
     )
   } else if (status === 'SUSPENDED') {
     actions.push(
-      { status: 'ACTIVE',      label: 'Activate',    needsReason: false },
-      { status: 'BANNED',      label: 'Ban',         needsReason: true  },
-      { status: 'DEACTIVATED', label: 'Deactivate',  needsReason: true  },
+      { status: 'ACTIVE',      label: 'Activate',        needsReason: false },
+      { status: 'BANNED',      label: 'Ban',             needsReason: true  },
+      { status: 'DEACTIVATED', label: 'Deactivate',      needsReason: true  },
     )
   } else if (status === 'BANNED') {
     actions.push(
-      { status: 'ACTIVE',      label: 'Activate',    needsReason: false },
-      { status: 'DEACTIVATED', label: 'Deactivate',  needsReason: true  },
+      { status: 'ACTIVE',      label: 'Activate',        needsReason: false },
+      { status: 'DEACTIVATED', label: 'Deactivate',      needsReason: true  },
     )
   } else if (status === 'DEACTIVATED' || status === 'PENDING_VERIFICATION') {
     actions.push(
-      { status: 'ACTIVE',      label: 'Activate',    needsReason: false },
+      { status: 'ACTIVE', label: isDeleted ? 'Restore Account' : 'Activate', needsReason: false },
     )
   }
 
@@ -129,12 +131,14 @@ export function CustomerDetailClient({ customer: initial }: { customer: Customer
           <div className="flex items-center gap-2">
             {actions.map((a) => (
               <button
-                key={a.status}
+                key={a.label}
                 onClick={() => openModal(a)}
                 disabled={isPending}
                 className={cn(
                   'rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors disabled:opacity-50',
-                  a.status === 'ACTIVE'
+                  a.destructive
+                    ? 'bg-red-600 text-white hover:bg-red-700'
+                    : a.status === 'ACTIVE'
                     ? 'bg-emerald-600 text-white hover:bg-emerald-700'
                     : a.status === 'SUSPENDED'
                     ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
@@ -150,8 +154,33 @@ export function CustomerDetailClient({ customer: initial }: { customer: Customer
         </div>
       </div>
 
+      {/* Deleted banner */}
+      {isDeleted && (
+        <div className="mx-8 mt-8 flex items-center gap-4 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 text-rose-600">
+              <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 3.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-rose-900">Account deleted</p>
+            <p className="mt-0.5 text-xs text-rose-600">
+              Soft-deleted on {new Date(customer.deletedAt!).toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' })}.
+              This account is inactive and hidden from normal views.
+            </p>
+          </div>
+          <button
+            onClick={() => executeAction('ACTIVE', '')}
+            disabled={isPending}
+            className="shrink-0 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
+          >
+            {isPending ? 'Restoring…' : 'Restore account'}
+          </button>
+        </div>
+      )}
+
       {/* Body */}
-      <div className="px-8 py-8 grid grid-cols-1 gap-5 lg:grid-cols-2">
+      <div className={cn('px-8 grid grid-cols-1 gap-5 lg:grid-cols-2', isDeleted ? 'py-6' : 'py-8')}>
         {/* Personal Info */}
         <DetailCard title="Personal Information">
           <Row label="First name" value={customer.firstName} />
@@ -248,9 +277,14 @@ export function CustomerDetailClient({ customer: initial }: { customer: Customer
       {modal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-            <h3 className="text-base font-bold text-slate-900">{modal.label} Customer</h3>
+            <h3 className={cn('text-base font-bold', modal.destructive ? 'text-red-700' : 'text-slate-900')}>
+              {modal.label}
+            </h3>
             <p className="mt-1 text-sm text-slate-500">
-              You are about to {modal.label.toLowerCase()} <strong>{customer.firstName} {customer.lastName}</strong>.
+              {modal.destructive
+                ? <>You are about to permanently soft-delete <strong>{customer.firstName} {customer.lastName}</strong>{"'"}s account. They will lose access immediately.</>
+                : <>You are about to {modal.label.toLowerCase()} <strong>{customer.firstName} {customer.lastName}</strong>.</>
+              }
             </p>
             {modal.needsReason && (
               <div className="mt-4">
@@ -261,7 +295,7 @@ export function CustomerDetailClient({ customer: initial }: { customer: Customer
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   rows={3}
-                  placeholder={REASON_PLACEHOLDER[modal.status] ?? 'Enter reason…'}
+                  placeholder={modal.label === 'Delete account' ? 'Reason for deleting this account…' : (REASON_PLACEHOLDER[modal.status] ?? 'Enter reason…')}
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none"
                 />
               </div>
@@ -284,7 +318,8 @@ export function CustomerDetailClient({ customer: initial }: { customer: Customer
                 disabled={isPending}
                 className={cn(
                   'rounded-xl px-4 py-2 text-sm font-semibold text-white transition-colors disabled:opacity-50',
-                  modal.status === 'ACTIVE' ? 'bg-emerald-600 hover:bg-emerald-700'
+                  modal.destructive ? 'bg-red-600 hover:bg-red-700'
+                  : modal.status === 'ACTIVE' ? 'bg-emerald-600 hover:bg-emerald-700'
                   : modal.status === 'SUSPENDED' ? 'bg-orange-500 hover:bg-orange-600'
                   : modal.status === 'BANNED' ? 'bg-red-600 hover:bg-red-700'
                   : 'bg-slate-700 hover:bg-slate-800'

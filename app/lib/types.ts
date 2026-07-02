@@ -301,6 +301,7 @@ export interface CustomerSummary {
   authProvider: string
   createdAt: string
   lastLoginAt: string | null
+  deletedAt: string | null
 }
 
 export interface CustomerDetail extends CustomerSummary {
