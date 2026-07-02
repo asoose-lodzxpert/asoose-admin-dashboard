@@ -519,21 +519,131 @@ function OptionsPanel({ item }: { item: MenuItem }) {
   )
 }
 
+/* ─── Menu Item Detail Modal ──────────────────────────────── */
+
+function MenuItemDetailModal({ item, onClose }: { item: MenuItem; onClose: () => void }) {
+  return (
+    <Modal open onClose={onClose} title={item.name} size="lg">
+      <div className="space-y-4">
+        {item.image ? (
+          <div className="relative h-56 overflow-hidden rounded-xl bg-slate-100">
+            <Image src={item.image} alt={item.name} fill className="object-cover" unoptimized />
+          </div>
+        ) : (
+          <div className="flex h-40 items-center justify-center rounded-xl bg-slate-100">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="h-10 w-10 text-slate-300">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
+            </svg>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-2xl font-bold text-slate-900">{formatPrice(item.price)}</span>
+          <span className={cn(
+            'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset',
+            item.isAvailable ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/20' : 'bg-slate-100 text-slate-500 ring-slate-200'
+          )}>
+            <span className={cn('h-1.5 w-1.5 rounded-full', item.isAvailable ? 'bg-emerald-500' : 'bg-slate-400')} />
+            {item.isAvailable ? 'Available' : 'Unavailable'}
+          </span>
+        </div>
+
+        <div>
+          <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-600/20">
+            {formatCategory(item.category)}
+          </span>
+        </div>
+
+        {(item.prepTime != null || item.calories != null || item.spicyLevel > 0) && (
+          <div className="flex items-center gap-4 flex-wrap rounded-xl bg-slate-50 px-4 py-3">
+            {item.prepTime != null && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-400">⏱</span>
+                <span className="text-sm text-slate-700">{item.prepTime} min prep</span>
+              </div>
+            )}
+            {item.calories != null && (
+              <span className="text-sm text-slate-700">{item.calories} kcal</span>
+            )}
+            {item.spicyLevel > 0 && <SpicyDots level={item.spicyLevel} />}
+          </div>
+        )}
+
+        {(item.isVegetarian || item.isVegan || item.isGlutenFree) && (
+          <div className="flex gap-1.5">
+            <DietBadge label="Vegetarian" active={item.isVegetarian} />
+            <DietBadge label="Vegan" active={item.isVegan} />
+            <DietBadge label="Gluten-free" active={item.isGlutenFree} />
+          </div>
+        )}
+
+        {item.description && (
+          <div>
+            <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Description</p>
+            <p className="text-sm leading-relaxed text-slate-600">{item.description}</p>
+          </div>
+        )}
+
+        {item.options.length > 0 && (
+          <div>
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              Customization ({item.options.length} option group{item.options.length > 1 ? 's' : ''})
+            </p>
+            <div className="space-y-3">
+              {item.options.map(opt => (
+                <div key={opt.id} className="rounded-xl bg-slate-50 p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-slate-700">{opt.name}</span>
+                    <span className={cn('text-[10px] font-medium rounded-full px-2 py-0.5',
+                      opt.required ? 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20' : 'bg-slate-100 text-slate-500')}>
+                      {opt.required ? 'Required' : 'Optional'} · {opt.minChoices}–{opt.maxChoices}
+                    </span>
+                  </div>
+                  <ul className="space-y-1">
+                    {opt.choices.map(choice => (
+                      <li key={choice.id} className="flex items-center justify-between text-xs text-slate-600">
+                        <span className="flex items-center gap-1.5">
+                          <span className={cn('h-1.5 w-1.5 rounded-full', choice.isDefault ? 'bg-indigo-500' : 'bg-slate-200')} />
+                          {choice.name}
+                          {!choice.isAvailable && <span className="text-[10px] text-slate-400">(unavailable)</span>}
+                        </span>
+                        <span className="font-medium text-slate-700">
+                          {choice.price > 0 ? `+${formatPrice(choice.price)}` : 'Free'}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <p className="text-[11px] text-slate-400">
+          Added {new Date(item.createdAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}
+        </p>
+      </div>
+    </Modal>
+  )
+}
+
 function MenuItemCard({
   item,
+  onView,
   onEdit,
   onDelete,
   onToggle,
   isToggling,
 }: {
   item: MenuItem
+  onView: (item: MenuItem) => void
   onEdit: (item: MenuItem) => void
   onDelete: (item: MenuItem) => void
   onToggle: (item: MenuItem) => void
   isToggling: boolean
 }) {
   return (
-    <div className={cn('flex gap-4 rounded-2xl border border-slate-200 bg-white p-4 transition-colors', !item.isAvailable && 'opacity-60')}>
+    <div onClick={() => onView(item)} className={cn('flex gap-4 rounded-2xl border border-slate-200 bg-white p-4 transition-all cursor-pointer hover:border-slate-300 hover:shadow-sm', !item.isAvailable && 'opacity-60')}>
       <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-slate-100">
         {item.image ? (
           <Image src={item.image} alt={item.name} fill className="object-cover" unoptimized />
@@ -564,7 +674,7 @@ function MenuItemCard({
           <div className="flex items-center gap-1 shrink-0">
             <span className="text-sm font-bold text-slate-900">{formatPrice(item.price)}</span>
             <button
-              onClick={() => onToggle(item)}
+              onClick={(e) => { e.stopPropagation(); onToggle(item) }}
               disabled={isToggling}
               title={item.isAvailable ? 'Mark unavailable' : 'Mark available'}
               className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors disabled:opacity-40"
@@ -575,7 +685,7 @@ function MenuItemCard({
               </svg>
             </button>
             <button
-              onClick={() => onEdit(item)}
+              onClick={(e) => { e.stopPropagation(); onEdit(item) }}
               title="Edit"
               className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
             >
@@ -585,7 +695,7 @@ function MenuItemCard({
               </svg>
             </button>
             <button
-              onClick={() => onDelete(item)}
+              onClick={(e) => { e.stopPropagation(); onDelete(item) }}
               title="Delete"
               className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors"
             >
@@ -628,6 +738,7 @@ export function VendorMenuSection({
   const [showForm, setShowForm] = useState(false)
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null)
   const [deletingItem, setDeletingItem] = useState<MenuItem | null>(null)
+  const [viewingItem, setViewingItem] = useState<MenuItem | null>(null)
   const [deleteError, setDeleteError] = useState('')
 
   function refresh() {
@@ -705,6 +816,10 @@ export function VendorMenuSection({
             editing={editingItem}
           />
         )}
+
+        {viewingItem && (
+          <MenuItemDetailModal item={viewingItem} onClose={() => setViewingItem(null)} />
+        )}
       </div>
     )
   }
@@ -741,6 +856,7 @@ export function VendorMenuSection({
                 <MenuItemCard
                   key={item.id}
                   item={item}
+                  onView={setViewingItem}
                   onEdit={openEdit}
                   onDelete={openDelete}
                   onToggle={handleToggle}
@@ -751,6 +867,11 @@ export function VendorMenuSection({
           </div>
         ))}
       </div>
+
+      {/* Detail modal */}
+      {viewingItem && (
+        <MenuItemDetailModal item={viewingItem} onClose={() => setViewingItem(null)} />
+      )}
 
       {/* Create / Edit modal */}
       {showForm && (

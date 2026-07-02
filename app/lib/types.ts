@@ -822,3 +822,11 @@ export interface CatalogPagination {
   total: number
   totalPages: number
 }
+
+export interface StorefrontBranding {
+  id: string
+  kind: 'STORE' | 'RESTAURANT'
+  name: string
+  logo: string | null
+  banner: string | null
+}

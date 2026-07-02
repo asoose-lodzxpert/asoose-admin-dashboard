@@ -13,7 +13,7 @@ export default async function CatalogProductsPage({
   const sp = await searchParams
   const { items, pagination } = await getCatalogProducts({
     page: Number(sp.page) || 1,
-    limit: 20,
+    limit: 50,
     search: sp.search || undefined,
     type: (sp.type as CatalogItem['type']) || undefined,
     isFeatured: (sp.isFeatured as 'true' | 'false') || undefined,
