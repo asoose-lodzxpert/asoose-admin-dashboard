@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { apiFetch, ApiError } from '@/app/lib/api'
-import type { City, PopularRoute, CityPricing } from '@/app/lib/types'
+import type { City, PopularRoute, CityPricing, ParcelPricing } from '@/app/lib/types'
 
 type ActionResult<T> = { data: T; error?: never } | { error: string; data?: never }
 
@@ -120,6 +120,33 @@ export async function deletePopularRoute(cityId: string, routeId: string): Promi
     return {}
   } catch {
     return { error: 'Failed to delete popular route.' }
+  }
+}
+
+export async function getParcelPricing(cityId: string): Promise<ParcelPricing | null> {
+  try {
+    return await apiFetch<ParcelPricing>(`/api/v1/locations/${cityId}/parcel-pricing`, { token: await token() })
+  } catch { return null }
+}
+
+export async function updateParcelPricing(
+  cityId: string,
+  payload: {
+    baseFare: number; perKmRate: number; minFare: number; maxFare: number
+    smallMultiplier: number; mediumMultiplier: number; largeMultiplier: number
+    commissionPercent: number
+  }
+): Promise<ActionResult<ParcelPricing>> {
+  try {
+    const data = await apiFetch<ParcelPricing>(`/api/v1/locations/${cityId}/parcel-pricing`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+      token: await token(),
+    })
+    revalidatePath('/dashboard/locations')
+    return { data }
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'Failed to update parcel pricing.' }
   }
 }
 

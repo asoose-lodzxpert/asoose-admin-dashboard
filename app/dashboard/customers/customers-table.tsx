@@ -4,7 +4,7 @@ import { useState, useTransition, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/app/lib/utils'
 import { getCustomers } from '@/app/actions/customers'
-import type { CustomerSummary, UserStatus } from '@/app/lib/types'
+import type { CustomerSummary, UserStatus, Pagination } from '@/app/lib/types'
 
 const STATUS_STYLES: Record<UserStatus, string> = {
   ACTIVE:               'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
@@ -26,22 +26,23 @@ function formatStatus(s: UserStatus) {
   return s === 'PENDING_VERIFICATION' ? 'Pending' : s.charAt(0) + s.slice(1).toLowerCase()
 }
 
-export function CustomersTable({ initialCustomers, total }: { initialCustomers: CustomerSummary[]; total: number }) {
+export function CustomersTable({ initialCustomers, initialPagination }: { initialCustomers: CustomerSummary[]; initialPagination: Pagination }) {
   const router = useRouter()
   const [customers, setCustomers] = useState(initialCustomers)
-  const [count, setCount] = useState(total)
+  const [pagination, setPagination] = useState(initialPagination)
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<UserStatus | ''>('')
   const [isPending, startTransition] = useTransition()
   const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  function fetch(opts: { search?: string; status?: UserStatus | '' }) {
+  function refetch(opts: { search?: string; status?: UserStatus | ''; page?: number }) {
     const s = opts.search ?? search
     const st = opts.status !== undefined ? opts.status : status
+    const pg = opts.page ?? 1
     startTransition(async () => {
-      const res = await getCustomers({ search: s || undefined, status: st || undefined, page: 1, limit: 20 })
+      const res = await getCustomers({ search: s || undefined, status: st || undefined, page: pg, limit: 50 })
       setCustomers(res.customers)
-      setCount(res.pagination.total)
+      setPagination(res.pagination)
     })
   }
 
@@ -49,13 +50,13 @@ export function CustomersTable({ initialCustomers, total }: { initialCustomers: 
     const val = e.target.value
     setSearch(val)
     if (searchRef.current) clearTimeout(searchRef.current)
-    searchRef.current = setTimeout(() => fetch({ search: val }), 400)
+    searchRef.current = setTimeout(() => refetch({ search: val }), 400)
   }
 
   function onStatus(e: React.ChangeEvent<HTMLSelectElement>) {
     const val = e.target.value as UserStatus | ''
     setStatus(val)
-    fetch({ status: val })
+    refetch({ status: val })
   }
 
   return (
@@ -63,7 +64,7 @@ export function CustomersTable({ initialCustomers, total }: { initialCustomers: 
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Customers</h1>
-          <p className="mt-0.5 text-sm text-slate-500">{count} customers registered.</p>
+          <p className="mt-0.5 text-sm text-slate-500">{pagination.total} customers registered.</p>
         </div>
         <div className="flex items-center gap-2.5 flex-wrap">
           {/* Search */}
@@ -169,6 +170,36 @@ export function CustomersTable({ initialCustomers, total }: { initialCustomers: 
           </div>
         )}
       </div>
+
+      {pagination.totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-between">
+          <p className="text-sm text-slate-500">
+            Page {pagination.page} of {pagination.totalPages}
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => refetch({ page: pagination.page - 1 })}
+              disabled={pagination.page <= 1 || isPending}
+              className={cn(
+                'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+                pagination.page <= 1 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-700 hover:bg-slate-100'
+              )}
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => refetch({ page: pagination.page + 1 })}
+              disabled={pagination.page >= pagination.totalPages || isPending}
+              className={cn(
+                'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+                pagination.page >= pagination.totalPages ? 'text-slate-300 cursor-not-allowed' : 'text-slate-700 hover:bg-slate-100'
+              )}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   )
 }

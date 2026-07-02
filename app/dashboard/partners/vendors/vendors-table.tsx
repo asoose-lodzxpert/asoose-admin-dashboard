@@ -1,12 +1,12 @@
 'use client'
 
 import Image from 'next/image'
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/app/components/ui/button'
 import { cn } from '@/app/lib/utils'
-import { approveVendor, rejectVendor, suspendVendor } from '@/app/actions/vendors'
-import type { VendorSummary, VendorStore } from '@/app/lib/types'
+import { getVendors, approveVendor, rejectVendor, suspendVendor } from '@/app/actions/vendors'
+import type { VendorSummary, VendorStore, Pagination } from '@/app/lib/types'
 
 type VStatus = VendorSummary['verificationStatus']
 type SStatus = VendorStore['status']
@@ -58,17 +58,41 @@ function StoreLogo({ logo, name }: { logo: string | null; name: string }) {
 
 export function VendorsTable({
   initialVendors,
-  total,
+  initialPagination,
 }: {
   initialVendors: VendorSummary[]
-  total: number
+  initialPagination: Pagination
 }) {
   const router = useRouter()
   const [vendors, setVendors] = useState(initialVendors)
+  const [pagination, setPagination] = useState(initialPagination)
   const [filter, setFilter] = useState<VStatus | ''>('')
+  const [search, setSearch] = useState('')
   const [isPending, startTransition] = useTransition()
+  const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const displayed = filter ? vendors.filter((v) => v.verificationStatus === filter) : vendors
+  function refetch(opts: { search?: string; verificationStatus?: VStatus | ''; page?: number }) {
+    const s = opts.search ?? search
+    const vs = opts.verificationStatus !== undefined ? opts.verificationStatus : filter
+    const pg = opts.page ?? 1
+    startTransition(async () => {
+      const res = await getVendors({ search: s || undefined, verificationStatus: vs || undefined, page: pg, limit: 20 })
+      setVendors(res.vendors)
+      setPagination(res.pagination)
+    })
+  }
+
+  function onSearch(e: React.ChangeEvent<HTMLInputElement>) {
+    const val = e.target.value
+    setSearch(val)
+    if (searchRef.current) clearTimeout(searchRef.current)
+    searchRef.current = setTimeout(() => refetch({ search: val }), 400)
+  }
+
+  function onFilter(val: VStatus | '') {
+    setFilter(val)
+    refetch({ verificationStatus: val })
+  }
 
   function patchVendor(id: string, patch: Partial<VendorSummary>) {
     setVendors((prev) => prev.map((v) => v.id === id ? { ...v, ...patch } : v))
@@ -103,7 +127,7 @@ export function VendorsTable({
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Vendors</h1>
-          <p className="mt-0.5 text-sm text-slate-500">{total} vendors registered on the platform.</p>
+          <p className="mt-0.5 text-sm text-slate-500">{pagination.total} vendors registered on the platform.</p>
         </div>
         <button
           onClick={() => router.push('/dashboard/partners/vendors/create')}
@@ -116,25 +140,46 @@ export function VendorsTable({
         </button>
       </div>
 
-      <div className="mb-5 flex gap-2 flex-wrap">
-        {FILTERS.map((f) => (
-          <button
-            key={f.value}
-            onClick={() => setFilter(f.value)}
-            className={cn(
-              'rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors',
-              filter === f.value
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'bg-white text-slate-600 ring-1 ring-inset ring-slate-200 hover:bg-slate-50'
-            )}
-          >
-            {f.label}
-          </button>
-        ))}
+      <div className="mb-5 flex items-center gap-3 flex-wrap justify-between">
+        <div className="flex gap-2 flex-wrap">
+          {FILTERS.map((f) => (
+            <button
+              key={f.value}
+              onClick={() => onFilter(f.value)}
+              disabled={isPending}
+              className={cn(
+                'rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors disabled:opacity-60',
+                filter === f.value
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'bg-white text-slate-600 ring-1 ring-inset ring-slate-200 hover:bg-slate-50'
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <div className="relative">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400">
+            <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clipRule="evenodd" />
+          </svg>
+          <input
+            type="text"
+            value={search}
+            onChange={onSearch}
+            placeholder="Search name, email…"
+            className="h-9 rounded-xl border-0 bg-white pl-9 pr-3 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none w-52"
+          />
+          {isPending && (
+            <svg className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+          )}
+        </div>
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        {displayed.length === 0 ? (
+        {vendors.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16">
             <p className="text-sm font-medium text-slate-700">No vendors found</p>
           </div>
@@ -153,7 +198,7 @@ export function VendorsTable({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {displayed.map((vendor) => (
+                {vendors.map((vendor) => (
                   <tr
                     key={vendor.id}
                     onClick={() => router.push(`/dashboard/partners/vendors/${vendor.id}`)}
@@ -161,9 +206,9 @@ export function VendorsTable({
                   >
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
-                        <StoreLogo logo={vendor.store.logo} name={vendor.store.name ?? vendor.businessName} />
+                        <StoreLogo logo={vendor.store?.logo ?? null} name={vendor.store?.name ?? vendor.businessName} />
                         <div>
-                          <p className="font-medium text-slate-900">{vendor.store.name ?? vendor.businessName}</p>
+                          <p className="font-medium text-slate-900">{vendor.store?.name ?? vendor.businessName}</p>
                           <p className="text-xs text-slate-400">{vendor.businessName}</p>
                         </div>
                       </div>
@@ -177,9 +222,13 @@ export function VendorsTable({
                       </span>
                     </td>
                     <td className="px-5 py-3.5">
-                      <span className={cn('inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium', STORE_STATUS_STYLES[vendor.store.status])}>
-                        {vendor.store.status}
-                      </span>
+                      {vendor.store ? (
+                        <span className={cn('inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium', STORE_STATUS_STYLES[vendor.store.status])}>
+                          {vendor.store.status}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-400">No store</span>
+                      )}
                     </td>
                     <td className="px-5 py-3.5 text-xs text-slate-400">
                       {new Date(vendor.createdAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -204,6 +253,30 @@ export function VendorsTable({
           </div>
         )}
       </div>
+
+      {pagination.totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-between">
+          <p className="text-sm text-slate-500">Page {pagination.page} of {pagination.totalPages}</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => refetch({ page: pagination.page - 1 })}
+              disabled={pagination.page <= 1 || isPending}
+              className={cn('rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+                pagination.page <= 1 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-700 hover:bg-slate-100')}
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => refetch({ page: pagination.page + 1 })}
+              disabled={pagination.page >= pagination.totalPages || isPending}
+              className={cn('rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+                pagination.page >= pagination.totalPages ? 'text-slate-300 cursor-not-allowed' : 'text-slate-700 hover:bg-slate-100')}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   )
 }

@@ -11,9 +11,9 @@ export function InfoRow({
 }) {
   if (value == null || value === '') return null
   return (
-    <div className={wide ? 'col-span-2' : undefined}>
+    <div className={cn('min-w-0', wide ? 'col-span-2' : undefined)}>
       <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</dt>
-      <dd className="mt-0.5 text-sm text-slate-700">{String(value)}</dd>
+      <dd className="mt-0.5 text-sm text-slate-700 break-all">{String(value)}</dd>
     </div>
   )
 }

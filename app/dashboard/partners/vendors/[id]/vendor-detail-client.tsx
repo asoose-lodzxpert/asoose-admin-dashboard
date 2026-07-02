@@ -53,13 +53,15 @@ export function VendorDetailClient({ vendor: initial, menu, initialProducts, pro
   const [reason, setReason] = useState('')
   const [actionError, setActionError] = useState('')
 
+  const store = vendor.store
+
   const [storeForm, setStoreForm] = useState({
-    name: vendor.store.name ?? '',
+    name: store?.name ?? '',
     description: vendor.businessDescription ?? '',
-    address: vendor.store.address ?? '',
-    status: vendor.store.status,
-    isOpen: vendor.store.isOpen,
-    preparationTime: vendor.store.preparationTime ?? '',
+    address: store?.address ?? '',
+    status: store?.status ?? 'PENDING' as VendorStoreDetail['status'],
+    isOpen: store?.isOpen ?? false,
+    preparationTime: store?.preparationTime ?? '',
   })
   const [storeFormError, setStoreFormError] = useState('')
 
@@ -79,7 +81,7 @@ export function VendorDetailClient({ vendor: initial, menu, initialProducts, pro
         preparationTime: storeForm.preparationTime !== '' ? Number(storeForm.preparationTime) : null,
       })
       if (res.error) { setStoreFormError(res.error); return }
-      if (res.store) patch({ store: { ...vendor.store, ...res.store } as VendorStoreDetail })
+      if (res.store) patch({ store: { ...(vendor.store ?? {}), ...res.store } as VendorStoreDetail })
       setShowEditStore(false)
     })
   }
@@ -126,16 +128,16 @@ export function VendorDetailClient({ vendor: initial, menu, initialProducts, pro
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             {/* Store logo or initials */}
-            {vendor.store.logo ? (
+            {store?.logo ? (
               <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl border border-slate-100 bg-slate-50">
-                <Image src={vendor.store.logo} alt={vendor.businessName} fill className="object-cover" unoptimized />
+                <Image src={store.logo} alt={vendor.businessName} fill className="object-cover" unoptimized />
               </div>
             ) : (
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-base font-bold text-indigo-700">{initials}</div>
             )}
             <div className="min-w-0">
               <div className="flex items-center gap-2.5">
-                <h1 className="text-xl font-bold text-slate-900 truncate">{vendor.store.name ?? vendor.businessName}</h1>
+                <h1 className="text-xl font-bold text-slate-900 truncate">{store?.name ?? vendor.businessName}</h1>
                 <span className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset', STATUS_STYLES[vendor.verificationStatus])}>
                   <span className={cn('h-1.5 w-1.5 rounded-full', STATUS_DOT[vendor.verificationStatus])} />
                   {vendor.verificationStatus}
@@ -207,57 +209,65 @@ export function VendorDetailClient({ vendor: initial, menu, initialProducts, pro
           <div className="border-b border-slate-100 px-6 py-4">
             <h2 className="text-sm font-semibold text-slate-900">Store</h2>
           </div>
-          {/* Banner */}
-          <div className="relative w-full h-40 bg-linear-to-r from-slate-100 to-slate-200 overflow-hidden">
-            {vendor.store.banner ? (
-              <Image src={vendor.store.banner} alt="Store banner" fill className="object-cover" unoptimized />
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <p className="text-xs text-slate-400">No banner uploaded</p>
-              </div>
-            )}
-            {/* Logo pinned to bottom-left, half overlapping banner edge */}
-            <div className="absolute bottom-0 left-6 translate-y-1/2">
-              {vendor.store.logo ? (
-                <div className="relative h-16 w-16 overflow-hidden rounded-2xl border-2 border-white shadow-lg bg-white">
-                  <Image src={vendor.store.logo} alt="Store logo" fill className="object-cover" unoptimized />
-                </div>
-              ) : (
-                <div className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-white shadow-lg bg-indigo-100 text-xl font-bold text-indigo-700">{initials}</div>
-              )}
-            </div>
-          </div>
-
-          {/* Store details below banner */}
-          <div className="px-6 pt-12 pb-5">
-            <InfoGrid className="grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
-              <InfoRow label="Store Name" value={vendor.store.name} wide />
-              <InfoRow label="Store Status" value={vendor.store.status} />
-              <InfoRow label="Slug" value={vendor.store.slug} />
-              <InfoRow label="Rating" value={vendor.store.rating > 0 ? vendor.store.rating.toFixed(1) : '—'} />
-              <InfoRow label="Is Open" value={vendor.store.isOpen ? 'Yes' : 'No'} />
-              <InfoRow label="Prep Time" value={vendor.store.preparationTime != null ? `${vendor.store.preparationTime} min` : null} />
-              <InfoRow label="Min Order" value={vendor.store.minOrder != null ? `₦${vendor.store.minOrder.toLocaleString()}` : null} />
-              <InfoRow label="Delivery Fee" value={vendor.store.deliveryFee != null ? `₦${vendor.store.deliveryFee.toLocaleString()}` : null} />
-            </InfoGrid>
-          </div>
-          {vendor.store.openingHours && vendor.store.openingHours.length > 0 && (
-            <div className="border-t border-slate-100 px-6 py-5">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Opening Hours</p>
-              <div className="grid grid-cols-2 gap-x-8 gap-y-1.5 sm:grid-cols-3 lg:grid-cols-4">
-                {vendor.store.openingHours.map((h) => {
-                  const day = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][h.dayOfWeek]
-                  return (
-                    <div key={h.dayOfWeek} className="flex items-center justify-between gap-2 text-sm">
-                      <span className="font-medium text-slate-700 w-8">{day}</span>
-                      {h.isClosed
-                        ? <span className="text-xs text-slate-400">Closed</span>
-                        : <span className="text-slate-500">{h.openTime} – {h.closeTime}</span>
-                      }
+          {store ? (
+            <>
+              {/* Banner */}
+              <div className="relative w-full h-40 bg-linear-to-r from-slate-100 to-slate-200 overflow-hidden">
+                {store.banner ? (
+                  <Image src={store.banner} alt="Store banner" fill className="object-cover" unoptimized />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <p className="text-xs text-slate-400">No banner uploaded</p>
+                  </div>
+                )}
+                {/* Logo pinned to bottom-left, half overlapping banner edge */}
+                <div className="absolute bottom-0 left-6 translate-y-1/2">
+                  {store.logo ? (
+                    <div className="relative h-16 w-16 overflow-hidden rounded-2xl border-2 border-white shadow-lg bg-white">
+                      <Image src={store.logo} alt="Store logo" fill className="object-cover" unoptimized />
                     </div>
-                  )
-                })}
+                  ) : (
+                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-white shadow-lg bg-indigo-100 text-xl font-bold text-indigo-700">{initials}</div>
+                  )}
+                </div>
               </div>
+
+              {/* Store details below banner */}
+              <div className="px-6 pt-12 pb-5">
+                <InfoGrid className="grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+                  <InfoRow label="Store Name" value={store.name} wide />
+                  <InfoRow label="Store Status" value={store.status} />
+                  <InfoRow label="Slug" value={store.slug} />
+                  <InfoRow label="Rating" value={store.rating > 0 ? store.rating.toFixed(1) : '—'} />
+                  <InfoRow label="Is Open" value={store.isOpen ? 'Yes' : 'No'} />
+                  <InfoRow label="Prep Time" value={store.preparationTime != null ? `${store.preparationTime} min` : null} />
+                  <InfoRow label="Min Order" value={store.minOrder != null ? `₦${store.minOrder.toLocaleString()}` : null} />
+                  <InfoRow label="Delivery Fee" value={store.deliveryFee != null ? `₦${store.deliveryFee.toLocaleString()}` : null} />
+                </InfoGrid>
+              </div>
+              {store.openingHours && store.openingHours.length > 0 && (
+                <div className="border-t border-slate-100 px-6 py-5">
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Opening Hours</p>
+                  <div className="grid grid-cols-2 gap-x-8 gap-y-1.5 sm:grid-cols-3 lg:grid-cols-4">
+                    {store.openingHours.map((h) => {
+                      const day = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][h.dayOfWeek]
+                      return (
+                        <div key={h.dayOfWeek} className="flex items-center justify-between gap-2 text-sm">
+                          <span className="font-medium text-slate-700 w-8">{day}</span>
+                          {h.isClosed
+                            ? <span className="text-xs text-slate-400">Closed</span>
+                            : <span className="text-slate-500">{h.openTime} – {h.closeTime}</span>
+                          }
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="flex items-center justify-center py-10">
+              <p className="text-sm text-slate-400">No store created yet.</p>
             </div>
           )}
         </div>
