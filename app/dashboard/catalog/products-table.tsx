@@ -230,7 +230,7 @@ export function CatalogProductsTable({
         type: t || undefined,
         isFeatured: f ? 'true' : undefined,
         page: pg,
-        limit: 20,
+        limit: 50,
       })
       setItems(res.items)
       setPagination(res.pagination)

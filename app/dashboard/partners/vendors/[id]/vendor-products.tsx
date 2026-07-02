@@ -198,20 +198,124 @@ function ProductFormModal({
   )
 }
 
+/* ─── Product Detail Modal ────────────────────────────────── */
+
+function ProductDetailModal({ product, onClose }: { product: Product; onClose: () => void }) {
+  const [imgIdx, setImgIdx] = useState(0)
+  const images = product.images?.length > 0 ? product.images : (product.image ? [product.image] : [])
+  const hasDiscount = product.comparePrice != null && product.comparePrice > product.price
+
+  return (
+    <Modal open onClose={onClose} title={product.name} size="lg">
+      <div className="space-y-4">
+        {images.length > 0 ? (
+          <div>
+            <div className="relative h-56 overflow-hidden rounded-xl bg-slate-100">
+              <Image src={images[imgIdx]!} alt={product.name} fill className="object-contain" unoptimized />
+            </div>
+            {images.length > 1 && (
+              <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+                {images.map((url, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setImgIdx(i)}
+                    className={cn(
+                      'relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border-2 transition-colors',
+                      i === imgIdx ? 'border-indigo-500' : 'border-transparent opacity-60 hover:opacity-100'
+                    )}
+                  >
+                    <Image src={url} alt="" fill className="object-cover" unoptimized />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex h-40 items-center justify-center rounded-xl bg-slate-100">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="h-10 w-10 text-slate-300">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+            </svg>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-bold text-slate-900">{formatPrice(product.price)}</span>
+            {hasDiscount && (
+              <span className="text-sm text-slate-400 line-through">{formatPrice(product.comparePrice!)}</span>
+            )}
+          </div>
+          <span className={cn('inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset', STATUS_STYLES[product.status])}>
+            {product.status.replace(/_/g, ' ')}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 rounded-xl bg-slate-50 p-3 text-center">
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-slate-400">Base Price</p>
+            <p className="mt-0.5 text-sm font-semibold text-slate-800">{formatPrice(product.basePrice)}</p>
+          </div>
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-slate-400">Stock</p>
+            <p className={cn('mt-0.5 text-sm font-semibold',
+              product.stock > 10 ? 'text-slate-800' : product.stock > 0 ? 'text-amber-600' : 'text-red-500')}>
+              {product.stock > 0 ? `${product.stock.toLocaleString()} units` : 'Out of stock'}
+            </p>
+          </div>
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-slate-400">Rating</p>
+            <p className="mt-0.5 text-sm font-semibold text-slate-800">
+              {product.rating > 0 ? `${product.rating.toFixed(1)} (${product.totalReviews})` : '—'}
+            </p>
+          </div>
+        </div>
+
+        {product.sku && (
+          <p className="text-xs font-mono text-slate-500">SKU: {product.sku}</p>
+        )}
+
+        {product.description && (
+          <div>
+            <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Description</p>
+            <p className="text-sm leading-relaxed text-slate-600">{product.description}</p>
+          </div>
+        )}
+
+        <div className="flex flex-wrap gap-1.5">
+          {product.isFeatured && (
+            <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20">★ Featured</span>
+          )}
+          {!product.isActive && (
+            <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-500">Inactive</span>
+          )}
+          {!product.isAvailable && (
+            <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-500">Unavailable</span>
+          )}
+          <span className="inline-flex items-center rounded-full bg-slate-50 px-2.5 py-0.5 text-xs text-slate-400 ring-1 ring-inset ring-slate-200">
+            Added {new Date(product.createdAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}
+          </span>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 /* ─── Product Card ────────────────────────────────────────── */
 
 function ProductCard({
   product,
+  onView,
   onEdit,
   onDelete,
 }: {
   product: Product
+  onView: (p: Product) => void
   onEdit: (p: Product) => void
   onDelete: (p: Product) => void
 }) {
   const hasDiscount = product.comparePrice != null && product.comparePrice > product.price
   return (
-    <div className="flex gap-4 rounded-2xl border border-slate-200 bg-white p-4">
+    <div onClick={() => onView(product)} className="flex gap-4 rounded-2xl border border-slate-200 bg-white p-4 cursor-pointer hover:border-slate-300 hover:shadow-sm transition-all">
       <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-slate-100">
         {product.image ? (
           <Image src={product.image} alt={product.name} fill className="object-cover" unoptimized />
@@ -241,7 +345,7 @@ function ProductCard({
               {product.status.replace(/_/g, ' ')}
             </span>
             <button
-              onClick={() => onEdit(product)}
+              onClick={(e) => { e.stopPropagation(); onEdit(product) }}
               title="Edit"
               className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
             >
@@ -251,7 +355,7 @@ function ProductCard({
               </svg>
             </button>
             <button
-              onClick={() => onDelete(product)}
+              onClick={(e) => { e.stopPropagation(); onDelete(product) }}
               title="Delete"
               className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors"
             >
@@ -301,6 +405,7 @@ export function VendorProductsSection({ vendorId, initialProducts, total }: Prop
   const [showForm, setShowForm] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null)
+  const [viewingProduct, setViewingProduct] = useState<Product | null>(null)
   const [deleteError, setDeleteError] = useState('')
 
   function loadProducts(opts: { search?: string; availability?: '' | 'true' | 'false' }) {
@@ -434,8 +539,13 @@ export function VendorProductsSection({ vendorId, initialProducts, total }: Prop
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 p-6 xl:grid-cols-2">
-          {products.map(p => <ProductCard key={p.id} product={p} onEdit={openEdit} onDelete={openDelete} />)}
+          {products.map(p => <ProductCard key={p.id} product={p} onView={setViewingProduct} onEdit={openEdit} onDelete={openDelete} />)}
         </div>
+      )}
+
+      {/* Detail modal */}
+      {viewingProduct && (
+        <ProductDetailModal product={viewingProduct} onClose={() => setViewingProduct(null)} />
       )}
 
       {/* Create / Edit modal */}

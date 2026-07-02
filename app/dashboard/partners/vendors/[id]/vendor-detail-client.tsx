@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { useState, useTransition } from 'react'
+import { useState, useEffect, useTransition } from 'react'
 import Link from 'next/link'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
@@ -11,6 +11,8 @@ import { VendorMenuSection } from './vendor-menu'
 import { VendorProductsSection } from './vendor-products'
 import { cn } from '@/app/lib/utils'
 import { approveVendor, rejectVendor, suspendVendor, updateVendorStore } from '@/app/actions/vendors'
+import { uploadImage } from '@/app/actions/uploads'
+import { updateStorefrontBranding } from '@/app/actions/catalog'
 import { UserFinanceSection } from '@/app/components/user-finance-section'
 import type { VendorDetail, VendorMenu, Product, VendorStoreDetail } from '@/app/lib/types'
 
@@ -28,6 +30,29 @@ const STATUS_DOT: Record<VStatus, string> = {
   VERIFIED:  'bg-emerald-500',
   REJECTED:  'bg-red-500',
   SUSPENDED: 'bg-slate-400',
+}
+
+function Toast({ msg, ok, onDismiss }: { msg: string; ok: boolean; onDismiss: () => void }) {
+  return (
+    <div
+      onClick={onDismiss}
+      className={cn(
+        'fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium shadow-lg cursor-pointer',
+        ok ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'
+      )}
+    >
+      {ok ? (
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0">
+          <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
+        </svg>
+      ) : (
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0">
+          <path fillRule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clipRule="evenodd" />
+        </svg>
+      )}
+      {msg}
+    </div>
+  )
 }
 
 type Tab = 'overview' | 'products' | 'menu'
@@ -50,8 +75,17 @@ export function VendorDetailClient({ vendor: initial, menu, initialProducts, pro
   const [showReject, setShowReject] = useState(false)
   const [showSuspend, setShowSuspend] = useState(false)
   const [showEditStore, setShowEditStore] = useState(false)
+  const [showBranding, setShowBranding] = useState(false)
+  const [brandingPending, setBrandingPending] = useState(false)
   const [reason, setReason] = useState('')
   const [actionError, setActionError] = useState('')
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
+
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 3000)
+    return () => clearTimeout(t)
+  }, [toast])
 
   const store = vendor.store
 
@@ -111,6 +145,33 @@ export function VendorDetailClient({ vendor: initial, menu, initialProducts, pro
       patch({ verificationStatus: 'SUSPENDED' })
       setShowSuspend(false); setReason('')
     })
+  }
+
+  async function handleBrandingUpload(field: 'logo' | 'banner', file: File) {
+    setBrandingPending(true)
+    try {
+      const fd = new FormData(); fd.append('file', file)
+      const up = await uploadImage(fd, 'general')
+      if (up.error) { setToast({ msg: up.error, ok: false }); return }
+      const res = await updateStorefrontBranding(store!.id, { [field]: up.url })
+      if (res.error) { setToast({ msg: res.error, ok: false }); return }
+      patch({ store: { ...vendor.store!, logo: res.data!.logo, banner: res.data!.banner } as VendorStoreDetail })
+      setToast({ msg: 'Branding updated successfully', ok: true })
+    } finally {
+      setBrandingPending(false)
+    }
+  }
+
+  async function handleBrandingRemove(field: 'logo' | 'banner') {
+    setBrandingPending(true)
+    try {
+      const res = await updateStorefrontBranding(store!.id, { [field]: null })
+      if (res.error) { setToast({ msg: res.error, ok: false }); return }
+      patch({ store: { ...vendor.store!, logo: res.data!.logo, banner: res.data!.banner } as VendorStoreDetail })
+      setToast({ msg: `${field === 'logo' ? 'Logo' : 'Banner'} removed`, ok: true })
+    } finally {
+      setBrandingPending(false)
+    }
   }
 
   const initials = vendor.businessName.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
@@ -206,34 +267,68 @@ export function VendorDetailClient({ vendor: initial, menu, initialProducts, pro
 
         {/* Store banner + logo hero */}
         <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-          <div className="border-b border-slate-100 px-6 py-4">
+          <div className="border-b border-slate-100 px-6 py-4 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-900">Store</h2>
+            {store && (
+              <Button variant="secondary" size="sm" onClick={() => setShowBranding(true)}>Branding</Button>
+            )}
           </div>
           {store ? (
             <>
               {/* Banner */}
-              <div className="relative w-full h-40 bg-linear-to-r from-slate-100 to-slate-200 overflow-hidden">
-                {store.banner ? (
-                  <Image src={store.banner} alt="Store banner" fill className="object-cover" unoptimized />
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <p className="text-xs text-slate-400">No banner uploaded</p>
-                  </div>
-                )}
-                {/* Logo pinned to bottom-left, half overlapping banner edge */}
-                <div className="absolute bottom-0 left-6 translate-y-1/2">
+              <div className="relative w-full h-52">
+                {/* Banner image — own overflow-hidden so it doesn't clip the logo */}
+                <div className="absolute inset-0 overflow-hidden bg-linear-to-br from-slate-100 via-slate-200 to-indigo-100">
+                  {store.banner ? (
+                    <Image src={store.banner} alt="Store banner" fill className="object-cover" unoptimized />
+                  ) : (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-8 w-8 text-slate-300">
+                        <path fillRule="evenodd" d="M1.5 6a2.25 2.25 0 0 1 2.25-2.25h16.5A2.25 2.25 0 0 1 22.5 6v12a2.25 2.25 0 0 1-2.25 2.25H3.75A2.25 2.25 0 0 1 1.5 18V6ZM3 16.06V18c0 .414.336.75.75.75h16.5a.75.75 0 0 0 .75-.75v-2.69l-2.69-2.689a1.5 1.5 0 0 0-2.12 0l-2.5 2.5-1.4-1.401a1.5 1.5 0 0 0-2.12 0L3 16.061Zm10.125-7.81a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0Z" clipRule="evenodd" />
+                      </svg>
+                      <p className="text-xs text-slate-400">No banner uploaded</p>
+                    </div>
+                  )}
+                  {/* Gradient scrim at bottom for logo contrast */}
+                  <div className="absolute inset-x-0 bottom-0 h-16 bg-linear-to-t from-black/30 to-transparent" />
+                </div>
+                {/* Logo — outside the overflow-hidden layer so it can spill below */}
+                <div className="absolute bottom-0 left-6 translate-y-1/2 z-10">
                   {store.logo ? (
-                    <div className="relative h-16 w-16 overflow-hidden rounded-2xl border-2 border-white shadow-lg bg-white">
+                    <div className="relative h-20 w-20 overflow-hidden rounded-2xl border-[3px] border-white shadow-xl bg-white">
                       <Image src={store.logo} alt="Store logo" fill className="object-cover" unoptimized />
                     </div>
                   ) : (
-                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-white shadow-lg bg-indigo-100 text-xl font-bold text-indigo-700">{initials}</div>
+                    <div className="flex h-20 w-20 items-center justify-center rounded-2xl border-[3px] border-white shadow-xl bg-indigo-100 text-2xl font-bold text-indigo-700">{initials}</div>
                   )}
                 </div>
               </div>
 
-              {/* Store details below banner */}
-              <div className="px-6 pt-12 pb-5">
+              {/* Name + meta row below banner */}
+              <div className="px-6 pt-14 pb-3 flex items-end justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 leading-tight">{store.name}</h3>
+                  <p className="mt-0.5 text-xs text-slate-400 font-mono">{store.slug}</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 pb-0.5">
+                  <span className={cn(
+                    'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset',
+                    store.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/20'
+                    : store.status === 'SUSPENDED' ? 'bg-red-50 text-red-700 ring-red-600/20'
+                    : store.status === 'CLOSED_PERMANENTLY' ? 'bg-slate-100 text-slate-500 ring-slate-500/20'
+                    : 'bg-amber-50 text-amber-700 ring-amber-600/20'
+                  )}>{store.status}</span>
+                  {store.isOpen && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                      Open
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Store detail grid */}
+              <div className="px-6 pb-5">
                 <InfoGrid className="grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
                   <InfoRow label="Store Name" value={store.name} wide />
                   <InfoRow label="Store Status" value={store.status} />
@@ -383,6 +478,83 @@ export function VendorDetailClient({ vendor: initial, menu, initialProducts, pro
         </div>
       </Modal>
 
+      {/* Branding modal */}
+      <Modal open={showBranding} onClose={() => setShowBranding(false)} title="Storefront Branding" size="md">
+        <div className="space-y-6">
+          {/* Banner */}
+          <div>
+            <p className="mb-2 text-[13px] font-medium text-slate-700">Banner</p>
+            <div className="relative h-28 w-full overflow-hidden rounded-xl bg-slate-100">
+              {store?.banner ? (
+                <Image src={store.banner} alt="Banner" fill className="object-cover" unoptimized />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <p className="text-xs text-slate-400">No banner</p>
+                </div>
+              )}
+            </div>
+            <div className="mt-2 flex gap-2">
+              <label className={cn(
+                'inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200 transition-colors',
+                brandingPending && 'pointer-events-none opacity-50'
+              )}>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/heic"
+                  className="sr-only"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) handleBrandingUpload('banner', f)
+                    e.target.value = ''
+                  }}
+                />
+                {brandingPending ? 'Uploading…' : store?.banner ? 'Replace Banner' : 'Upload Banner'}
+              </label>
+              {store?.banner && (
+                <Button variant="secondary" size="sm" disabled={brandingPending} onClick={() => handleBrandingRemove('banner')}>
+                  Remove
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Logo */}
+          <div>
+            <p className="mb-2 text-[13px] font-medium text-slate-700">Logo</p>
+            <div className="relative h-16 w-16 overflow-hidden rounded-2xl bg-slate-100">
+              {store?.logo ? (
+                <Image src={store.logo} alt="Logo" fill className="object-cover" unoptimized />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center text-sm font-bold text-slate-300">{initials}</div>
+              )}
+            </div>
+            <div className="mt-2 flex gap-2">
+              <label className={cn(
+                'inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200 transition-colors',
+                brandingPending && 'pointer-events-none opacity-50'
+              )}>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/heic"
+                  className="sr-only"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) handleBrandingUpload('logo', f)
+                    e.target.value = ''
+                  }}
+                />
+                {brandingPending ? 'Uploading…' : store?.logo ? 'Replace Logo' : 'Upload Logo'}
+              </label>
+              {store?.logo && (
+                <Button variant="secondary" size="sm" disabled={brandingPending} onClick={() => handleBrandingRemove('logo')}>
+                  Remove
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      </Modal>
+
       {/* Reject modal */}
       <Modal open={showReject} onClose={() => setShowReject(false)} title="Reject Vendor" size="sm"
         footer={
@@ -414,6 +586,8 @@ export function VendorDetailClient({ vendor: initial, menu, initialProducts, pro
         <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3}
           className="w-full resize-none rounded-xl border-0 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none" />
       </Modal>
+
+      {toast && <Toast msg={toast.msg} ok={toast.ok} onDismiss={() => setToast(null)} />}
     </div>
   )
 }

@@ -2,7 +2,7 @@
 
 import { cookies } from 'next/headers'
 import { apiFetch, ApiError } from '@/app/lib/api'
-import type { CatalogItem, CatalogPagination } from '@/app/lib/types'
+import type { CatalogItem, CatalogPagination, StorefrontBranding } from '@/app/lib/types'
 
 async function token() {
   const store = await cookies()
@@ -59,5 +59,20 @@ export async function toggleCatalogFeatured(
     return { data }
   } catch (err) {
     return { error: err instanceof ApiError ? err.message : 'Failed to update featured status.' }
+  }
+}
+
+export async function updateStorefrontBranding(
+  storefrontId: string,
+  data: { logo?: string | null; banner?: string | null }
+): Promise<{ data?: StorefrontBranding; error?: string }> {
+  try {
+    const result = await apiFetch<StorefrontBranding>(
+      `/api/v1/catalog/admin/storefronts/${storefrontId}/branding`,
+      { method: 'PATCH', body: JSON.stringify(data), token: await token() }
+    )
+    return { data: result }
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'Failed to update branding.' }
   }
 }
