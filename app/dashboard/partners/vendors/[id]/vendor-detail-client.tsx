@@ -5,12 +5,12 @@ import { useState, useEffect, useTransition } from 'react'
 import Link from 'next/link'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
-import { DocsGrid } from '@/app/components/ui/doc-card'
 import { DetailCard, InfoRow, InfoGrid } from '@/app/components/ui/detail'
+import { DocumentsSection, type DocumentField } from '@/app/components/ui/documents-section'
 import { VendorMenuSection } from './vendor-menu'
 import { VendorProductsSection } from './vendor-products'
 import { cn } from '@/app/lib/utils'
-import { approveVendor, rejectVendor, suspendVendor, updateVendorStore } from '@/app/actions/vendors'
+import { approveVendor, rejectVendor, suspendVendor, updateVendorStore, updateVendorDocuments } from '@/app/actions/vendors'
 import { uploadImage } from '@/app/actions/uploads'
 import { updateStorefrontBranding } from '@/app/actions/catalog'
 import { UserFinanceSection } from '@/app/components/user-finance-section'
@@ -56,6 +56,13 @@ function Toast({ msg, ok, onDismiss }: { msg: string; ok: boolean; onDismiss: ()
 }
 
 type Tab = 'overview' | 'products' | 'menu'
+
+const VENDOR_DOCUMENT_FIELDS: DocumentField[] = [
+  { key: 'businessLicenseFile', label: 'Business License', clearable: true },
+  { key: 'foodPermitFile',      label: 'Food Permit',      clearable: true },
+  { key: 'taxDocumentFile',     label: 'Tax Document',     clearable: true },
+  { key: 'idDocumentFile',      label: 'ID Document',      clearable: true },
+]
 
 interface Props {
   vendor: VendorDetail
@@ -422,7 +429,16 @@ export function VendorDetailClient({ vendor: initial, menu, initialProducts, pro
         </div>
 
         <DetailCard title="Documents">
-          <DocsGrid docs={vendor.documents} />
+          <DocumentsSection
+            fields={VENDOR_DOCUMENT_FIELDS}
+            documents={vendor.documents}
+            patchDocuments={async (changes) => {
+              const res = await updateVendorDocuments(vendor.id, changes)
+              if (res.error) return { error: res.error }
+              return { data: res.data as Record<string, string | null | boolean> }
+            }}
+            onUpdate={(docs) => patch({ documents: docs as VendorDetail['documents'] })}
+          />
         </DetailCard>
       </div>
 

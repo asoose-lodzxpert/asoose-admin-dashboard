@@ -103,3 +103,18 @@ export async function suspendRider(
     return { error: err instanceof ApiError ? err.message : 'Failed to suspend rider.' }
   }
 }
+
+export async function updateRiderDocuments(
+  riderId: string,
+  data: Partial<Record<'profilePhoto' | 'driversLicenseFront' | 'driversLicenseBack' | 'vehiclePhoto' | 'insuranceDocument', string | null>>
+): Promise<{ data?: RiderDetail['documents']; error?: string }> {
+  try {
+    const res = await apiFetch<RiderDetail['documents']>(
+      `/api/v1/riders/admin/${riderId}/documents`,
+      { method: 'PATCH', body: JSON.stringify(data), token: await token() }
+    )
+    return { data: res }
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'Failed to update documents.' }
+  }
+}

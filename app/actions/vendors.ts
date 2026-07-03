@@ -182,3 +182,18 @@ export async function deleteProduct(
     return { error: err instanceof ApiError ? err.message : 'Failed to delete product.' }
   }
 }
+
+export async function updateVendorDocuments(
+  vendorId: string,
+  data: Partial<Record<'businessLicenseFile' | 'foodPermitFile' | 'taxDocumentFile' | 'idDocumentFile', string | null>>
+): Promise<{ data?: VendorDetail['documents']; error?: string }> {
+  try {
+    const res = await apiFetch<VendorDetail['documents']>(
+      `/api/v1/vendors/admin/${vendorId}/documents`,
+      { method: 'PATCH', body: JSON.stringify(data), token: await token() }
+    )
+    return { data: res }
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'Failed to update documents.' }
+  }
+}
