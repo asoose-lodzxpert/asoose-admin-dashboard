@@ -4,10 +4,10 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
-import { DocsGrid } from '@/app/components/ui/doc-card'
 import { DetailCard, InfoRow, InfoGrid, Stars, formatDate } from '@/app/components/ui/detail'
+import { DocumentsSection, type DocumentField } from '@/app/components/ui/documents-section'
 import { cn } from '@/app/lib/utils'
-import { approveRider, suspendRider, updateRiderProfile } from '@/app/actions/riders'
+import { approveRider, suspendRider, updateRiderProfile, updateRiderDocuments } from '@/app/actions/riders'
 import { UserFinanceSection } from '@/app/components/user-finance-section'
 import type { RiderDetail, VehicleType, VehicleBrand } from '@/app/lib/types'
 import { NIGERIAN_STATES } from '@/app/lib/nigeria'
@@ -27,6 +27,14 @@ const STATUS_DOT: Record<RStatus, string> = {
   BUSY:      'bg-amber-400',
   SUSPENDED: 'bg-red-500',
 }
+
+const RIDER_DOCUMENT_FIELDS: DocumentField[] = [
+  { key: 'profilePhoto',        label: 'Profile Photo',            clearable: true  },
+  { key: 'driversLicenseFront', label: "Driver's License (Front)", clearable: false },
+  { key: 'driversLicenseBack',  label: "Driver's License (Back)",  clearable: true  },
+  { key: 'vehiclePhoto',        label: 'Vehicle Photo',            clearable: true  },
+  { key: 'insuranceDocument',   label: 'Insurance Document',       clearable: true  },
+]
 
 interface Props {
   rider: RiderDetail
@@ -208,7 +216,16 @@ export function RiderDetailClient({ rider: initial, displayName, displayEmail, d
         </div>
 
         <DetailCard title="Documents">
-          <DocsGrid docs={rider.documents} />
+          <DocumentsSection
+            fields={RIDER_DOCUMENT_FIELDS}
+            documents={rider.documents}
+            patchDocuments={async (changes) => {
+              const res = await updateRiderDocuments(rider.id, changes)
+              if (res.error) return { error: res.error }
+              return { data: res.data as Record<string, string | null | boolean> }
+            }}
+            onUpdate={(docs) => patch({ documents: docs as RiderDetail['documents'] })}
+          />
         </DetailCard>
       </div>
 

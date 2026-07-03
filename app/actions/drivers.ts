@@ -147,3 +147,18 @@ export async function reactivateDriver(
     return { error: err instanceof ApiError ? err.message : 'Failed to reactivate driver.' }
   }
 }
+
+export async function updateDriverDocuments(
+  driverId: string,
+  data: Partial<Record<'profilePhoto' | 'driversLicenseFront' | 'driversLicenseBack' | 'vehiclePhoto' | 'vehicleRegistration' | 'insuranceDocument', string | null>>
+): Promise<{ data?: Omit<DriverDetail['documents'], 'backgroundCheckConsent'>; error?: string }> {
+  try {
+    const res = await apiFetch<Omit<DriverDetail['documents'], 'backgroundCheckConsent'>>(
+      `/api/v1/drivers/admin/${driverId}/documents`,
+      { method: 'PATCH', body: JSON.stringify(data), token: await token() }
+    )
+    return { data: res }
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'Failed to update documents.' }
+  }
+}

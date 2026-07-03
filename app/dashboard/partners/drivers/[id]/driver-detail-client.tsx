@@ -4,10 +4,10 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
-import { DocsGrid } from '@/app/components/ui/doc-card'
 import { DetailCard, InfoRow, InfoGrid, Stars, formatDate } from '@/app/components/ui/detail'
+import { DocumentsSection, type DocumentField } from '@/app/components/ui/documents-section'
 import { cn } from '@/app/lib/utils'
-import { approveDriver, suspendDriver, reactivateDriver, updateDriverProfile } from '@/app/actions/drivers'
+import { approveDriver, suspendDriver, reactivateDriver, updateDriverProfile, updateDriverDocuments } from '@/app/actions/drivers'
 import { UserFinanceSection } from '@/app/components/user-finance-section'
 import type { DriverDetail, VehicleType, VehicleBrand } from '@/app/lib/types'
 import { NIGERIAN_STATES } from '@/app/lib/nigeria'
@@ -25,6 +25,15 @@ const STATUS_DOT: Record<DStatus, string> = {
   OFFLINE: 'bg-slate-400',
   BUSY:    'bg-amber-400',
 }
+
+const DRIVER_DOCUMENT_FIELDS: DocumentField[] = [
+  { key: 'profilePhoto',        label: 'Profile Photo',            clearable: true  },
+  { key: 'driversLicenseFront', label: "Driver's License (Front)", clearable: false },
+  { key: 'driversLicenseBack',  label: "Driver's License (Back)",  clearable: true  },
+  { key: 'vehiclePhoto',        label: 'Vehicle Photo',            clearable: true  },
+  { key: 'vehicleRegistration', label: 'Vehicle Registration',     clearable: true  },
+  { key: 'insuranceDocument',   label: 'Insurance Document',       clearable: false },
+]
 
 interface Props {
   driver: DriverDetail
@@ -235,7 +244,16 @@ export function DriverDetailClient({ driver: initial, displayName, displayEmail,
         </div>
 
         <DetailCard title="Documents">
-          <DocsGrid docs={driver.documents} />
+          <DocumentsSection
+            fields={DRIVER_DOCUMENT_FIELDS}
+            documents={driver.documents}
+            patchDocuments={async (changes) => {
+              const res = await updateDriverDocuments(driver.id, changes)
+              if (res.error) return { error: res.error }
+              return { data: res.data as Record<string, string | null | boolean> }
+            }}
+            onUpdate={(docs) => patch({ documents: docs as DriverDetail['documents'] })}
+          />
         </DetailCard>
       </div>
 
