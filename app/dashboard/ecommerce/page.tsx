@@ -9,3 +9,7 @@ export default async function EcommercePage() {
 
   return <VendorsClient initialVendors={vendors} initialPagination={pagination} />
 }
+
+
+
+
