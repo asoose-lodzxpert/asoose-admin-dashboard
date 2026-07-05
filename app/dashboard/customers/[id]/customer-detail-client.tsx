@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/app/lib/utils'
-import { updateCustomerStatus } from '@/app/actions/customers'
+import { updateCustomerStatus, updateUserProfile } from '@/app/actions/customers'
 import type { CustomerDetail, UserStatus } from '@/app/lib/types'
 
 const STATUS_STYLES: Record<UserStatus, string> = {
@@ -44,12 +44,38 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   )
 }
 
+function Toast({ msg, ok, onDismiss }: { msg: string; ok: boolean; onDismiss: () => void }) {
+  return (
+    <div
+      onClick={onDismiss}
+      className={cn(
+        'fixed bottom-6 right-6 z-50 flex cursor-pointer items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium text-white',
+        ok ? 'bg-emerald-600' : 'bg-red-600'
+      )}
+    >
+      {ok
+        ? <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0"><path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" /></svg>
+        : <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0"><path fillRule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clipRule="evenodd" /></svg>
+      }
+      {msg}
+    </div>
+  )
+}
+
 type ModalAction = { status: UserStatus; label: string; needsReason: boolean; destructive?: boolean }
 
 const REASON_PLACEHOLDER: Record<string, string> = {
   SUSPENDED:   'Reason for suspension…',
   BANNED:      'Reason for ban…',
   DEACTIVATED: 'Reason for deactivation…',
+}
+
+type EditForm = {
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  phoneCountryCode: string
 }
 
 export function CustomerDetailClient({ customer: initial }: { customer: CustomerDetail }) {
@@ -59,6 +85,54 @@ export function CustomerDetailClient({ customer: initial }: { customer: Customer
   const [modal, setModal] = useState<ModalAction | null>(null)
   const [reason, setReason] = useState('')
   const [error, setError] = useState('')
+
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function showToast(msg: string, ok: boolean) {
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    setToast({ msg, ok })
+    toastTimer.current = setTimeout(() => setToast(null), 3500)
+  }
+
+  const [showEdit, setShowEdit] = useState(false)
+  const [editForm, setEditForm] = useState<EditForm>({
+    firstName: '', lastName: '', email: '', phone: '', phoneCountryCode: '',
+  })
+  const [editError, setEditError] = useState('')
+  const [editPending, startEditTransition] = useTransition()
+
+  function openEdit() {
+    setEditForm({
+      firstName: customer.firstName,
+      lastName: customer.lastName,
+      email: customer.email,
+      phone: customer.phone ?? '',
+      phoneCountryCode: customer.phoneCountryCode ?? '+234',
+    })
+    setEditError('')
+    setShowEdit(true)
+  }
+
+  function handleEditSave() {
+    const payload: Parameters<typeof updateUserProfile>[1] = {}
+    if (editForm.firstName.trim())       payload.firstName       = editForm.firstName.trim()
+    if (editForm.lastName.trim())        payload.lastName        = editForm.lastName.trim()
+    if (editForm.email.trim())           payload.email           = editForm.email.trim()
+    if (editForm.phone.trim())           payload.phone           = editForm.phone.trim()
+    if (editForm.phoneCountryCode.trim()) payload.phoneCountryCode = editForm.phoneCountryCode.trim()
+    startEditTransition(async () => {
+      const res = await updateUserProfile(customer.id, payload)
+      if (res.error) {
+        setEditError(res.error)
+        showToast(res.error, false)
+        return
+      }
+      if (res.data) setCustomer(res.data)
+      setShowEdit(false)
+      showToast('Profile updated successfully', true)
+    })
+  }
 
   const { status } = customer
 
@@ -129,6 +203,13 @@ export function CustomerDetailClient({ customer: initial }: { customer: Customer
             {formatStatus(status)}
           </span>
           <div className="flex items-center gap-2">
+            <button
+              onClick={openEdit}
+              disabled={isPending}
+              className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
+            >
+              Edit Profile
+            </button>
             {actions.map((a) => (
               <button
                 key={a.label}
@@ -273,9 +354,85 @@ export function CustomerDetailClient({ customer: initial }: { customer: Customer
         </DetailCard>
       </div>
 
-      {/* Modal */}
+      {/* Edit Profile modal */}
+      {showEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowEdit(false) }}>
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-base font-bold text-slate-900">Edit Profile</h3>
+            <p className="mt-0.5 text-sm text-slate-500">{customer.firstName} {customer.lastName}</p>
+
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">First Name</label>
+                <input
+                  value={editForm.firstName}
+                  onChange={(e) => setEditForm(f => ({ ...f, firstName: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Last Name</label>
+                <input
+                  value={editForm.lastName}
+                  onChange={(e) => setEditForm(f => ({ ...f, lastName: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Email</label>
+                <input
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm(f => ({ ...f, email: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Country Code</label>
+                <input
+                  value={editForm.phoneCountryCode}
+                  onChange={(e) => setEditForm(f => ({ ...f, phoneCountryCode: e.target.value }))}
+                  placeholder="+234"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Phone</label>
+                <input
+                  type="tel"
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm(f => ({ ...f, phone: e.target.value }))}
+                  placeholder="8031234567"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+            </div>
+
+            {editError && <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">{editError}</p>}
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setShowEdit(false)}
+                disabled={editPending}
+                className="rounded-xl px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEditSave}
+                disabled={editPending}
+                className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
+              >
+                {editPending ? 'Saving…' : 'Save changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {modal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
             <h3 className={cn('text-base font-bold', modal.destructive ? 'text-red-700' : 'text-slate-900')}>
               {modal.label}
@@ -331,6 +488,7 @@ export function CustomerDetailClient({ customer: initial }: { customer: Customer
           </div>
         </div>
       )}
+      {toast && <Toast msg={toast.msg} ok={toast.ok} onDismiss={() => setToast(null)} />}
     </main>
   )
 }

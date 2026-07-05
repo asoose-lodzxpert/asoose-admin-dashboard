@@ -62,6 +62,31 @@ export async function updateCustomerStatus(
   }
 }
 
+export async function updateUserProfile(
+  userId: string,
+  data: {
+    firstName?: string
+    lastName?: string
+    email?: string
+    phone?: string
+    phoneCountryCode?: string
+    cityId?: string
+  }
+): Promise<{ data?: CustomerDetail; error?: string }> {
+  try {
+    const result = await apiFetch<CustomerDetail>(`/api/v1/users/${userId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+      token: await token(),
+    })
+    revalidatePath('/dashboard/customers')
+    revalidatePath(`/dashboard/customers/${userId}`)
+    return { data: result }
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'Failed to update profile.' }
+  }
+}
+
 export async function updateCustomerRole(
   userId: string,
   role: UserRole
