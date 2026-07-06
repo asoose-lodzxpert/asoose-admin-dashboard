@@ -120,6 +120,22 @@ export async function adjustRiderWallet(
   }
 }
 
+export async function adjustRiderCommission(
+  riderId: string,
+  payload: { commissionPercent: number | null }
+): Promise<{ rider?: RiderDetail; error?: string }> {
+  try {
+    const rider = await apiFetch<RiderDetail>(
+      `/api/v1/riders/admin/${riderId}/commission`,
+      { method: 'PATCH', body: JSON.stringify(payload), token: await token() }
+    )
+    revalidatePath(`/dashboard/partners/riders/${riderId}`)
+    return { rider }
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'Failed to update commission.' }
+  }
+}
+
 export async function updateRiderDocuments(
   riderId: string,
   data: Partial<Record<'profilePhoto' | 'driversLicenseFront' | 'driversLicenseBack' | 'vehiclePhoto' | 'insuranceDocument', string | null>>

@@ -193,6 +193,7 @@ export interface RiderDetail {
   driversLicenseState: string | null
   preferredZones: string[]
   maxDeliveryDistance: number | null
+  customCommissionPercent: number | null
   status: 'ONLINE' | 'OFFLINE' | 'BUSY' | 'SUSPENDED'
   isVerified: boolean
   currentLat: number | null
@@ -257,6 +258,7 @@ export interface DriverDetail {
   insuranceExpiry: string | null
   preferredZones: string[]
   maxDeliveryDistance: number | null
+  customCommissionPercent: number | null
   status: 'ONLINE' | 'OFFLINE' | 'BUSY'
   isVerified: boolean
   currentLat: number | null
