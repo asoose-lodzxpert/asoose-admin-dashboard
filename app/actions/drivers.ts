@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { apiFetch, ApiError } from '@/app/lib/api'
-import type { DriverSummary, DriverDetail } from '@/app/lib/types'
+import type { DriverSummary, DriverDetail, UserWallet } from '@/app/lib/types'
 
 type DriverUpdateData = Partial<{
   licenseNumber: string
@@ -145,6 +145,22 @@ export async function reactivateDriver(
     return {}
   } catch (err) {
     return { error: err instanceof ApiError ? err.message : 'Failed to reactivate driver.' }
+  }
+}
+
+export async function adjustDriverWallet(
+  driverId: string,
+  payload: { direction: 'CREDIT' | 'DEBIT'; amount: number; reason: string }
+): Promise<{ data?: UserWallet; error?: string }> {
+  try {
+    const data = await apiFetch<UserWallet>(`/api/v1/drivers/admin/${driverId}/wallet`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+      token: await token(),
+    })
+    return { data }
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'Failed to adjust wallet.' }
   }
 }
 

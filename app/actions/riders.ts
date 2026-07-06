@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { apiFetch, ApiError } from '@/app/lib/api'
-import type { RiderSummary, RiderDetail } from '@/app/lib/types'
+import type { RiderSummary, RiderDetail, UserWallet } from '@/app/lib/types'
 
 type RiderUpdateData = Partial<{
   vehicleType: string
@@ -101,6 +101,22 @@ export async function suspendRider(
     return {}
   } catch (err) {
     return { error: err instanceof ApiError ? err.message : 'Failed to suspend rider.' }
+  }
+}
+
+export async function adjustRiderWallet(
+  riderId: string,
+  payload: { direction: 'CREDIT' | 'DEBIT'; amount: number; reason: string }
+): Promise<{ data?: UserWallet; error?: string }> {
+  try {
+    const data = await apiFetch<UserWallet>(`/api/v1/riders/admin/${riderId}/wallet`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+      token: await token(),
+    })
+    return { data }
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'Failed to adjust wallet.' }
   }
 }
 

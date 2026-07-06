@@ -6,12 +6,41 @@ import { sendPushNotification } from '@/app/actions/notifications'
 import type { NotificationAudience, PushResult } from '@/app/actions/notifications'
 
 const AUDIENCES: { value: NotificationAudience; label: string; desc: string }[] = [
-  { value: 'ALL',      label: 'Everyone',  desc: 'All app users' },
-  { value: 'CUSTOMER', label: 'Customers', desc: 'Shoppers & diners' },
+  { value: 'ALL',      label: 'Everyone',  desc: 'All app users'        },
+  { value: 'CUSTOMER', label: 'Customers', desc: 'Shoppers & diners'    },
   { value: 'VENDOR',   label: 'Vendors',   desc: 'Stores & restaurants' },
-  { value: 'RIDER',    label: 'Riders',    desc: 'Delivery riders' },
-  { value: 'DRIVER',   label: 'Drivers',   desc: 'Logistics drivers' },
+  { value: 'RIDER',    label: 'Riders',    desc: 'Delivery riders'      },
+  { value: 'DRIVER',   label: 'Drivers',   desc: 'Logistics drivers'    },
 ]
+
+function AudienceIcon({ value }: { value: NotificationAudience }) {
+  if (value === 'ALL') return (
+    <svg viewBox="0 0 20 20" fill="currentColor" className="h-4.5 w-4.5">
+      <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+    </svg>
+  )
+  if (value === 'CUSTOMER') return (
+    <svg viewBox="0 0 20 20" fill="currentColor" className="h-4.5 w-4.5">
+      <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
+    </svg>
+  )
+  if (value === 'VENDOR') return (
+    <svg viewBox="0 0 20 20" fill="currentColor" className="h-4.5 w-4.5">
+      <path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2h-3a1 1 0 01-1-1v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2a1 1 0 01-1 1H4a1 1 0 110-2V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z" clipRule="evenodd" />
+    </svg>
+  )
+  if (value === 'RIDER') return (
+    <svg viewBox="0 0 20 20" fill="currentColor" className="h-4.5 w-4.5">
+      <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
+    </svg>
+  )
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" className="h-4.5 w-4.5">
+      <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+      <path d="M3 4a1 1 0 00-1 1v7a1 1 0 001 1h.5a2.5 2.5 0 015 0H12V5a1 1 0 00-1-1H3zM13 9V5a2 2 0 014 0v5h1a1 1 0 011 1v.5a2.5 2.5 0 01-5 0V10a1 1 0 011-1h1z" />
+    </svg>
+  )
+}
 
 interface DataPair { id: number; key: string; value: string }
 
@@ -84,24 +113,40 @@ export function NotificationsClient() {
         {/* Form */}
         <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
           {/* Audience */}
-          <label className="block text-xs font-semibold text-slate-700 mb-2">Audience</label>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-            {AUDIENCES.map(a => (
-              <button
-                key={a.value}
-                type="button"
-                onClick={() => setAudience(a.value)}
-                className={cn(
-                  'rounded-xl border px-3 py-2.5 text-left transition-colors',
-                  audience === a.value
-                    ? 'border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500'
-                    : 'border-slate-200 bg-white hover:border-slate-300'
-                )}
-              >
-                <p className={cn('text-sm font-semibold', audience === a.value ? 'text-indigo-700' : 'text-slate-700')}>{a.label}</p>
-                <p className="text-[11px] text-slate-400 leading-tight mt-0.5">{a.desc}</p>
-              </button>
-            ))}
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Target Audience</p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+              {AUDIENCES.map(a => {
+                const active = audience === a.value
+                return (
+                  <button
+                    key={a.value}
+                    type="button"
+                    onClick={() => setAudience(a.value)}
+                    className={cn(
+                      'group flex flex-col gap-2.5 rounded-2xl border p-3.5 text-left transition-all',
+                      active
+                        ? 'border-indigo-500 bg-indigo-50 ring-1 ring-inset ring-indigo-500 shadow-sm'
+                        : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                    )}
+                  >
+                    <div className={cn(
+                      'flex h-8 w-8 items-center justify-center rounded-lg transition-colors',
+                      active ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'
+                    )}>
+                      <AudienceIcon value={a.value} />
+                    </div>
+                    <div>
+                      <p className={cn('text-sm font-semibold leading-tight', active ? 'text-indigo-700' : 'text-slate-700')}>{a.label}</p>
+                      <p className="text-[11px] text-slate-400 leading-tight mt-0.5">{a.desc}</p>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+            <p className="mt-2.5 text-xs text-slate-400">
+              Sending to: <span className="font-semibold text-slate-600">{audienceLabel}</span> via FCM push
+            </p>
           </div>
 
           {/* Title */}
@@ -264,8 +309,8 @@ export function NotificationsClient() {
                       <p className="text-xs font-semibold text-slate-500">Asoose</p>
                       <p className="text-[10px] text-slate-400">now</p>
                     </div>
-                    <p className="text-sm font-bold text-slate-900 leading-snug break-words">{title || 'Notification title'}</p>
-                    <p className="text-xs text-slate-600 leading-snug break-words mt-0.5">{body || 'Your message preview appears here.'}</p>
+                    <p className="text-sm font-bold text-slate-900 leading-snug wrap-break-word">{title || 'Notification title'}</p>
+                    <p className="text-xs text-slate-600 leading-snug wrap-break-word mt-0.5">{body || 'Your message preview appears here.'}</p>
                   </div>
                 </div>
               </div>

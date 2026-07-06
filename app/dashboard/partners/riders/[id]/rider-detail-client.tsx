@@ -7,7 +7,7 @@ import { Button } from '@/app/components/ui/button'
 import { DetailCard, InfoRow, InfoGrid, Stars, formatDate } from '@/app/components/ui/detail'
 import { DocumentsSection, type DocumentField } from '@/app/components/ui/documents-section'
 import { cn } from '@/app/lib/utils'
-import { approveRider, suspendRider, updateRiderProfile, updateRiderDocuments } from '@/app/actions/riders'
+import { approveRider, suspendRider, updateRiderProfile, updateRiderDocuments, adjustRiderWallet } from '@/app/actions/riders'
 import { UserFinanceSection } from '@/app/components/user-finance-section'
 import type { RiderDetail, VehicleType, VehicleBrand } from '@/app/lib/types'
 import { NIGERIAN_STATES } from '@/app/lib/nigeria'
@@ -178,7 +178,10 @@ export function RiderDetailClient({ rider: initial, displayName, displayEmail, d
               </InfoGrid>
             </DetailCard>
 
-            <UserFinanceSection userId={rider.userId} />
+            <UserFinanceSection
+              userId={rider.userId}
+              adjustWalletAction={(payload) => adjustRiderWallet(rider.id, payload)}
+            />
           </div>
 
           <div className="space-y-6">

@@ -10,11 +10,11 @@ import { DocumentsSection, type DocumentField } from '@/app/components/ui/docume
 import { VendorMenuSection } from './vendor-menu'
 import { VendorProductsSection } from './vendor-products'
 import { cn } from '@/app/lib/utils'
-import { approveVendor, rejectVendor, suspendVendor, updateVendorStore, updateVendorDocuments } from '@/app/actions/vendors'
+import { approveVendor, rejectVendor, suspendVendor, updateVendorStore, updateVendorDocuments, assignVendorCity, adjustVendorWallet } from '@/app/actions/vendors'
 import { uploadImage } from '@/app/actions/uploads'
 import { updateStorefrontBranding } from '@/app/actions/catalog'
 import { UserFinanceSection } from '@/app/components/user-finance-section'
-import type { VendorDetail, VendorMenu, Product, VendorStoreDetail } from '@/app/lib/types'
+import type { VendorDetail, VendorMenu, Product, VendorStoreDetail, City } from '@/app/lib/types'
 
 type VStatus = VendorDetail['verificationStatus']
 
@@ -69,9 +69,10 @@ interface Props {
   menu?: VendorMenu | null
   initialProducts: Product[]
   productTotal: number
+  cities: City[]
 }
 
-export function VendorDetailClient({ vendor: initial, menu, initialProducts, productTotal }: Props) {
+export function VendorDetailClient({ vendor: initial, menu, initialProducts, productTotal, cities }: Props) {
   const [vendor, setVendor] = useState(initial)
   const [isPending, startTransition] = useTransition()
 
@@ -128,6 +129,31 @@ export function VendorDetailClient({ vendor: initial, menu, initialProducts, pro
   }
 
   function patch(p: Partial<VendorDetail>) { setVendor((v) => ({ ...v, ...p })) }
+
+  const [showAssignCity, setShowAssignCity] = useState(false)
+  const [citySearch, setCitySearch] = useState('')
+  const [selectedCityId, setSelectedCityId] = useState(vendor.store?.city?.id ?? '')
+  const [cityPending, startCityTransition] = useTransition()
+  const [cityError, setCityError] = useState('')
+
+  const filteredCities = cities.filter(c =>
+    `${c.name} ${c.state}`.toLowerCase().includes(citySearch.toLowerCase())
+  )
+
+  function handleAssignCity() {
+    if (!selectedCityId) return
+    setCityError('')
+    startCityTransition(async () => {
+      const res = await assignVendorCity(vendor.id, selectedCityId)
+      if (res.error) { setCityError(res.error); return }
+      if (vendor.store) {
+        const assignedCity = cities.find(c => c.id === selectedCityId)
+        patch({ store: { ...vendor.store, city: assignedCity ? { id: assignedCity.id, name: assignedCity.name } : null } as VendorStoreDetail })
+      }
+      setShowAssignCity(false)
+      setToast({ msg: 'City assigned', ok: true })
+    })
+  }
 
   function handleApprove() {
     startTransition(async () => {
@@ -402,7 +428,10 @@ export function VendorDetailClient({ vendor: initial, menu, initialProducts, pro
               </InfoGrid>
             </DetailCard>
 
-            <UserFinanceSection userId={vendor.userId} />
+            <UserFinanceSection
+              userId={vendor.userId}
+              adjustWalletAction={(payload) => adjustVendorWallet(vendor.id, payload)}
+            />
           </div>
 
           {/* Right: status + meta */}
@@ -414,6 +443,25 @@ export function VendorDetailClient({ vendor: initial, menu, initialProducts, pro
                 <InfoRow label="Joined" value={new Date(vendor.createdAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' })} />
                 <InfoRow label="Last Updated" value={new Date(vendor.updatedAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' })} />
               </InfoGrid>
+            </DetailCard>
+
+            <DetailCard title="City">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  {vendor.store?.city ? (
+                    <p className="text-sm font-semibold text-slate-800">{vendor.store.city.name}</p>
+                  ) : (
+                    <p className="text-sm text-slate-400 italic">No city assigned</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setSelectedCityId(vendor.store?.city?.id ?? ''); setCitySearch(''); setCityError(''); setShowAssignCity(true) }}
+                  className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  {vendor.store?.city ? 'Change' : 'Assign'}
+                </button>
+              </div>
             </DetailCard>
 
             {vendor.cuisineTypes.length > 0 && (
@@ -602,6 +650,75 @@ export function VendorDetailClient({ vendor: initial, menu, initialProducts, pro
         <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3}
           className="w-full resize-none rounded-xl border-0 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none" />
       </Modal>
+
+      {/* Assign City modal */}
+      {showAssignCity && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowAssignCity(false) }}
+        >
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-base font-bold text-slate-900">Assign City</h3>
+            <p className="mt-0.5 text-sm text-slate-500 mb-4">Select the city this vendor operates in.</p>
+
+            <input
+              value={citySearch}
+              onChange={(e) => setCitySearch(e.target.value)}
+              placeholder="Search cities…"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-sm placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 mb-2"
+            />
+
+            <div className="max-h-52 overflow-y-auto rounded-xl border border-slate-100 divide-y divide-slate-50">
+              {filteredCities.length === 0 ? (
+                <p className="px-4 py-6 text-center text-xs text-slate-400">No cities found</p>
+              ) : filteredCities.map(city => (
+                <button
+                  key={city.id}
+                  type="button"
+                  onClick={() => setSelectedCityId(city.id)}
+                  className={cn(
+                    'w-full flex items-center justify-between px-4 py-2.5 text-left transition-colors',
+                    selectedCityId === city.id
+                      ? 'bg-indigo-50'
+                      : 'hover:bg-slate-50'
+                  )}
+                >
+                  <div>
+                    <p className={cn('text-sm font-medium', selectedCityId === city.id ? 'text-indigo-700' : 'text-slate-800')}>{city.name}</p>
+                    <p className="text-xs text-slate-400">{city.state}</p>
+                  </div>
+                  {selectedCityId === city.id && (
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 text-indigo-600 shrink-0">
+                      <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {cityError && <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">{cityError}</p>}
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowAssignCity(false)}
+                disabled={cityPending}
+                className="rounded-xl px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAssignCity}
+                disabled={cityPending || !selectedCityId}
+                className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
+              >
+                {cityPending ? 'Saving…' : 'Assign city'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {toast && <Toast msg={toast.msg} ok={toast.ok} onDismiss={() => setToast(null)} />}
     </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useEffect, useRef } from 'react'
+import { useState, useTransition, useEffect, useRef, useCallback } from 'react'
 import { cn, formatNaira, formatNumber } from '@/app/lib/utils'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
@@ -42,13 +42,27 @@ const PAYOUT_STATUS_DOT: Record<PayoutStatus, string> = {
   CANCELLED:  'bg-slate-400',
 }
 
+type WalletAdjustAction = (payload: {
+  direction: 'CREDIT' | 'DEBIT'
+  amount: number
+  reason: string
+}) => Promise<{ data?: UserWallet; error?: string }>
+
 /* ─── Wallet Tab ─────────────────────────────────────────── */
 
-function WalletTab({ userId }: { userId: string }) {
+function WalletTab({ userId, adjustWalletAction }: { userId: string; adjustWalletAction?: WalletAdjustAction }) {
   const [wallet, setWallet] = useState<UserWallet | null>(null)
   const [error, setError] = useState('')
   const [loading, startTransition] = useTransition()
   const fetched = useRef(false)
+
+  // Adjust modal state
+  const [showAdjust, setShowAdjust] = useState(false)
+  const [direction, setDirection] = useState<'CREDIT' | 'DEBIT'>('CREDIT')
+  const [amount, setAmount] = useState('')
+  const [reason, setReason] = useState('')
+  const [adjustError, setAdjustError] = useState('')
+  const [adjustPending, startAdjustTransition] = useTransition()
 
   useEffect(() => {
     if (fetched.current) return
@@ -60,6 +74,28 @@ function WalletTab({ userId }: { userId: string }) {
     })
   }, [userId])
 
+  const openAdjust = useCallback(() => {
+    setDirection('CREDIT')
+    setAmount('')
+    setReason('')
+    setAdjustError('')
+    setShowAdjust(true)
+  }, [])
+
+  function handleAdjust() {
+    const num = parseFloat(amount)
+    if (!num || num <= 0) { setAdjustError('Enter a valid amount.'); return }
+    if (!reason.trim()) { setAdjustError('Reason is required.'); return }
+    if (!adjustWalletAction) return
+    startAdjustTransition(async () => {
+      setAdjustError('')
+      const res = await adjustWalletAction({ direction, amount: num, reason: reason.trim() })
+      if (res.error) { setAdjustError(res.error); return }
+      if (res.data) setWallet(res.data)
+      setShowAdjust(false)
+    })
+  }
+
   if (loading) return <LoadingState />
   if (error) return <ErrorState message={error} />
   if (!wallet) return null
@@ -70,16 +106,121 @@ function WalletTab({ userId }: { userId: string }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
+      {/* Header row: status + adjust button */}
+      <div className="flex items-center justify-between">
         <span className={cn('inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset', statusColor)}>
           {wallet.status}
         </span>
+        {adjustWalletAction && (
+          <button
+            type="button"
+            onClick={openAdjust}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
+              <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
+            </svg>
+            Adjust Balance
+          </button>
+        )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      {/* Available balance — hero figure */}
+      <div className="rounded-2xl bg-indigo-600 px-5 py-4 text-white">
+        <p className="text-xs font-medium text-indigo-200 uppercase tracking-wider">Available Balance</p>
+        <p className="mt-1 text-3xl font-bold tracking-tight">{formatNaira(wallet.availableBalance)}</p>
+        {wallet.pinSet && (
+          <p className="mt-1.5 text-[11px] text-indigo-300">PIN set</p>
+        )}
+      </div>
+
+      {/* Secondary balances */}
+      <div className="grid grid-cols-3 gap-2">
+        <BalanceCard label="Total" amount={wallet.balance} color="indigo" />
         <BalanceCard label="Pending" amount={wallet.pendingBalance} color="amber" />
         <BalanceCard label="Locked" amount={wallet.lockedBalance} color="red" />
       </div>
+
+      {/* Adjust Wallet Modal */}
+      {adjustWalletAction && (
+        <Modal
+          open={showAdjust}
+          onClose={() => setShowAdjust(false)}
+          title="Adjust Wallet Balance"
+          description="Credit or debit this wallet. A reason is required for audit purposes."
+          size="sm"
+          footer={
+            <>
+              <Button variant="secondary" size="sm" onClick={() => setShowAdjust(false)} disabled={adjustPending}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                loading={adjustPending}
+                onClick={handleAdjust}
+                className={direction === 'DEBIT' ? 'bg-red-600 hover:bg-red-700' : undefined}
+              >
+                {direction === 'CREDIT' ? 'Credit Wallet' : 'Debit Wallet'}
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-4">
+            {/* Direction toggle */}
+            <div>
+              <label className="mb-1.5 block text-[13px] font-medium text-slate-700">Direction</label>
+              <div className="grid grid-cols-2 gap-2">
+                {(['CREDIT', 'DEBIT'] as const).map(d => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setDirection(d)}
+                    className={cn(
+                      'rounded-xl border py-2.5 text-sm font-semibold transition-all',
+                      direction === d
+                        ? d === 'CREDIT'
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-500'
+                          : 'border-red-500 bg-red-50 text-red-700 ring-1 ring-inset ring-red-500'
+                        : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
+                    )}
+                  >
+                    {d === 'CREDIT' ? '+ Credit' : '− Debit'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Amount */}
+            <div>
+              <label className="mb-1.5 block text-[13px] font-medium text-slate-700">Amount (NGN)</label>
+              <input
+                type="number"
+                min="1"
+                step="0.01"
+                placeholder="e.g. 5000"
+                value={amount}
+                onChange={(e) => { setAmount(e.target.value); setAdjustError('') }}
+                className={INPUT_CLS}
+                autoFocus
+              />
+            </div>
+
+            {/* Reason */}
+            <div>
+              <label className="mb-1.5 block text-[13px] font-medium text-slate-700">Reason</label>
+              <textarea
+                rows={3}
+                placeholder="e.g. Promotional credit for new partner onboarding"
+                value={reason}
+                onChange={(e) => { setReason(e.target.value); setAdjustError('') }}
+                className={cn(INPUT_CLS, 'resize-none')}
+              />
+            </div>
+
+            {adjustError && <p className="text-sm text-red-600">{adjustError}</p>}
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }
@@ -517,7 +658,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'payouts', label: 'Payouts' },
 ]
 
-export function UserFinanceSection({ userId }: { userId: string }) {
+export function UserFinanceSection({ userId, adjustWalletAction }: { userId: string; adjustWalletAction?: WalletAdjustAction }) {
   const [tab, setTab] = useState<Tab>('wallet')
 
   return (
@@ -547,7 +688,7 @@ export function UserFinanceSection({ userId }: { userId: string }) {
 
       {/* Tab content */}
       <div className="px-6 py-5">
-        {tab === 'wallet' && <WalletTab userId={userId} />}
+        {tab === 'wallet' && <WalletTab userId={userId} adjustWalletAction={adjustWalletAction} />}
         {tab === 'bank-accounts' && <BankAccountsTab userId={userId} />}
         {tab === 'payouts' && <PayoutsTab userId={userId} />}
       </div>

@@ -7,7 +7,7 @@ import { Button } from '@/app/components/ui/button'
 import { DetailCard, InfoRow, InfoGrid, Stars, formatDate } from '@/app/components/ui/detail'
 import { DocumentsSection, type DocumentField } from '@/app/components/ui/documents-section'
 import { cn } from '@/app/lib/utils'
-import { approveDriver, suspendDriver, reactivateDriver, updateDriverProfile, updateDriverDocuments } from '@/app/actions/drivers'
+import { approveDriver, suspendDriver, reactivateDriver, updateDriverProfile, updateDriverDocuments, adjustDriverWallet } from '@/app/actions/drivers'
 import { UserFinanceSection } from '@/app/components/user-finance-section'
 import type { DriverDetail, VehicleType, VehicleBrand } from '@/app/lib/types'
 import { NIGERIAN_STATES } from '@/app/lib/nigeria'
@@ -207,7 +207,10 @@ export function DriverDetailClient({ driver: initial, displayName, displayEmail,
               </InfoGrid>
             </DetailCard>
 
-            <UserFinanceSection userId={driver.userId} />
+            <UserFinanceSection
+              userId={driver.userId}
+              adjustWalletAction={(payload) => adjustDriverWallet(driver.id, payload)}
+            />
           </div>
 
           <div className="space-y-6">

@@ -89,6 +89,7 @@ export interface VendorStore {
   rating: number
   isOpen: boolean
   cityId: string | null
+  city?: { id: string; name: string } | null
 }
 
 export interface VendorStoreDetail extends VendorStore {

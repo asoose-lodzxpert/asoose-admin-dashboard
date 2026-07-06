@@ -20,6 +20,14 @@ export async function getCities(): Promise<City[]> {
   } catch { return [] }
 }
 
+export async function getActiveCities(): Promise<City[]> {
+  try {
+    const result = await apiFetch<unknown>('/api/v1/locations/active', { token: await token() })
+    if (Array.isArray(result)) return result as City[]
+    return []
+  } catch { return [] }
+}
+
 export async function createCity(payload: {
   name: string
   state: string

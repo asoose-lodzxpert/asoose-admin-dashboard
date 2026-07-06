@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { apiFetch, ApiError } from '@/app/lib/api'
-import type { VendorSummary, VendorDetail, VendorStoreDetail, Product, Pagination } from '@/app/lib/types'
+import type { VendorSummary, VendorDetail, VendorStoreDetail, Product, Pagination, UserWallet } from '@/app/lib/types'
 
 type StoreUpdateData = Partial<{
   name: string
@@ -180,6 +180,39 @@ export async function deleteProduct(
     return {}
   } catch (err) {
     return { error: err instanceof ApiError ? err.message : 'Failed to delete product.' }
+  }
+}
+
+export async function assignVendorCity(
+  vendorId: string,
+  cityId: string
+): Promise<{ error?: string }> {
+  try {
+    await apiFetch<unknown>(`/api/v1/vendors/admin/${vendorId}/assign-city`, {
+      method: 'PATCH',
+      body: JSON.stringify({ cityId }),
+      token: await token(),
+    })
+    revalidatePath(`/dashboard/partners/vendors/${vendorId}`)
+    return {}
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'Failed to assign city.' }
+  }
+}
+
+export async function adjustVendorWallet(
+  vendorId: string,
+  payload: { direction: 'CREDIT' | 'DEBIT'; amount: number; reason: string }
+): Promise<{ data?: UserWallet; error?: string }> {
+  try {
+    const data = await apiFetch<UserWallet>(`/api/v1/vendors/admin/${vendorId}/wallet`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+      token: await token(),
+    })
+    return { data }
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'Failed to adjust wallet.' }
   }
 }
 
