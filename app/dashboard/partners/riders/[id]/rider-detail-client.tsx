@@ -7,8 +7,9 @@ import { Button } from '@/app/components/ui/button'
 import { DetailCard, InfoRow, InfoGrid, Stars, formatDate } from '@/app/components/ui/detail'
 import { DocumentsSection, type DocumentField } from '@/app/components/ui/documents-section'
 import { cn } from '@/app/lib/utils'
-import { approveRider, suspendRider, updateRiderProfile, updateRiderDocuments, adjustRiderWallet } from '@/app/actions/riders'
+import { approveRider, suspendRider, updateRiderProfile, updateRiderDocuments, adjustRiderWallet, adjustRiderCommission } from '@/app/actions/riders'
 import { UserFinanceSection } from '@/app/components/user-finance-section'
+import { CommissionSection } from '@/app/components/commission-section'
 import type { RiderDetail, VehicleType, VehicleBrand } from '@/app/lib/types'
 import { NIGERIAN_STATES } from '@/app/lib/nigeria'
 
@@ -196,6 +197,16 @@ export function RiderDetailClient({ rider: initial, displayName, displayEmail, d
                 <InfoRow label="Max Distance" value={rider.maxDeliveryDistance != null ? `${rider.maxDeliveryDistance} km` : null} />
               </InfoGrid>
             </DetailCard>
+
+            <CommissionSection
+              commissionPercent={rider.customCommissionPercent}
+              onAdjust={async (payload) => {
+                const res = await adjustRiderCommission(rider.id, payload)
+                if (res.error) return { error: res.error }
+                if (res.rider) patch({ customCommissionPercent: res.rider.customCommissionPercent })
+                return { commissionPercent: res.rider?.customCommissionPercent ?? null }
+              }}
+            />
 
             {rider.preferredZones?.length > 0 && (
               <DetailCard title="Preferred Zones">

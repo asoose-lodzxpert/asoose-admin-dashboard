@@ -7,8 +7,9 @@ import { Button } from '@/app/components/ui/button'
 import { DetailCard, InfoRow, InfoGrid, Stars, formatDate } from '@/app/components/ui/detail'
 import { DocumentsSection, type DocumentField } from '@/app/components/ui/documents-section'
 import { cn } from '@/app/lib/utils'
-import { approveDriver, suspendDriver, reactivateDriver, updateDriverProfile, updateDriverDocuments, adjustDriverWallet } from '@/app/actions/drivers'
+import { approveDriver, suspendDriver, reactivateDriver, updateDriverProfile, updateDriverDocuments, adjustDriverWallet, adjustDriverCommission } from '@/app/actions/drivers'
 import { UserFinanceSection } from '@/app/components/user-finance-section'
+import { CommissionSection } from '@/app/components/commission-section'
 import type { DriverDetail, VehicleType, VehicleBrand } from '@/app/lib/types'
 import { NIGERIAN_STATES } from '@/app/lib/nigeria'
 
@@ -225,6 +226,16 @@ export function DriverDetailClient({ driver: initial, displayName, displayEmail,
                 <InfoRow label="Max Distance" value={driver.maxDeliveryDistance != null ? `${driver.maxDeliveryDistance} km` : null} />
               </InfoGrid>
             </DetailCard>
+
+            <CommissionSection
+              commissionPercent={driver.customCommissionPercent}
+              onAdjust={async (payload) => {
+                const res = await adjustDriverCommission(driver.id, payload)
+                if (res.error) return { error: res.error }
+                if (res.driver) patch({ customCommissionPercent: res.driver.customCommissionPercent })
+                return { commissionPercent: res.driver?.customCommissionPercent ?? null }
+              }}
+            />
 
             {driver.preferredZones?.length > 0 && (
               <DetailCard title="Preferred Zones">

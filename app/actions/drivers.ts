@@ -164,6 +164,22 @@ export async function adjustDriverWallet(
   }
 }
 
+export async function adjustDriverCommission(
+  driverId: string,
+  payload: { commissionPercent: number | null }
+): Promise<{ driver?: DriverDetail; error?: string }> {
+  try {
+    const driver = await apiFetch<DriverDetail>(
+      `/api/v1/drivers/admin/${driverId}/commission`,
+      { method: 'PATCH', body: JSON.stringify(payload), token: await token() }
+    )
+    revalidatePath(`/dashboard/partners/drivers/${driverId}`)
+    return { driver }
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'Failed to update commission.' }
+  }
+}
+
 export async function updateDriverDocuments(
   driverId: string,
   data: Partial<Record<'profilePhoto' | 'driversLicenseFront' | 'driversLicenseBack' | 'vehiclePhoto' | 'vehicleRegistration' | 'insuranceDocument', string | null>>
