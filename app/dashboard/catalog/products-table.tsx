@@ -43,7 +43,10 @@ function StarIcon({ filled }: { filled: boolean }) {
       fill={filled ? 'currentColor' : 'none'}
       stroke="currentColor"
       strokeWidth={filled ? 0 : 1.5}
-      className={cn('h-5 w-5', filled ? 'text-amber-400' : 'text-slate-300')}
+      className={cn(
+        'h-5 w-5 transition-transform duration-150 group-hover:scale-110',
+        filled ? 'text-white drop-shadow-sm' : 'text-slate-400 group-hover:text-amber-500'
+      )}
     >
       <path fillRule="evenodd" d="M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.381c-.833.067-1.171 1.107-.536 1.651l3.62 3.102-1.106 4.637c-.194.813.691 1.456 1.405 1.02L10 15.591l4.069 2.485c.713.436 1.598-.207 1.404-1.02l-1.106-4.637 3.62-3.102c.635-.544.297-1.584-.536-1.65l-4.752-.382-1.831-4.401Z" clipRule="evenodd" />
     </svg>
@@ -100,11 +103,12 @@ function ProductCard({
           onClick={(e) => onToggleFeatured(e, item)}
           disabled={isPending}
           aria-label={item.isFeatured ? 'Remove from featured' : 'Mark as featured'}
+          title={item.isFeatured ? 'Remove from featured' : 'Mark as featured'}
           className={cn(
-            'absolute right-3 top-3 rounded-xl p-1.5 transition-colors disabled:opacity-50 shadow-sm',
+            'group absolute right-3 top-3 rounded-xl p-1.5 shadow-sm transition-all duration-150 active:scale-90 disabled:opacity-50 disabled:active:scale-100',
             item.isFeatured
-              ? 'bg-amber-400 text-white hover:bg-amber-500'
-              : 'bg-white/90 backdrop-blur-sm hover:bg-white'
+              ? 'bg-amber-400 ring-2 ring-white/70 hover:bg-amber-500'
+              : 'bg-white/90 backdrop-blur-sm hover:bg-white hover:shadow-md'
           )}
         >
           <StarIcon filled={item.isFeatured} />
