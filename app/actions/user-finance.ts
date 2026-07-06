@@ -22,6 +22,22 @@ export async function getUserWallet(
   }
 }
 
+export async function adjustUserWallet(
+  userId: string,
+  payload: { direction: 'CREDIT' | 'DEBIT'; amount: number; reason: string }
+): Promise<{ data?: UserWallet; error?: string }> {
+  try {
+    const data = await apiFetch<UserWallet>(`/api/v1/admin/finance/users/${userId}/wallet`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+      token: await token(),
+    })
+    return { data }
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'Failed to adjust wallet.' }
+  }
+}
+
 export async function getUserBankAccounts(
   userId: string
 ): Promise<{ data?: UserBankAccount[]; error?: string }> {
