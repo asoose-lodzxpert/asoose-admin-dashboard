@@ -106,6 +106,24 @@ const PARTNERS_NAV = [
   },
 ] as const
 
+const STAYS_NAV = [
+  {
+    label: 'Properties',
+    href: '/dashboard/properties',
+    icon: <Icon d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75" />,
+  },
+  {
+    label: 'Property Types',
+    href: '/dashboard/property-types',
+    icon: <Icon d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z" d2="M6 6h.008v.008H6V6Z" />,
+  },
+  {
+    label: 'Bookings',
+    href: '/dashboard/bookings',
+    icon: <Icon d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />,
+  },
+] as const
+
 const ADMIN_NAV = [
   {
     label: 'Cities',
@@ -289,6 +307,20 @@ export function Sidebar({ user }: { user: User | null }) {
           <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Partners</p>
         </div>
         {PARTNERS_NAV.map((item) => {
+          const active = isActive(item.href)
+          return (
+            <Link key={item.href} href={item.href} className={navClass(active)}>
+              <span className={iconClass(active)}>{item.icon}</span>
+              {item.label}
+            </Link>
+          )
+        })}
+
+        {/* Stays section */}
+        <div className="mt-4 mb-1 px-3 pt-3 border-t border-slate-100">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Stays</p>
+        </div>
+        {STAYS_NAV.map((item) => {
           const active = isActive(item.href)
           return (
             <Link key={item.href} href={item.href} className={navClass(active)}>
