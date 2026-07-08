@@ -834,3 +834,117 @@ export interface StorefrontBranding {
   logo: string | null
   banner: string | null
 }
+
+/* ─── Property Types ──────────────────────────────────── */
+
+export interface PropertyType extends ConfigItem {
+  icon: string | null
+}
+
+/* ─── Properties / Room Types ─────────────────────────── */
+
+export type PropertyStatus = 'DRAFT' | 'PUBLISHED' | 'SUSPENDED'
+
+export interface RoomType {
+  id: string
+  propertyId: string
+  name: string
+  description: string | null
+  pricePerNight: number
+  quantity: number
+  maxGuests: number
+  images: string[]
+  image: string | null
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface PropertyCity {
+  id: string
+  name: string
+  state: string
+  country: string
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface PropertySummary {
+  id: string
+  propertyTypeId: string
+  propertyType: string
+  name: string
+  slug: string
+  description: string | null
+  address: string
+  lat: number | null
+  lng: number | null
+  city: PropertyCity
+  images: string[]
+  image: string | null
+  amenities: string[]
+  checkInTime: string | null
+  checkOutTime: string | null
+  rating: number
+  totalReviews: number
+  status: PropertyStatus
+  roomTypes: RoomType[]
+  createdAt: string
+  updatedAt: string
+}
+
+export type PropertyDetail = PropertySummary
+
+/* ─── Bookings ─────────────────────────────────────────── */
+
+export type BookingStatus = 'CONFIRMED' | 'CHECKED_IN' | 'CHECKED_OUT' | 'CANCELLED'
+
+export interface BookingCustomer {
+  id: string
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+}
+
+export interface BookingPropertyRef {
+  id: string
+  name: string
+  image: string | null
+  address: string
+  city: { id: string; name: string }
+}
+
+export interface BookingSummary {
+  id: string
+  bookingNumber: string
+  customerId: string
+  propertyId: string
+  propertyName: string
+  roomTypeId: string
+  roomTypeName: string
+  checkIn: string
+  checkOut: string
+  nights: number
+  unitsBooked: number
+  guests: number
+  pricePerNight: number
+  subtotal: number
+  total: number
+  status: BookingStatus
+  paymentMethod: string
+  paymentStatus: PaymentStatus
+  specialRequests: string | null
+  cancellationReason: string | null
+  cancelledAt: string | null
+  cancelledBy: string | null
+  checkedInAt: string | null
+  checkedOutAt: string | null
+  createdAt: string
+  updatedAt: string
+  customer: BookingCustomer
+  property: BookingPropertyRef
+}
+
+export type BookingDetail = BookingSummary
