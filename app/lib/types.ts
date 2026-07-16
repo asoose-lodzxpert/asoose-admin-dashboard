@@ -633,11 +633,17 @@ export interface RideAddress {
   address: string
 }
 
-export interface RideRider {
+export interface RideDriver {
   name: string
   vehicleType: string
   phone: string
   rating: number
+}
+
+export interface RideCustomer {
+  name: string
+  phone: string
+  email: string
 }
 
 export interface RideSummary {
@@ -672,7 +678,9 @@ export interface RideDetail extends Omit<RideSummary, 'driver'> {
   cancelReason: string | null
   matchingAttempts: number
   updatedAt: string
-  rider: RideRider | null
+  earning: number
+  customer: RideCustomer
+  driver: RideDriver | null
 }
 
 /* ─── Locations / Popular Routes ─────────────────────── */
