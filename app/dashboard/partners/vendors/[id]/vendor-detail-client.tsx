@@ -1,12 +1,13 @@
 'use client'
 
 import Image from 'next/image'
-import { useState, useEffect, useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
 import { DetailCard, InfoRow, InfoGrid } from '@/app/components/ui/detail'
 import { DocumentsSection, type DocumentField } from '@/app/components/ui/documents-section'
+import { useToast } from '@/app/components/ui/toast'
 import { VendorMenuSection } from './vendor-menu'
 import { VendorProductsSection } from './vendor-products'
 import { cn } from '@/app/lib/utils'
@@ -32,29 +33,6 @@ const STATUS_DOT: Record<VStatus, string> = {
   SUSPENDED: 'bg-slate-400',
 }
 
-function Toast({ msg, ok, onDismiss }: { msg: string; ok: boolean; onDismiss: () => void }) {
-  return (
-    <div
-      onClick={onDismiss}
-      className={cn(
-        'fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium shadow-lg cursor-pointer',
-        ok ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'
-      )}
-    >
-      {ok ? (
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0">
-          <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
-        </svg>
-      ) : (
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0">
-          <path fillRule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clipRule="evenodd" />
-        </svg>
-      )}
-      {msg}
-    </div>
-  )
-}
-
 type Tab = 'overview' | 'products' | 'menu'
 
 const VENDOR_DOCUMENT_FIELDS: DocumentField[] = [
@@ -73,6 +51,7 @@ interface Props {
 }
 
 export function VendorDetailClient({ vendor: initial, menu, initialProducts, productTotal, cities }: Props) {
+  const toast = useToast()
   const [vendor, setVendor] = useState(initial)
   const [isPending, startTransition] = useTransition()
 
@@ -87,13 +66,6 @@ export function VendorDetailClient({ vendor: initial, menu, initialProducts, pro
   const [brandingPending, setBrandingPending] = useState(false)
   const [reason, setReason] = useState('')
   const [actionError, setActionError] = useState('')
-  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
-
-  useEffect(() => {
-    if (!toast) return
-    const t = setTimeout(() => setToast(null), 3000)
-    return () => clearTimeout(t)
-  }, [toast])
 
   const store = vendor.store
 
@@ -122,9 +94,10 @@ export function VendorDetailClient({ vendor: initial, menu, initialProducts, pro
         isOpen: storeForm.isOpen,
         preparationTime: storeForm.preparationTime !== '' ? Number(storeForm.preparationTime) : null,
       })
-      if (res.error) { setStoreFormError(res.error); return }
+      if (res.error) { setStoreFormError(res.error); toast.error(res.error); return }
       if (res.store) patch({ store: { ...(vendor.store ?? {}), ...res.store } as VendorStoreDetail })
       setShowEditStore(false)
+      toast.success('Store updated.')
     })
   }
 
@@ -145,38 +118,42 @@ export function VendorDetailClient({ vendor: initial, menu, initialProducts, pro
     setCityError('')
     startCityTransition(async () => {
       const res = await assignVendorCity(vendor.id, selectedCityId)
-      if (res.error) { setCityError(res.error); return }
+      if (res.error) { setCityError(res.error); toast.error(res.error); return }
       if (vendor.store) {
         const assignedCity = cities.find(c => c.id === selectedCityId)
         patch({ store: { ...vendor.store, city: assignedCity ? { id: assignedCity.id, name: assignedCity.name } : null } as VendorStoreDetail })
       }
       setShowAssignCity(false)
-      setToast({ msg: 'City assigned', ok: true })
+      toast.success('City assigned.')
     })
   }
 
   function handleApprove() {
     startTransition(async () => {
       const res = await approveVendor(vendor.id)
-      if (!res.error) patch({ verificationStatus: 'VERIFIED', isVerified: true })
+      if (res.error) { toast.error(res.error); return }
+      patch({ verificationStatus: 'VERIFIED', isVerified: true })
+      toast.success('Vendor approved.')
     })
   }
 
   function handleReject() {
     startTransition(async () => {
       const res = await rejectVendor(vendor.id, reason)
-      if (res.error) { setActionError(res.error); return }
+      if (res.error) { setActionError(res.error); toast.error(res.error); return }
       patch({ verificationStatus: 'REJECTED' })
       setShowReject(false); setReason('')
+      toast.success('Vendor rejected.')
     })
   }
 
   function handleSuspend() {
     startTransition(async () => {
       const res = await suspendVendor(vendor.id, reason)
-      if (res.error) { setActionError(res.error); return }
+      if (res.error) { setActionError(res.error); toast.error(res.error); return }
       patch({ verificationStatus: 'SUSPENDED' })
       setShowSuspend(false); setReason('')
+      toast.success('Vendor suspended.')
     })
   }
 
@@ -185,11 +162,11 @@ export function VendorDetailClient({ vendor: initial, menu, initialProducts, pro
     try {
       const fd = new FormData(); fd.append('file', file)
       const up = await uploadImage(fd, 'general')
-      if (up.error) { setToast({ msg: up.error, ok: false }); return }
+      if (up.error) { toast.error(up.error); return }
       const res = await updateStorefrontBranding(store!.id, { [field]: up.url })
-      if (res.error) { setToast({ msg: res.error, ok: false }); return }
+      if (res.error) { toast.error(res.error); return }
       patch({ store: { ...vendor.store!, logo: res.data!.logo, banner: res.data!.banner } as VendorStoreDetail })
-      setToast({ msg: 'Branding updated successfully', ok: true })
+      toast.success('Branding updated successfully.')
     } finally {
       setBrandingPending(false)
     }
@@ -199,9 +176,9 @@ export function VendorDetailClient({ vendor: initial, menu, initialProducts, pro
     setBrandingPending(true)
     try {
       const res = await updateStorefrontBranding(store!.id, { [field]: null })
-      if (res.error) { setToast({ msg: res.error, ok: false }); return }
+      if (res.error) { toast.error(res.error); return }
       patch({ store: { ...vendor.store!, logo: res.data!.logo, banner: res.data!.banner } as VendorStoreDetail })
-      setToast({ msg: `${field === 'logo' ? 'Logo' : 'Banner'} removed`, ok: true })
+      toast.success(`${field === 'logo' ? 'Logo' : 'Banner'} removed.`)
     } finally {
       setBrandingPending(false)
     }
@@ -719,8 +696,6 @@ export function VendorDetailClient({ vendor: initial, menu, initialProducts, pro
           </div>
         </div>
       )}
-
-      {toast && <Toast msg={toast.msg} ok={toast.ok} onDismiss={() => setToast(null)} />}
     </div>
   )
 }

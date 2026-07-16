@@ -6,6 +6,7 @@ import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
 import { DocCard } from '@/app/components/ui/doc-card'
 import { DetailCard, InfoRow, InfoGrid, formatDate } from '@/app/components/ui/detail'
+import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
 import { formatNaira } from '@/app/lib/utils'
 import { assignRiderToParcel } from '@/app/actions/parcels'
@@ -116,11 +117,12 @@ function RouteMap({ parcel }: { parcel: ParcelDetail }) {
 /* ─── Main component ──────────────────────────────────── */
 
 export function ParcelDetailClient({ parcel: initialParcel }: { parcel: ParcelDetail }) {
+  const toast = useToast()
   const [parcel, setParcel] = useState(initialParcel)
   const [isPending, startTransition] = useTransition()
 
   const isTerminal = TERMINAL.includes(parcel.status)
-  const canAssign = !isTerminal && !parcel.rider && parcel.paymentStatus !== 'PENDING'
+  const canAssign = !isTerminal && parcel.paymentStatus !== 'PENDING'
 
   /* assign rider modal */
   const [showAssign, setShowAssign] = useState(false)
@@ -146,7 +148,7 @@ export function ParcelDetailClient({ parcel: initialParcel }: { parcel: ParcelDe
     if (!selectedRiderId) { setAssignError('Select a rider.'); return }
     startTransition(async () => {
       const res = await assignRiderToParcel(parcel.id, selectedRiderId)
-      if (res.error) { setAssignError(res.error); return }
+      if (res.error) { setAssignError(res.error); toast.error(res.error); return }
       const assigned = riders.find((r) => r.id === selectedRiderId)
       if (assigned) {
         setParcel((prev) => ({
@@ -162,6 +164,7 @@ export function ParcelDetailClient({ parcel: initialParcel }: { parcel: ParcelDe
         }))
       }
       setShowAssign(false)
+      toast.success('Rider assigned.')
     })
   }
 
@@ -190,7 +193,7 @@ export function ParcelDetailClient({ parcel: initialParcel }: { parcel: ParcelDe
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
                   <path d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
                 </svg>
-                Assign Rider
+                {parcel.rider ? 'Reassign Rider' : 'Assign Rider'}
               </Button>
             )}
           </div>

@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useRef } from 'react'
 import { cn } from '@/app/lib/utils'
+import { useToast } from '@/app/components/ui/toast'
 import { provisionAdmin, getAdmins, deactivateAdmin } from '@/app/actions/admin-users'
 import type { AdminRole, AnyAdminRole, AdminUser, ProvisionResult } from '@/app/actions/admin-users'
 import type { UserStatus } from '@/app/lib/types'
@@ -45,6 +46,7 @@ function formatStatus(s: UserStatus) {
 const INITIAL = { email: '', firstName: '', lastName: '', phone: '', role: '' as AdminRole | '' }
 
 export function AdminUsersClient({ initialAdmins, total }: { initialAdmins: AdminUser[]; total: number }) {
+  const toast = useToast()
   const [admins, setAdmins] = useState(initialAdmins)
   const [count, setCount] = useState(total)
   const [search, setSearch] = useState('')
@@ -121,8 +123,9 @@ export function AdminUsersClient({ initialAdmins, total }: { initialAdmins: Admi
         phone: form.phone.trim() || undefined,
         role: form.role as AdminRole,
       })
-      if (res.error) { setServerError(res.error); return }
+      if (res.error) { setServerError(res.error); toast.error(res.error); return }
       setSuccess(res.data!)
+      toast.success('Admin provisioned.')
     })
   }
 
@@ -136,9 +139,10 @@ export function AdminUsersClient({ initialAdmins, total }: { initialAdmins: Admi
     if (!deactivateTarget) return
     startDeactivateTransition(async () => {
       const res = await deactivateAdmin(deactivateTarget.id, deactivateReason.trim() || undefined)
-      if (res.error) { setDeactivateError(res.error); return }
+      if (res.error) { setDeactivateError(res.error); toast.error(res.error); return }
       if (res.data) setAdmins(prev => prev.map(a => a.id === res.data!.id ? res.data! : a))
       setDeactivateTarget(null)
+      toast.success('Admin deactivated.')
     })
   }
 

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { cn } from '@/app/lib/utils'
+import { useToast } from '@/app/components/ui/toast'
 import { sendPushNotification } from '@/app/actions/notifications'
 import type { NotificationAudience, PushResult } from '@/app/actions/notifications'
 
@@ -47,6 +48,7 @@ interface DataPair { id: number; key: string; value: string }
 let pairId = 0
 
 export function NotificationsClient() {
+  const toast = useToast()
   const [audience, setAudience] = useState<NotificationAudience>('ALL')
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
@@ -95,8 +97,9 @@ export function NotificationsClient() {
         body: body.trim(),
         ...(Object.keys(data).length ? { data } : {}),
       })
-      if (res.error) { setServerError(res.error); return }
+      if (res.error) { setServerError(res.error); toast.error(res.error); return }
       setResult(res.data!)
+      toast.success('Push notification sent.')
     })
   }
 

@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
+import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
 import { formatNaira } from '@/app/lib/utils'
 import type { City, PopularRoute, CityPricing, ParcelPricing } from '@/app/lib/types'
@@ -105,6 +106,7 @@ const EMPTY_PARCEL_PRICING_FORM: ParcelPricingForm = {
 /* ─── Component ───────────────────────────────────────── */
 
 export function LocationsClient({ initialCities }: { initialCities: City[] }) {
+  const toast = useToast()
   const [selectedCity, setSelectedCity] = useState<City | null>(null)
   const [activeTab, setActiveTab] = useState<Tab>('routes')
 
@@ -235,9 +237,10 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
         name: routeForm.name.trim(), latitude: lat, longitude: lng,
         maxRadiusKm: radius, maxDistanceKm: distance, fixedPrice: price,
       })
-      if (res.error) { setCreateError(res.error); return }
+      if (res.error) { setCreateError(res.error); toast.error(res.error); return }
       setRoutes((prev) => [...prev, res.data as PopularRoute])
       setShowCreate(false)
+      toast.success('Route added.')
     })
   }
 
@@ -245,9 +248,10 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
     if (!deleteTarget || !selectedCity) return
     startTransition(async () => {
       const res = await deletePopularRoute(selectedCity.id, deleteTarget.id)
-      if (res.error) { setDeleteError(res.error); return }
+      if (res.error) { setDeleteError(res.error); toast.error(res.error); return }
       setRoutes((prev) => prev.filter((r) => r.id !== deleteTarget.id))
       setDeleteTarget(null)
+      toast.success('Route deleted.')
     })
   }
 
@@ -265,18 +269,23 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
     return n
   }
 
+  function parseOptional(val: string, label: string): number | string {
+    if (val.trim() === '') return 0
+    return parsePositive(val, label)
+  }
+
   function handleSavePricing() {
     if (!selectedCity) return
 
     const baseFare = parsePositive(pricingForm.baseFare, 'Base fare')
     const perKmRate = parsePositive(pricingForm.perKmRate, 'Per km rate')
-    const minFare = parsePositive(pricingForm.minFare, 'Min fare')
-    const maxFare = parsePositive(pricingForm.maxFare, 'Max fare')
-    const serviceFeePercent = parsePositive(pricingForm.serviceFeePercent, 'Service fee %')
-    const serviceFeeMin = parsePositive(pricingForm.serviceFeeMin, 'Service fee min')
-    const serviceFeeMax = parsePositive(pricingForm.serviceFeeMax, 'Service fee max')
-    const vatPercent = parsePositive(pricingForm.vatPercent, 'VAT %')
-    const commissionPercent = parsePositive(pricingForm.commissionPercent, 'Commission %')
+    const minFare = parseOptional(pricingForm.minFare, 'Min fare')
+    const maxFare = parseOptional(pricingForm.maxFare, 'Max fare')
+    const serviceFeePercent = parseOptional(pricingForm.serviceFeePercent, 'Service fee %')
+    const serviceFeeMin = parseOptional(pricingForm.serviceFeeMin, 'Service fee min')
+    const serviceFeeMax = parseOptional(pricingForm.serviceFeeMax, 'Service fee max')
+    const vatPercent = parseOptional(pricingForm.vatPercent, 'VAT %')
+    const commissionPercent = parseOptional(pricingForm.commissionPercent, 'Commission %')
 
     for (const v of [baseFare, perKmRate, minFare, maxFare, serviceFeePercent, serviceFeeMin, serviceFeeMax, vatPercent, commissionPercent]) {
       if (typeof v === 'string') { setPricingError(v); return }
@@ -294,9 +303,10 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
         vatPercent: vatPercent as number,
         commissionPercent: commissionPercent as number,
       })
-      if (res.error) { setPricingError(res.error); return }
+      if (res.error) { setPricingError(res.error); toast.error(res.error); return }
       setPricing(res.data as CityPricing)
       setPricingSuccess(true)
+      toast.success('Ride pricing saved.')
     })
   }
 
@@ -313,12 +323,12 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
 
     const baseFare = parsePositive(parcelPricingForm.baseFare, 'Base fare')
     const perKmRate = parsePositive(parcelPricingForm.perKmRate, 'Per km rate')
-    const minFare = parsePositive(parcelPricingForm.minFare, 'Min fare')
-    const maxFare = parsePositive(parcelPricingForm.maxFare, 'Max fare')
-    const smallMultiplier = parsePositive(parcelPricingForm.smallMultiplier, 'Small multiplier')
-    const mediumMultiplier = parsePositive(parcelPricingForm.mediumMultiplier, 'Medium multiplier')
-    const largeMultiplier = parsePositive(parcelPricingForm.largeMultiplier, 'Large multiplier')
-    const commissionPercent = parsePositive(parcelPricingForm.commissionPercent, 'Commission %')
+    const minFare = parseOptional(parcelPricingForm.minFare, 'Min fare')
+    const maxFare = parseOptional(parcelPricingForm.maxFare, 'Max fare')
+    const smallMultiplier = parseOptional(parcelPricingForm.smallMultiplier, 'Small multiplier')
+    const mediumMultiplier = parseOptional(parcelPricingForm.mediumMultiplier, 'Medium multiplier')
+    const largeMultiplier = parseOptional(parcelPricingForm.largeMultiplier, 'Large multiplier')
+    const commissionPercent = parseOptional(parcelPricingForm.commissionPercent, 'Commission %')
 
     for (const v of [baseFare, perKmRate, minFare, maxFare, smallMultiplier, mediumMultiplier, largeMultiplier, commissionPercent]) {
       if (typeof v === 'string') { setParcelPricingError(v); return }
@@ -335,9 +345,10 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
         largeMultiplier: largeMultiplier as number,
         commissionPercent: commissionPercent as number,
       })
-      if (res.error) { setParcelPricingError(res.error); return }
+      if (res.error) { setParcelPricingError(res.error); toast.error(res.error); return }
       setParcelPricing(res.data as ParcelPricing)
       setParcelPricingSuccess(true)
+      toast.success('Parcel pricing saved.')
     })
   }
 
@@ -659,9 +670,9 @@ function RoutesTab({
 
 /* ─── Pricing tab ─────────────────────────────────────── */
 
-const PRICING_FIELDS: { key: keyof PricingForm; label: string; suffix: string; placeholder: string }[] = [
-  { key: 'baseFare',          label: 'Base Fare',         suffix: '₦',  placeholder: 'e.g. 500' },
-  { key: 'perKmRate',         label: 'Per Km Rate',       suffix: '₦',  placeholder: 'e.g. 150' },
+const PRICING_FIELDS: { key: keyof PricingForm; label: string; suffix: string; placeholder: string; required?: boolean }[] = [
+  { key: 'baseFare',          label: 'Base Fare',         suffix: '₦',  placeholder: 'e.g. 500', required: true },
+  { key: 'perKmRate',         label: 'Per Km Rate',       suffix: '₦',  placeholder: 'e.g. 150', required: true },
   { key: 'minFare',           label: 'Min Fare',          suffix: '₦',  placeholder: 'e.g. 800' },
   { key: 'maxFare',           label: 'Max Fare',          suffix: '₦',  placeholder: 'e.g. 50000' },
   { key: 'serviceFeePercent', label: 'Service Fee',       suffix: '%',  placeholder: 'e.g. 5' },
@@ -694,10 +705,10 @@ function PricingTab({
         </div>
       )}
       <div className="grid grid-cols-2 gap-x-6 gap-y-5">
-        {PRICING_FIELDS.map(({ key, label, suffix, placeholder }) => (
+        {PRICING_FIELDS.map(({ key, label, suffix, placeholder, required }) => (
           <div key={key}>
             <label className="mb-1.5 flex items-center gap-1 text-[13px] font-medium text-slate-700">
-              {label}
+              {label} {required && <span className="text-red-500">*</span>}
               <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">{suffix}</span>
             </label>
             <input
@@ -721,9 +732,9 @@ function PricingTab({
 
 /* ─── Parcel Pricing tab ─────────────────────────────── */
 
-const PARCEL_PRICING_FIELDS: { key: keyof ParcelPricingForm; label: string; suffix: string; placeholder: string }[] = [
-  { key: 'baseFare',          label: 'Base Fare',           suffix: '₦', placeholder: 'e.g. 500' },
-  { key: 'perKmRate',         label: 'Per Km Rate',         suffix: '₦', placeholder: 'e.g. 100' },
+const PARCEL_PRICING_FIELDS: { key: keyof ParcelPricingForm; label: string; suffix: string; placeholder: string; required?: boolean }[] = [
+  { key: 'baseFare',          label: 'Base Fare',           suffix: '₦', placeholder: 'e.g. 500', required: true },
+  { key: 'perKmRate',         label: 'Per Km Rate',         suffix: '₦', placeholder: 'e.g. 100', required: true },
   { key: 'minFare',           label: 'Min Fare',            suffix: '₦', placeholder: 'e.g. 800' },
   { key: 'maxFare',           label: 'Max Fare',            suffix: '₦', placeholder: 'e.g. 5000' },
   { key: 'smallMultiplier',   label: 'Small Multiplier',    suffix: 'x', placeholder: 'e.g. 1.0' },
@@ -755,10 +766,10 @@ function ParcelPricingTab({
         </div>
       )}
       <div className="grid grid-cols-2 gap-x-6 gap-y-5">
-        {PARCEL_PRICING_FIELDS.map(({ key, label, suffix, placeholder }) => (
+        {PARCEL_PRICING_FIELDS.map(({ key, label, suffix, placeholder, required }) => (
           <div key={key}>
             <label className="mb-1.5 flex items-center gap-1 text-[13px] font-medium text-slate-700">
-              {label}
+              {label} {required && <span className="text-red-500">*</span>}
               <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">{suffix}</span>
             </label>
             <input

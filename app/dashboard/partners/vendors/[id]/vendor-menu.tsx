@@ -8,6 +8,7 @@ import type { MenuItem, VendorMenu } from '@/app/lib/types'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
 import { ImageUploader } from '@/app/components/ui/image-uploader'
+import { useToast } from '@/app/components/ui/toast'
 
 /* ─── Helpers ─────────────────────────────────────────────── */
 
@@ -93,6 +94,7 @@ function DishFormModal({
   restaurantId: string
   editing: MenuItem | null
 }) {
+  const toast = useToast()
   const [form, setForm] = useState<DishFormState>(() => editing ? itemToForm(editing) : EMPTY_FORM)
   const [error, setError] = useState('')
   const [isPending, start] = useTransition()
@@ -208,17 +210,18 @@ function DishFormModal({
       const result = editing
         ? await updateDish(editing.id, data)
         : await createDish(restaurantId, data)
-      if (result.error) { setError(result.error); return }
+      if (result.error) { setError(result.error); toast.error(result.error); return }
 
       if (editing && form.optionGroups.length > 0) {
         for (const g of form.optionGroups) {
           const r = await addDishOption(editing.id, buildOptionPayload(g))
-          if (r.error) { setError(r.error); return }
+          if (r.error) { setError(r.error); toast.error(r.error); return }
         }
       }
 
       onSaved()
       onClose()
+      toast.success(editing ? 'Dish updated.' : 'Dish created.')
     })
   }
 
@@ -730,6 +733,7 @@ export function VendorMenuSection({
   menu: VendorMenu
   onTotalItemsChange?: (total: number) => void
 }) {
+  const toast = useToast()
   const [menu, setMenu] = useState<VendorMenu>(initialMenu)
   const [isRefreshing, startRefresh] = useTransition()
   const [isToggling, startToggle] = useTransition()
@@ -768,8 +772,10 @@ export function VendorMenuSection({
 
   function handleToggle(item: MenuItem) {
     startToggle(async () => {
-      await toggleDishAvailability(item.id, !item.isAvailable)
+      const result = await toggleDishAvailability(item.id, !item.isAvailable)
+      if (result.error) { toast.error(result.error); return }
       refresh()
+      toast.success(item.isAvailable ? 'Marked unavailable.' : 'Marked available.')
     })
   }
 
@@ -780,9 +786,11 @@ export function VendorMenuSection({
       const result = await deleteDish(deletingItem.id)
       if (result.error) {
         setDeleteError(result.error)
+        toast.error(result.error)
       } else {
         setDeletingItem(null)
         refresh()
+        toast.success('Dish deleted.')
       }
     })
   }

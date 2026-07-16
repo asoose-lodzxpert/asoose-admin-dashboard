@@ -170,7 +170,7 @@ export interface RiderSummary {
   email: string
   phone: string
   vehicleType: string
-  status: 'ONLINE' | 'OFFLINE' | 'BUSY' | 'SUSPENDED'
+  status: 'ONLINE' | 'OFFLINE' | 'BUSY' | 'ON_DELIVERY' | 'ON_DELIVERY' | 'SUSPENDED'
   isVerified: boolean
   totalDeliveries: number
   rating: number
@@ -182,6 +182,7 @@ export interface RiderDetail {
   userId: string
   userEmail: string | null
   userPhone: string | null
+  cityId: string | null
   vehicleType: string
   vehicleBrand: string | null
   vehicleModel: string | null
@@ -194,7 +195,7 @@ export interface RiderDetail {
   preferredZones: string[]
   maxDeliveryDistance: number | null
   customCommissionPercent: number | null
-  status: 'ONLINE' | 'OFFLINE' | 'BUSY' | 'SUSPENDED'
+  status: 'ONLINE' | 'OFFLINE' | 'BUSY' | 'ON_DELIVERY' | 'ON_DELIVERY' | 'SUSPENDED'
   isVerified: boolean
   currentLat: number | null
   currentLng: number | null
@@ -232,7 +233,7 @@ export interface DriverSummary {
   vehicleBrand: string | null
   vehicleModel: string | null
   vehiclePlate: string | null
-  status: 'ONLINE' | 'OFFLINE' | 'BUSY'
+  status: 'ONLINE' | 'OFFLINE' | 'BUSY' | 'ON_DELIVERY'
   isVerified: boolean
   totalDeliveries: number
   rating: number
@@ -259,7 +260,7 @@ export interface DriverDetail {
   preferredZones: string[]
   maxDeliveryDistance: number | null
   customCommissionPercent: number | null
-  status: 'ONLINE' | 'OFFLINE' | 'BUSY'
+  status: 'ONLINE' | 'OFFLINE' | 'BUSY' | 'ON_DELIVERY'
   isVerified: boolean
   currentLat: number | null
   currentLng: number | null
@@ -455,6 +456,7 @@ export interface OrderItem {
   quantity: number
   price: number
   image: string | null
+  instructions: string | null
 }
 
 export interface OrderPricing {
@@ -631,11 +633,17 @@ export interface RideAddress {
   address: string
 }
 
-export interface RideRider {
+export interface RideDriver {
   name: string
   vehicleType: string
   phone: string
   rating: number
+}
+
+export interface RideCustomer {
+  name: string
+  phone: string
+  email: string
 }
 
 export interface RideSummary {
@@ -670,7 +678,9 @@ export interface RideDetail extends Omit<RideSummary, 'driver'> {
   cancelReason: string | null
   matchingAttempts: number
   updatedAt: string
-  rider: RideRider | null
+  earning: number
+  customer: RideCustomer
+  driver: RideDriver | null
 }
 
 /* ─── Locations / Popular Routes ─────────────────────── */
@@ -948,3 +958,42 @@ export interface BookingSummary {
 }
 
 export type BookingDetail = BookingSummary
+
+/* ─── Reviews ─────────────────────────────────────────── */
+
+export type ReviewSubjectType = 'VENDOR' | 'DRIVER' | 'RIDER' | 'PRODUCT' | 'ORDER' | 'PROPERTY'
+export type ReviewStatus = 'PUBLISHED' | 'PENDING' | 'HIDDEN' | 'REMOVED'
+
+export interface ReviewUser {
+  id: string
+  firstName: string
+  lastName: string
+}
+
+export interface ReviewSubject {
+  id: string
+  name: string
+  image: string | null
+  status?: string
+  rating: number
+  isVerified?: boolean
+}
+
+export interface Review {
+  id: string
+  orderId: string | null
+  userId: string
+  subjectId: string
+  subjectType: ReviewSubjectType
+  rating: number
+  comment: string | null
+  tags: string[]
+  status: ReviewStatus
+  responseText: string | null
+  respondedAt: string | null
+  reportedCount: number
+  helpfulCount: number
+  createdAt: string
+  user: ReviewUser
+  subject: ReviewSubject
+}

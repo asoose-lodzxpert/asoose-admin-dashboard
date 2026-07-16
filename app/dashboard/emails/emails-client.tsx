@@ -6,6 +6,7 @@ import { sendBroadcastEmail } from '@/app/actions/notifications'
 import type { NotificationAudience, EmailBroadcastResult } from '@/app/actions/notifications'
 import type { UserStatus } from '@/app/lib/types'
 import { RichTextEditor } from '@/app/components/ui/rich-text-editor'
+import { useToast } from '@/app/components/ui/toast'
 
 const AUDIENCES: { value: NotificationAudience; label: string; desc: string }[] = [
   { value: 'ALL',      label: 'Everyone',  desc: 'All app users'        },
@@ -108,6 +109,7 @@ function buildPreviewHtml(heading: string, body: string, subject: string): strin
 }
 
 export function EmailBroadcastClient() {
+  const toast = useToast()
   const [audience, setAudience] = useState<NotificationAudience>('ALL')
   const [status, setStatus] = useState<UserStatus | ''>('')
   const [search, setSearch] = useState('')
@@ -150,8 +152,9 @@ export function EmailBroadcastClient() {
         heading: heading.trim(),
         body: body.trim(),
       })
-      if (res.error) { setServerError(res.error); return }
+      if (res.error) { setServerError(res.error); toast.error(res.error); return }
       setResult(res.data!)
+      toast.success('Broadcast email sent.')
     })
   }
 

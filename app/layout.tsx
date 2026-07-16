@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
+import { ToastProvider } from '@/app/components/ui/toast'
 import './globals.css'
 
 const inter = Inter({
@@ -19,7 +20,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} h-full antialiased`}>
-      <body className="min-h-full" suppressHydrationWarning>{children}</body>
+      <body className="min-h-full" suppressHydrationWarning>
+        <ToastProvider>{children}</ToastProvider>
+      </body>
     </html>
   )
 }

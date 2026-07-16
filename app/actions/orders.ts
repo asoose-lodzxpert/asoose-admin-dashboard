@@ -52,7 +52,8 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
       }
     }
     return result as unknown as OrderDetail
-  } catch {
+  } catch (err) {
+    console.error('getOrderDetail failed:', err)
     return null
   }
 }

@@ -4,6 +4,7 @@ import { useState, useTransition, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/app/components/ui/button'
 import { Stars } from '@/app/components/ui/detail'
+import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
 import { getDrivers, approveDriver, suspendDriver } from '@/app/actions/drivers'
 import type { DriverSummary, Pagination } from '@/app/lib/types'
@@ -11,15 +12,17 @@ import type { DriverSummary, Pagination } from '@/app/lib/types'
 type DStatus = DriverSummary['status']
 
 const STATUS_STYLES: Record<DStatus, string> = {
-  ONLINE:  'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
-  OFFLINE: 'bg-slate-100 text-slate-600 ring-slate-500/20',
-  BUSY:    'bg-amber-50 text-amber-700 ring-amber-600/20',
+  ONLINE:      'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
+  OFFLINE:     'bg-slate-100 text-slate-600 ring-slate-500/20',
+  BUSY:        'bg-amber-50 text-amber-700 ring-amber-600/20',
+  ON_DELIVERY: 'bg-sky-50 text-sky-700 ring-sky-600/20',
 }
 
 const STATUS_DOT: Record<DStatus, string> = {
-  ONLINE:  'bg-emerald-500',
-  OFFLINE: 'bg-slate-400',
-  BUSY:    'bg-amber-400',
+  ONLINE:      'bg-emerald-500',
+  OFFLINE:     'bg-slate-400',
+  BUSY:        'bg-amber-400',
+  ON_DELIVERY: 'bg-sky-500',
 }
 
 export function DriversTable({
@@ -30,6 +33,7 @@ export function DriversTable({
   initialPagination: Pagination
 }) {
   const router = useRouter()
+  const toast = useToast()
   const [drivers, setDrivers] = useState(initialDrivers)
   const [pagination, setPagination] = useState(initialPagination)
   const [search, setSearch] = useState('')
@@ -88,7 +92,9 @@ export function DriversTable({
     e.stopPropagation()
     startTransition(async () => {
       const res = await approveDriver(driver.id)
-      if (!res.error) patchDriver(driver.id, { isVerified: true })
+      if (res.error) { toast.error(res.error); return }
+      patchDriver(driver.id, { isVerified: true })
+      toast.success('Driver approved.')
     })
   }
 
@@ -96,7 +102,9 @@ export function DriversTable({
     e.stopPropagation()
     startTransition(async () => {
       const res = await suspendDriver(driver.id, 'Suspended by admin')
-      if (!res.error) patchDriver(driver.id, { isVerified: false })
+      if (res.error) { toast.error(res.error); return }
+      patchDriver(driver.id, { isVerified: false })
+      toast.success('Driver suspended.')
     })
   }
 
@@ -150,6 +158,7 @@ export function DriversTable({
           <option value="ONLINE">Online</option>
           <option value="OFFLINE">Offline</option>
           <option value="BUSY">Busy</option>
+          <option value="ON_DELIVERY">On Delivery</option>
         </select>
         {/* Verified */}
         <select value={isVerified} onChange={onIsVerified} disabled={isPending}

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
 import { DetailCard, InfoRow, InfoGrid, formatDate } from '@/app/components/ui/detail'
+import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
 import { updateOrderStatus, assignRiderToOrder } from '@/app/actions/orders'
 import { getRiders } from '@/app/actions/riders'
@@ -100,14 +101,29 @@ const NEXT_STATUSES: Partial<Record<OrderStatus, OrderStatus[]>> = {
 const REQUIRES_REASON = new Set<OrderStatus>(['CANCELLED', 'REJECTED'])
 
 const RIDER_STATUS_DOT: Record<string, string> = {
-  ONLINE:  'bg-emerald-500',
-  OFFLINE: 'bg-slate-400',
-  BUSY:    'bg-amber-400',
+  ONLINE:      'bg-emerald-500',
+  OFFLINE:     'bg-slate-400',
+  BUSY:        'bg-amber-400',
+  ON_DELIVERY: 'bg-sky-500',
+  SUSPENDED:   'bg-red-500',
+}
+
+const RIDER_STATUS_PRIORITY: Record<string, number> = {
+  ONLINE: 0,
+  BUSY: 1,
+  ON_DELIVERY: 1,
+  OFFLINE: 2,
+  SUSPENDED: 3,
+}
+
+function sortByActive<T extends { status: string }>(list: T[]): T[] {
+  return [...list].sort((a, b) => (RIDER_STATUS_PRIORITY[a.status] ?? 1) - (RIDER_STATUS_PRIORITY[b.status] ?? 1))
 }
 
 /* ─── Component ────────────────────────────────────────── */
 
 export function OrderDetailClient({ order: initial }: { order: OrderDetail }) {
+  const toast = useToast()
   const [order, setOrder] = useState(initial)
   const [isPending, startTransition] = useTransition()
 
@@ -128,7 +144,7 @@ export function OrderDetailClient({ order: initial }: { order: OrderDetail }) {
   const nextStatuses = NEXT_STATUSES[order.status] ?? []
   const vendorName = order.storeName || order.restaurantName || 'Vendor'
   const items = Array.isArray(order.items) ? order.items : []
-  const canAssignRider = !!order.delivery?.id && !order.delivery.rider
+  const canAssignRider = !!order.delivery?.id && order.status !== 'DELIVERED'
 
   /* ─── Status handlers ─────────────────────────────────── */
 
@@ -152,9 +168,10 @@ export function OrderDetailClient({ order: initial }: { order: OrderDetail }) {
     }
     startTransition(async () => {
       const res = await updateOrderStatus(order.id, selectedStatus, reason.trim() || undefined)
-      if (res.error) { setError(res.error); return }
+      if (res.error) { setError(res.error); toast.error(res.error); return }
       if (res.data) setOrder(res.data)
       setShowStatusModal(false)
+      toast.success('Order status updated.')
     })
   }
 
@@ -167,7 +184,7 @@ export function OrderDetailClient({ order: initial }: { order: OrderDetail }) {
     setShowRiderModal(true)
     setRidersLoading(true)
     getRiders({ page: 1, limit: 50 }).then((res) => {
-      setRiders(res.riders)
+      setRiders(sortByActive(res.riders))
       setRidersLoading(false)
     })
   }
@@ -181,8 +198,9 @@ export function OrderDetailClient({ order: initial }: { order: OrderDetail }) {
     if (!selectedRiderId) { setRiderError('Please select a rider.'); return }
     startTransition(async () => {
       const res = await assignRiderToOrder(order.delivery!.id, selectedRiderId)
-      if (res.error) { setRiderError(res.error); return }
+      if (res.error) { setRiderError(res.error); toast.error(res.error); return }
       setShowRiderModal(false)
+      toast.success('Rider assigned.')
       const assignedRider = riders.find((r) => r.id === selectedRiderId)
       setOrder((prev) => ({
         ...prev,
@@ -238,7 +256,7 @@ export function OrderDetailClient({ order: initial }: { order: OrderDetail }) {
               </span>
               {canAssignRider && (
                 <Button variant="secondary" size="sm" onClick={openRiderModal}>
-                  Assign Rider
+                  {order.delivery?.rider ? 'Reassign Rider' : 'Assign Rider'}
                 </Button>
               )}
               {nextStatuses.length > 0 && (
@@ -271,6 +289,9 @@ export function OrderDetailClient({ order: initial }: { order: OrderDetail }) {
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-slate-900 truncate">{item.name}</p>
                     <p className="text-xs text-slate-400">Qty: {item.quantity} × {formatNairaFull(item.price)}</p>
+                    {item.instructions && (
+                      <p className="text-xs italic text-slate-400 truncate">Note: {item.instructions}</p>
+                    )}
                   </div>
                   <p className="text-sm font-semibold text-slate-700 shrink-0">
                     {formatNairaFull(item.price * item.quantity)}

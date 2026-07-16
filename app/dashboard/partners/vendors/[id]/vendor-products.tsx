@@ -8,6 +8,7 @@ import type { Product } from '@/app/lib/types'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
 import { ImageUploader } from '@/app/components/ui/image-uploader'
+import { useToast } from '@/app/components/ui/toast'
 
 type PStatus = Product['status']
 
@@ -70,6 +71,7 @@ function ProductFormModal({
   vendorId: string
   editing: Product | null
 }) {
+  const toast = useToast()
   const [form, setForm] = useState<FormState>(() => editing ? productToForm(editing) : EMPTY_FORM)
   const [error, setError] = useState('')
   const [isPending, start] = useTransition()
@@ -108,9 +110,10 @@ function ProductFormModal({
       const result = editing
         ? await updateProduct(vendorId, editing.id, data)
         : await createProduct(vendorId, data)
-      if (result.error) { setError(result.error); return }
+      if (result.error) { setError(result.error); toast.error(result.error); return }
       onSaved(result.product!)
       onClose()
+      toast.success(editing ? 'Product updated.' : 'Product created.')
     })
   }
 
@@ -394,6 +397,7 @@ interface Props {
 }
 
 export function VendorProductsSection({ vendorId, initialProducts, total }: Props) {
+  const toast = useToast()
   const [products, setProducts] = useState(initialProducts)
   const [count, setCount] = useState(total)
   const [search, setSearch] = useState('')
@@ -471,10 +475,12 @@ export function VendorProductsSection({ vendorId, initialProducts, total }: Prop
       const result = await deleteProduct(vendorId, deletingProduct.id)
       if (result.error) {
         setDeleteError(result.error)
+        toast.error(result.error)
       } else {
         setProducts(prev => prev.filter(p => p.id !== deletingProduct.id))
         setCount(c => c - 1)
         setDeletingProduct(null)
+        toast.success('Product deleted.')
       }
     })
   }

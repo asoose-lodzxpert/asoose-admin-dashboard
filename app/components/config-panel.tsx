@@ -3,6 +3,7 @@
 import { useState, useTransition, useCallback } from 'react'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
+import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
 import type { ConfigItem } from '@/app/lib/types'
 
@@ -146,6 +147,7 @@ export function ConfigPanel({
   onUpdate,
   onDelete,
 }: ConfigPanelProps) {
+  const toast = useToast()
   const [items, setItems] = useState<ConfigItem[]>(initialItems)
   const [isPending, startTransition] = useTransition()
 
@@ -183,9 +185,10 @@ export function ConfigPanel({
     const payload = formToPayload(createFields, createValues)
     startTransition(async () => {
       const res = await onCreate(payload)
-      if (res.error) { setCreateError(res.error); return }
+      if (res.error) { setCreateError(res.error); toast.error(res.error); return }
       setItems((prev) => [...prev, res.data!])
       setShowCreate(false)
+      toast.success(`${resourceName} created.`)
     })
   }
 
@@ -194,9 +197,10 @@ export function ConfigPanel({
     const payload = formToPayload(editFields, editValues)
     startTransition(async () => {
       const res = await onUpdate(editItem.id, payload)
-      if (res.error) { setEditError(res.error); return }
+      if (res.error) { setEditError(res.error); toast.error(res.error); return }
       setItems((prev) => prev.map((i) => i.id === editItem.id ? res.data! : i))
       setEditItem(null)
+      toast.success(`${resourceName} updated.`)
     })
   }
 
@@ -204,9 +208,10 @@ export function ConfigPanel({
     if (!deleteItem) return
     startTransition(async () => {
       const res = await onDelete(deleteItem.id)
-      if (res.error) { setDeleteError(res.error); return }
+      if (res.error) { setDeleteError(res.error); toast.error(res.error); return }
       setItems((prev) => prev.filter((i) => i.id !== deleteItem.id))
       setDeleteItem(null)
+      toast.success(`${resourceName} deleted.`)
     })
   }
 
@@ -214,7 +219,8 @@ export function ConfigPanel({
     const payload = { isActive: !item.isActive }
     startTransition(async () => {
       const res = await onUpdate(item.id, payload)
-      if (!res.error) setItems((prev) => prev.map((i) => i.id === item.id ? res.data! : i))
+      if (res.error) { toast.error(res.error); return }
+      setItems((prev) => prev.map((i) => i.id === item.id ? res.data! : i))
     })
   }
 

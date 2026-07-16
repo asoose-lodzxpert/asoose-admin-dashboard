@@ -6,28 +6,42 @@ import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
 import { DetailCard, InfoRow, InfoGrid, Stars, formatDate } from '@/app/components/ui/detail'
 import { DocumentsSection, type DocumentField } from '@/app/components/ui/documents-section'
+import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
-import { approveRider, suspendRider, updateRiderProfile, updateRiderDocuments, adjustRiderWallet, adjustRiderCommission } from '@/app/actions/riders'
+import { approveRider, suspendRider, updateRiderProfile, updateRiderDocuments, updateRiderAvailability, adjustRiderWallet, adjustRiderCommission, type RiderAvailability } from '@/app/actions/riders'
 import { UserFinanceSection } from '@/app/components/user-finance-section'
 import { CommissionSection } from '@/app/components/commission-section'
-import type { RiderDetail, VehicleType, VehicleBrand } from '@/app/lib/types'
+import type { RiderDetail, VehicleType, VehicleBrand, City } from '@/app/lib/types'
 import { NIGERIAN_STATES } from '@/app/lib/nigeria'
+
+const VEHICLE_COLORS = ['Black', 'White', 'Silver', 'Grey', 'Red', 'Blue', 'Green', 'Yellow', 'Orange', 'Brown', 'Gold', 'Maroon']
+const CURRENT_YEAR = new Date().getFullYear()
+const VEHICLE_YEARS = Array.from({ length: CURRENT_YEAR - 1989 }, (_, i) => CURRENT_YEAR - i)
 
 type RStatus = RiderDetail['status']
 
 const STATUS_STYLES: Record<RStatus, string> = {
-  ONLINE:    'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
-  OFFLINE:   'bg-slate-100 text-slate-600 ring-slate-500/20',
-  BUSY:      'bg-amber-50 text-amber-700 ring-amber-600/20',
-  SUSPENDED: 'bg-red-50 text-red-700 ring-red-600/20',
+  ONLINE:      'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
+  OFFLINE:     'bg-slate-100 text-slate-600 ring-slate-500/20',
+  BUSY:        'bg-amber-50 text-amber-700 ring-amber-600/20',
+  ON_DELIVERY: 'bg-sky-50 text-sky-700 ring-sky-600/20',
+  SUSPENDED:   'bg-red-50 text-red-700 ring-red-600/20',
 }
 
 const STATUS_DOT: Record<RStatus, string> = {
-  ONLINE:    'bg-emerald-500',
-  OFFLINE:   'bg-slate-400',
-  BUSY:      'bg-amber-400',
-  SUSPENDED: 'bg-red-500',
+  ONLINE:      'bg-emerald-500',
+  OFFLINE:     'bg-slate-400',
+  BUSY:        'bg-amber-400',
+  ON_DELIVERY: 'bg-sky-500',
+  SUSPENDED:   'bg-red-500',
 }
+
+const AVAILABILITY_OPTIONS: { value: RiderAvailability; label: string }[] = [
+  { value: 'ONLINE', label: 'Online' },
+  { value: 'OFFLINE', label: 'Offline' },
+  { value: 'BUSY', label: 'Busy' },
+  { value: 'ON_DELIVERY', label: 'On Delivery' },
+]
 
 const RIDER_DOCUMENT_FIELDS: DocumentField[] = [
   { key: 'profilePhoto',        label: 'Profile Photo',            clearable: true  },
@@ -37,6 +51,36 @@ const RIDER_DOCUMENT_FIELDS: DocumentField[] = [
   { key: 'insuranceDocument',   label: 'Insurance Document',       clearable: true  },
 ]
 
+function ColorField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [custom, setCustom] = useState(value !== '' && !VEHICLE_COLORS.includes(value))
+  return (
+    <div>
+      <label className="mb-1.5 block text-[13px] font-medium text-slate-700">Color</label>
+      <select
+        value={custom ? '__other__' : value}
+        onChange={(e) => {
+          if (e.target.value === '__other__') { setCustom(true); onChange('') }
+          else { setCustom(false); onChange(e.target.value) }
+        }}
+        className="w-full rounded-xl border-0 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"
+      >
+        <option value="">— Select —</option>
+        {VEHICLE_COLORS.map((c) => <option key={c} value={c}>{c}</option>)}
+        <option value="__other__">Other…</option>
+      </select>
+      {custom && (
+        <input
+          autoFocus
+          placeholder="Enter color"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="mt-2 w-full rounded-xl border-0 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"
+        />
+      )}
+    </div>
+  )
+}
+
 interface Props {
   rider: RiderDetail
   displayName: string
@@ -44,9 +88,11 @@ interface Props {
   displayPhone?: string
   vehicleTypes: VehicleType[]
   vehicleBrands: VehicleBrand[]
+  cities: City[]
 }
 
-export function RiderDetailClient({ rider: initial, displayName, displayEmail, displayPhone, vehicleTypes, vehicleBrands }: Props) {
+export function RiderDetailClient({ rider: initial, displayName, displayEmail, displayPhone, vehicleTypes, vehicleBrands, cities }: Props) {
+  const toast = useToast()
   const [rider, setRider] = useState(initial)
   const [isPending, startTransition] = useTransition()
   const [showSuspend, setShowSuspend] = useState(false)
@@ -55,6 +101,7 @@ export function RiderDetailClient({ rider: initial, displayName, displayEmail, d
   const [actionError, setActionError] = useState('')
 
   const [editForm, setEditForm] = useState({
+    cityId: rider.cityId ?? '',
     vehicleType: rider.vehicleType ?? '',
     vehicleBrand: rider.vehicleBrand ?? '',
     vehicleModel: rider.vehicleModel ?? '',
@@ -64,11 +111,11 @@ export function RiderDetailClient({ rider: initial, displayName, displayEmail, d
     driversLicenseNumber: rider.driversLicenseNumber ?? '',
     driversLicenseExpiry: rider.driversLicenseExpiry ? rider.driversLicenseExpiry.slice(0, 10) : '',
     driversLicenseState: rider.driversLicenseState ?? '',
-    maxDeliveryDistance: rider.maxDeliveryDistance ?? '',
-    status: rider.status,
     isVerified: rider.isVerified,
   })
   const [editError, setEditError] = useState('')
+  const [availabilityPending, setAvailabilityPending] = useState(false)
+  const [availabilityError, setAvailabilityError] = useState('')
 
   function ef<K extends keyof typeof editForm>(k: K, v: (typeof editForm)[K]) {
     setEditForm((f) => ({ ...f, [k]: v }))
@@ -78,6 +125,7 @@ export function RiderDetailClient({ rider: initial, displayName, displayEmail, d
     startTransition(async () => {
       setEditError('')
       const res = await updateRiderProfile(rider.id, {
+        cityId: editForm.cityId || undefined,
         vehicleType: editForm.vehicleType || undefined,
         vehicleBrand: editForm.vehicleBrand || null,
         vehicleModel: editForm.vehicleModel || null,
@@ -87,13 +135,12 @@ export function RiderDetailClient({ rider: initial, displayName, displayEmail, d
         driversLicenseNumber: editForm.driversLicenseNumber || undefined,
         driversLicenseExpiry: editForm.driversLicenseExpiry ? new Date(editForm.driversLicenseExpiry).toISOString() : undefined,
         driversLicenseState: editForm.driversLicenseState || undefined,
-        maxDeliveryDistance: editForm.maxDeliveryDistance !== '' ? Number(editForm.maxDeliveryDistance) : undefined,
-        status: editForm.status,
         isVerified: editForm.isVerified,
       })
-      if (res.error) { setEditError(res.error); return }
+      if (res.error) { setEditError(res.error); toast.error(res.error); return }
       if (res.rider) patch(res.rider)
       setShowEdit(false)
+      toast.success('Rider profile updated.')
     })
   }
 
@@ -102,16 +149,31 @@ export function RiderDetailClient({ rider: initial, displayName, displayEmail, d
   function handleApprove() {
     startTransition(async () => {
       const res = await approveRider(rider.id)
-      if (!res.error) patch({ isVerified: true })
+      if (res.error) { toast.error(res.error); return }
+      patch({ isVerified: true })
+      toast.success('Rider approved.')
+    })
+  }
+
+  function handleAvailabilityChange(status: RiderAvailability) {
+    setAvailabilityError('')
+    setAvailabilityPending(true)
+    startTransition(async () => {
+      const res = await updateRiderAvailability(rider.id, status)
+      setAvailabilityPending(false)
+      if (res.error) { setAvailabilityError(res.error); toast.error(res.error); return }
+      patch({ status })
+      toast.success('Availability updated.')
     })
   }
 
   function handleSuspend() {
     startTransition(async () => {
       const res = await suspendRider(rider.id, reason)
-      if (res.error) { setActionError(res.error); return }
+      if (res.error) { setActionError(res.error); toast.error(res.error); return }
       patch({ status: 'SUSPENDED', isVerified: false })
       setShowSuspend(false); setReason('')
+      toast.success('Rider suspended.')
     })
   }
 
@@ -133,15 +195,32 @@ export function RiderDetailClient({ rider: initial, displayName, displayEmail, d
             <div className="min-w-0">
               <div className="flex items-center gap-2.5">
                 <h1 className="text-xl font-bold text-slate-900 truncate">{displayName}</h1>
-                <span className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset', STATUS_STYLES[rider.status])}>
-                  <span className={cn('h-1.5 w-1.5 rounded-full', STATUS_DOT[rider.status])} />
-                  {rider.status}
-                </span>
+                {rider.status === 'SUSPENDED' ? (
+                  <span className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset', STATUS_STYLES[rider.status])}>
+                    <span className={cn('h-1.5 w-1.5 rounded-full', STATUS_DOT[rider.status])} />
+                    {rider.status}
+                  </span>
+                ) : (
+                  <span className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full pl-2.5 pr-1.5 py-1 text-xs font-medium ring-1 ring-inset', STATUS_STYLES[rider.status])}>
+                    <span className={cn('h-1.5 w-1.5 rounded-full', STATUS_DOT[rider.status])} />
+                    <select
+                      value={rider.status}
+                      disabled={availabilityPending}
+                      onChange={(e) => handleAvailabilityChange(e.target.value as RiderAvailability)}
+                      className="cursor-pointer border-0 bg-transparent py-0 pl-0 pr-4 text-xs font-medium focus:outline-none focus:ring-0 disabled:opacity-60"
+                    >
+                      {AVAILABILITY_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  </span>
+                )}
                 {rider.isVerified && (
                   <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20">Verified</span>
                 )}
               </div>
               <p className="text-sm text-slate-500">{[rider.userEmail ?? displayEmail, rider.userPhone ?? displayPhone].filter(Boolean).join(' · ')}</p>
+              {availabilityError && <p className="mt-1 text-xs text-red-500">{availabilityError}</p>}
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -255,6 +334,16 @@ export function RiderDetailClient({ rider: initial, displayName, displayEmail, d
         {editError && <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">{editError}</div>}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
+            <label className="mb-1.5 block text-[13px] font-medium text-slate-700">City</label>
+            <select value={editForm.cityId} onChange={(e) => ef('cityId', e.target.value)}
+              className="w-full rounded-xl border-0 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none">
+              <option value="">— Select —</option>
+              {cities.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}{c.state ? `, ${c.state}` : ''}</option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label className="mb-1.5 block text-[13px] font-medium text-slate-700">Vehicle Type</label>
             <select value={editForm.vehicleType} onChange={(e) => ef('vehicleType', e.target.value)}
               className="w-full rounded-xl border-0 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none">
@@ -281,14 +370,13 @@ export function RiderDetailClient({ rider: initial, displayName, displayEmail, d
           </div>
           <div>
             <label className="mb-1.5 block text-[13px] font-medium text-slate-700">Vehicle Year</label>
-            <input type="number" value={editForm.vehicleYear} onChange={(e) => ef('vehicleYear', e.target.value)}
-              className="w-full rounded-xl border-0 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none" />
+            <select value={editForm.vehicleYear} onChange={(e) => ef('vehicleYear', e.target.value)}
+              className="w-full rounded-xl border-0 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none">
+              <option value="">— Select —</option>
+              {VEHICLE_YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+            </select>
           </div>
-          <div>
-            <label className="mb-1.5 block text-[13px] font-medium text-slate-700">Color</label>
-            <input value={editForm.vehicleColor} onChange={(e) => ef('vehicleColor', e.target.value)}
-              className="w-full rounded-xl border-0 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none" />
-          </div>
+          <ColorField value={editForm.vehicleColor} onChange={(v) => ef('vehicleColor', v)} />
           <div>
             <label className="mb-1.5 block text-[13px] font-medium text-slate-700">Plate Number</label>
             <input value={editForm.vehiclePlate} onChange={(e) => ef('vehiclePlate', e.target.value)}
@@ -312,21 +400,6 @@ export function RiderDetailClient({ rider: initial, displayName, displayEmail, d
               {NIGERIAN_STATES.map((s) => (
                 <option key={s} value={s}>{s}</option>
               ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1.5 block text-[13px] font-medium text-slate-700">Max Delivery Distance (km)</label>
-            <input type="number" min={1} value={editForm.maxDeliveryDistance} onChange={(e) => ef('maxDeliveryDistance', e.target.value)}
-              className="w-full rounded-xl border-0 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none" />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-[13px] font-medium text-slate-700">Status</label>
-            <select value={editForm.status} onChange={(e) => ef('status', e.target.value as typeof editForm.status)}
-              className="w-full rounded-xl border-0 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none">
-              <option value="ONLINE">Online</option>
-              <option value="OFFLINE">Offline</option>
-              <option value="BUSY">Busy</option>
-              <option value="SUSPENDED">Suspended</option>
             </select>
           </div>
           <div className="flex items-center gap-3 pt-6">

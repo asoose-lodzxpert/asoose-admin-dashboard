@@ -4,6 +4,7 @@ import { useState, useTransition, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/app/components/ui/button'
 import { Stars } from '@/app/components/ui/detail'
+import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
 import { getRiders, approveRider, suspendRider } from '@/app/actions/riders'
 import type { RiderSummary, Pagination } from '@/app/lib/types'
@@ -11,17 +12,19 @@ import type { RiderSummary, Pagination } from '@/app/lib/types'
 type RStatus = RiderSummary['status']
 
 const STATUS_STYLES: Record<RStatus, string> = {
-  ONLINE:    'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
-  OFFLINE:   'bg-slate-100 text-slate-600 ring-slate-500/20',
-  BUSY:      'bg-amber-50 text-amber-700 ring-amber-600/20',
-  SUSPENDED: 'bg-red-50 text-red-700 ring-red-600/20',
+  ONLINE:      'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
+  OFFLINE:     'bg-slate-100 text-slate-600 ring-slate-500/20',
+  BUSY:        'bg-amber-50 text-amber-700 ring-amber-600/20',
+  ON_DELIVERY: 'bg-sky-50 text-sky-700 ring-sky-600/20',
+  SUSPENDED:   'bg-red-50 text-red-700 ring-red-600/20',
 }
 
 const STATUS_DOT: Record<RStatus, string> = {
-  ONLINE:    'bg-emerald-500',
-  OFFLINE:   'bg-slate-400',
-  BUSY:      'bg-amber-400',
-  SUSPENDED: 'bg-red-500',
+  ONLINE:      'bg-emerald-500',
+  OFFLINE:     'bg-slate-400',
+  BUSY:        'bg-amber-400',
+  ON_DELIVERY: 'bg-sky-500',
+  SUSPENDED:   'bg-red-500',
 }
 
 export function RidersTable({
@@ -32,6 +35,7 @@ export function RidersTable({
   initialPagination: Pagination
 }) {
   const router = useRouter()
+  const toast = useToast()
   const [riders, setRiders] = useState(initialRiders)
   const [pagination, setPagination] = useState(initialPagination)
   const [search, setSearch] = useState('')
@@ -90,7 +94,9 @@ export function RidersTable({
     e.stopPropagation()
     startTransition(async () => {
       const res = await approveRider(rider.id)
-      if (!res.error) patchRider(rider.id, { isVerified: true })
+      if (res.error) { toast.error(res.error); return }
+      patchRider(rider.id, { isVerified: true })
+      toast.success('Rider approved.')
     })
   }
 
@@ -98,7 +104,9 @@ export function RidersTable({
     e.stopPropagation()
     startTransition(async () => {
       const res = await suspendRider(rider.id, 'Suspended by admin')
-      if (!res.error) patchRider(rider.id, { status: 'SUSPENDED' })
+      if (res.error) { toast.error(res.error); return }
+      patchRider(rider.id, { status: 'SUSPENDED' })
+      toast.success('Rider suspended.')
     })
   }
 
@@ -152,6 +160,7 @@ export function RidersTable({
           <option value="ONLINE">Online</option>
           <option value="OFFLINE">Offline</option>
           <option value="BUSY">Busy</option>
+          <option value="ON_DELIVERY">On Delivery</option>
           <option value="SUSPENDED">Suspended</option>
         </select>
         {/* Verified */}

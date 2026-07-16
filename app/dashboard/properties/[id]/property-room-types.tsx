@@ -8,6 +8,7 @@ import type { RoomType } from '@/app/lib/types'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
 import { ImageUploader } from '@/app/components/ui/image-uploader'
+import { useToast } from '@/app/components/ui/toast'
 
 const INPUT = 'w-full h-9 rounded-xl border-0 bg-slate-50 px-3 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none'
 const LABEL = 'block text-xs font-medium text-slate-600 mb-1'
@@ -49,6 +50,7 @@ function RoomTypeFormModal({
   propertyId: string
   editing: RoomType | null
 }) {
+  const toast = useToast()
   const [form, setForm] = useState<FormState>(() => editing ? roomTypeToForm(editing) : EMPTY_FORM)
   const [error, setError] = useState('')
   const [isPending, start] = useTransition()
@@ -78,9 +80,10 @@ function RoomTypeFormModal({
       const result = editing
         ? await updateRoomType(propertyId, editing.id, data)
         : await createRoomType(propertyId, data)
-      if (result.error) { setError(result.error); return }
+      if (result.error) { setError(result.error); toast.error(result.error); return }
       onSaved(result.roomType!)
       onClose()
+      toast.success(editing ? 'Room type updated.' : 'Room type created.')
     })
   }
 
@@ -220,6 +223,7 @@ function RoomTypeCard({
 /* ─── Section ─────────────────────────────────────────────── */
 
 export function PropertyRoomTypesSection({ propertyId, initialRoomTypes }: { propertyId: string; initialRoomTypes: RoomType[] }) {
+  const toast = useToast()
   const [roomTypes, setRoomTypes] = useState(initialRoomTypes)
   const [isDeleting, startDelete] = useTransition()
 
@@ -257,9 +261,11 @@ export function PropertyRoomTypesSection({ propertyId, initialRoomTypes }: { pro
       const result = await deleteRoomType(propertyId, deletingRoomType.id)
       if (result.error) {
         setDeleteError(result.error)
+        toast.error(result.error)
       } else {
         setRoomTypes(prev => prev.filter(r => r.id !== deletingRoomType.id))
         setDeletingRoomType(null)
+        toast.success('Room type deleted.')
       }
     })
   }

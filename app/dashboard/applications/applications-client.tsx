@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
 import { DocsGrid } from '@/app/components/ui/doc-card'
+import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
 import { getApplications, reviewApplication } from '@/app/actions/applications'
 import type { Application, AppStatus, AppTargetRole } from '@/app/lib/types'
@@ -52,6 +53,7 @@ interface Props {
 }
 
 export function ApplicationsClient({ initialApplications, initialPagination }: Props) {
+  const toast = useToast()
   const [applications, setApplications] = useState(initialApplications)
   const [pagination, setPagination] = useState(initialPagination)
   const [statusFilter, setStatusFilter] = useState<AppStatus | ''>('PENDING_REVIEW')
@@ -99,10 +101,12 @@ export function ApplicationsClient({ initialApplications, initialPagination }: P
     }
     startReview(async () => {
       const res = await reviewApplication(reviewTarget.app.id, reviewTarget.approved, notes)
-      if (res.error) { setReviewError(res.error); return }
+      if (res.error) { setReviewError(res.error); toast.error(res.error); return }
+      const approved = reviewTarget.approved
       setReviewTarget(null)
       setNotes('')
       loadApplications(statusFilter, roleFilter, page)
+      toast.success(approved ? 'Application approved.' : 'Application rejected.')
     })
   }
 

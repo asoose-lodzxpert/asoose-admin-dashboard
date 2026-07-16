@@ -4,6 +4,7 @@ import { useState, useEffect, useTransition, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/app/lib/utils'
 import { ImageUploader } from '@/app/components/ui/image-uploader'
+import { useToast } from '@/app/components/ui/toast'
 import {
   adminProvisionVendor,
   getPublicStoreTypes,
@@ -134,6 +135,7 @@ function BankCombobox({
 
 export function VendorCreateClient() {
   const router = useRouter()
+  const toast = useToast()
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [account, setAccount] = useState<AccountForm>(INIT_ACCOUNT)
   const [vendor, setVendor] = useState<VendorForm>(INIT_VENDOR)
@@ -256,9 +258,10 @@ export function VendorCreateClient() {
           ...(bannerUrls[0] ? { banner: bannerUrls[0] } : {}),
         },
       })
-      if (res.error) { setServerError(res.error); return }
+      if (res.error) { setServerError(res.error); toast.error(res.error); return }
       setResult(res.data!)
       setStep(3)
+      toast.success('Vendor provisioned.')
     })
   }
 

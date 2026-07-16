@@ -5,11 +5,12 @@ import Link from 'next/link'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
 import { DetailCard, InfoRow, InfoGrid, formatDate } from '@/app/components/ui/detail'
+import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
 import { formatNaira } from '@/app/lib/utils'
 import { assignDriverToRide, requeueRide, forceCancelRide } from '@/app/actions/rides'
 import { getDrivers } from '@/app/actions/drivers'
-import type { RideDetail, RideStatus, RideRider, DriverSummary } from '@/app/lib/types'
+import type { RideDetail, RideStatus, RideDriver, DriverSummary } from '@/app/lib/types'
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY
 
@@ -125,12 +126,13 @@ function RouteMap({ ride }: { ride: RideDetail }) {
 /* ─── Main component ──────────────────────────────────── */
 
 export function RideDetailClient({ ride: initialRide }: { ride: RideDetail }) {
+  const toast = useToast()
   const [ride, setRide] = useState(initialRide)
   const [isPending, startTransition] = useTransition()
 
   const isTerminal = TERMINAL.includes(ride.status)
-  const canAssign = !isTerminal && !ride.rider && ride.paymentStatus !== 'PENDING'
-  const canRequeue = !isTerminal && !ride.rider && ride.paymentStatus !== 'PENDING'
+  const canAssign = !isTerminal
+  const canRequeue = !isTerminal && !ride.driver && ride.paymentStatus !== 'PENDING'
   const canCancel = !isTerminal
 
   /* assign driver modal */
@@ -167,31 +169,33 @@ export function RideDetailClient({ ride: initialRide }: { ride: RideDetail }) {
     if (!selectedDriverId) { setAssignError('Select a driver.'); return }
     startTransition(async () => {
       const res = await assignDriverToRide(ride.id, selectedDriverId)
-      if (res.error) { setAssignError(res.error); return }
+      if (res.error) { setAssignError(res.error); toast.error(res.error); return }
       const assigned = drivers.find((d) => d.id === selectedDriverId)
       if (assigned) {
         setRide((prev) => ({
           ...prev,
           status: 'DRIVER_ASSIGNED' as RideStatus,
           driverId: assigned.id,
-          rider: {
+          driver: {
             name: assigned.fullName,
             phone: assigned.phone,
             vehicleType: assigned.vehicleType,
             rating: assigned.rating,
-          } satisfies RideRider,
+          } satisfies RideDriver,
         }))
       }
       setShowAssign(false)
+      toast.success('Driver assigned.')
     })
   }
 
   function handleRequeue() {
     startTransition(async () => {
       const res = await requeueRide(ride.id)
-      if (res.error) { setRequeueError(res.error); return }
+      if (res.error) { setRequeueError(res.error); toast.error(res.error); return }
       setRequeueSuccess(true)
       setRide((prev) => ({ ...prev, status: 'SEARCHING_DRIVER' }))
+      toast.success('Ride requeued.')
     })
   }
 
@@ -199,9 +203,10 @@ export function RideDetailClient({ ride: initialRide }: { ride: RideDetail }) {
     if (!cancelReason.trim()) { setCancelError('A reason is required.'); return }
     startTransition(async () => {
       const res = await forceCancelRide(ride.id, cancelReason.trim())
-      if (res.error) { setCancelError(res.error); return }
+      if (res.error) { setCancelError(res.error); toast.error(res.error); return }
       setRide((prev) => ({ ...prev, status: 'CANCELLED', cancelReason: cancelReason.trim() }))
       setShowCancel(false)
+      toast.success('Ride cancelled.')
     })
   }
 
@@ -232,7 +237,7 @@ export function RideDetailClient({ ride: initialRide }: { ride: RideDetail }) {
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
                   <path d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" />
                 </svg>
-                Assign Driver
+                {ride.driver ? 'Reassign Driver' : 'Assign Driver'}
               </Button>
             )}
             {canRequeue && (
@@ -286,6 +291,15 @@ export function RideDetailClient({ ride: initialRide }: { ride: RideDetail }) {
 
           {/* Right col */}
           <div className="space-y-6">
+            {/* Customer */}
+            <DetailCard title="Customer">
+              <InfoGrid>
+                <InfoRow label="Name" value={ride.customer.name} />
+                <InfoRow label="Phone" value={ride.customer.phone} />
+                <InfoRow label="Email" value={ride.customer.email} />
+              </InfoGrid>
+            </DetailCard>
+
             {/* Fare & Payment */}
             <DetailCard title="Fare & Payment">
               <div className="mb-4 text-center">
@@ -295,6 +309,7 @@ export function RideDetailClient({ ride: initialRide }: { ride: RideDetail }) {
               <InfoGrid>
                 <InfoRow label="Payment Method" value={ride.paymentMethod} />
                 <InfoRow label="Payment Status" value={ride.paymentStatus} />
+                <InfoRow label="Driver Earning" value={formatNaira(ride.earning)} />
               </InfoGrid>
             </DetailCard>
 
@@ -310,13 +325,13 @@ export function RideDetailClient({ ride: initialRide }: { ride: RideDetail }) {
             )}
 
             {/* Assigned Driver */}
-            {ride.rider && (
+            {ride.driver && (
               <DetailCard title="Assigned Driver">
                 <InfoGrid>
-                  <InfoRow label="Name" value={ride.rider.name} />
-                  <InfoRow label="Phone" value={ride.rider.phone} />
-                  <InfoRow label="Vehicle Type" value={ride.rider.vehicleType} />
-                  <InfoRow label="Rating" value={ride.rider.rating} />
+                  <InfoRow label="Name" value={ride.driver.name} />
+                  <InfoRow label="Phone" value={ride.driver.phone} />
+                  <InfoRow label="Vehicle Type" value={ride.driver.vehicleType} />
+                  <InfoRow label="Rating" value={ride.driver.rating} />
                 </InfoGrid>
               </DetailCard>
             )}

@@ -4,6 +4,7 @@ import Image from 'next/image'
 import { useState, useTransition, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/app/components/ui/button'
+import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
 import { getVendors, approveVendor, rejectVendor, suspendVendor } from '@/app/actions/vendors'
 import type { VendorSummary, VendorStore, Pagination } from '@/app/lib/types'
@@ -64,6 +65,7 @@ export function VendorsTable({
   initialPagination: Pagination
 }) {
   const router = useRouter()
+  const toast = useToast()
   const [vendors, setVendors] = useState(initialVendors)
   const [pagination, setPagination] = useState(initialPagination)
   const [filter, setFilter] = useState<VStatus | ''>('')
@@ -102,7 +104,9 @@ export function VendorsTable({
     e.stopPropagation()
     startTransition(async () => {
       const res = await approveVendor(vendor.id)
-      if (!res.error) patchVendor(vendor.id, { verificationStatus: 'VERIFIED', isVerified: true })
+      if (res.error) { toast.error(res.error); return }
+      patchVendor(vendor.id, { verificationStatus: 'VERIFIED', isVerified: true })
+      toast.success('Vendor approved.')
     })
   }
 
@@ -110,7 +114,9 @@ export function VendorsTable({
     e.stopPropagation()
     startTransition(async () => {
       const res = await rejectVendor(vendor.id)
-      if (!res.error) patchVendor(vendor.id, { verificationStatus: 'REJECTED' })
+      if (res.error) { toast.error(res.error); return }
+      patchVendor(vendor.id, { verificationStatus: 'REJECTED' })
+      toast.success('Vendor rejected.')
     })
   }
 
@@ -118,7 +124,9 @@ export function VendorsTable({
     e.stopPropagation()
     startTransition(async () => {
       const res = await suspendVendor(vendor.id)
-      if (!res.error) patchVendor(vendor.id, { verificationStatus: 'SUSPENDED' })
+      if (res.error) { toast.error(res.error); return }
+      patchVendor(vendor.id, { verificationStatus: 'SUSPENDED' })
+      toast.success('Vendor suspended.')
     })
   }
 

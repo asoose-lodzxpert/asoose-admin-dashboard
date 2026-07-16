@@ -4,9 +4,10 @@ import { useState, useEffect, useTransition, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/app/lib/utils'
 import { ImageUploader } from '@/app/components/ui/image-uploader'
+import { useToast } from '@/app/components/ui/toast'
 import { adminProvisionRider, getBanks, resolveBankAccount } from '@/app/actions/partner-provision'
 import type { AdminProvisionResult } from '@/app/actions/partner-provision'
-import type { VehicleType, VehicleBrand } from '@/app/lib/types'
+import type { VehicleType, VehicleBrand, City } from '@/app/lib/types'
 
 const VEHICLE_COLORS = ['Black', 'White', 'Silver', 'Grey', 'Red', 'Blue', 'Green', 'Yellow', 'Orange', 'Brown', 'Gold', 'Maroon']
 const CURRENT_YEAR = new Date().getFullYear()
@@ -14,21 +15,19 @@ const VEHICLE_YEARS = Array.from({ length: CURRENT_YEAR - 1989 }, (_, i) => CURR
 
 interface AccountForm { firstName: string; lastName: string; email: string; phone: string }
 interface RiderForm {
-  latitude: string; longitude: string
+  cityId: string
   vehicleType: string; vehicleBrand: string; vehicleModel: string
   vehicleYear: string; vehicleColor: string; vehiclePlate: string
   driversLicenseNumber: string; driversLicenseExpiry: string; driversLicenseState: string
-  maxDeliveryDistance: string
   accountNumber: string; accountName: string
 }
 
 const INIT_ACCOUNT: AccountForm = { firstName: '', lastName: '', email: '', phone: '' }
 const INIT_RIDER: RiderForm = {
-  latitude: '', longitude: '',
+  cityId: '',
   vehicleType: '', vehicleBrand: '', vehicleModel: '',
   vehicleYear: '', vehicleColor: '', vehiclePlate: '',
   driversLicenseNumber: '', driversLicenseExpiry: '', driversLicenseState: '',
-  maxDeliveryDistance: '20',
   accountNumber: '', accountName: '',
 }
 
@@ -158,10 +157,12 @@ function BankCombobox({ banks, selectedBank, onSelect, error }: {
 interface Props {
   vehicleTypes: VehicleType[]
   vehicleBrands: VehicleBrand[]
+  cities: City[]
 }
 
-export function RiderCreateClient({ vehicleTypes, vehicleBrands }: Props) {
+export function RiderCreateClient({ vehicleTypes, vehicleBrands, cities }: Props) {
   const router = useRouter()
+  const toast = useToast()
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [account, setAccount] = useState<AccountForm>(INIT_ACCOUNT)
   const [rider, setRider] = useState<RiderForm>(INIT_RIDER)
@@ -212,8 +213,7 @@ export function RiderCreateClient({ vehicleTypes, vehicleBrands }: Props) {
 
   function validateRider(): boolean {
     const errs: Partial<Record<keyof RiderForm | 'bank' | 'driversLicenseFront', string>> = {}
-    if (!rider.latitude || isNaN(Number(rider.latitude))) errs.latitude = 'Valid number required'
-    if (!rider.longitude || isNaN(Number(rider.longitude))) errs.longitude = 'Valid number required'
+    if (!rider.cityId) errs.cityId = 'Required'
     if (!rider.vehicleType.trim()) errs.vehicleType = 'Required'
     if (!rider.driversLicenseNumber.trim()) errs.driversLicenseNumber = 'Required'
     if (!rider.driversLicenseExpiry) errs.driversLicenseExpiry = 'Required'
@@ -240,8 +240,7 @@ export function RiderCreateClient({ vehicleTypes, vehicleBrands }: Props) {
           ...(account.phone.trim() ? { phone: account.phone.trim() } : {}),
         },
         rider: {
-          latitude: Number(rider.latitude),
-          longitude: Number(rider.longitude),
+          cityId: rider.cityId,
           vehicleType: rider.vehicleType.trim(),
           ...(rider.vehicleBrand.trim() ? { vehicleBrand: rider.vehicleBrand.trim() } : {}),
           ...(rider.vehicleModel.trim() ? { vehicleModel: rider.vehicleModel.trim() } : {}),
@@ -258,8 +257,6 @@ export function RiderCreateClient({ vehicleTypes, vehicleBrands }: Props) {
             ...(vehiclePhotoUrls[0] ? { vehiclePhoto: vehiclePhotoUrls[0] } : {}),
             ...(insuranceDocUrls[0] ? { insuranceDocument: insuranceDocUrls[0] } : {}),
           },
-          preferredZones: [],
-          maxDeliveryDistance: Number(rider.maxDeliveryDistance) || 20,
           bankDetails: {
             bankName: selectedBank!.name,
             bankCode: selectedBank!.code,
@@ -268,9 +265,10 @@ export function RiderCreateClient({ vehicleTypes, vehicleBrands }: Props) {
           },
         },
       })
-      if (res.error) { setServerError(res.error); return }
+      if (res.error) { setServerError(res.error); toast.error(res.error); return }
       setResult(res.data!)
       setStep(3)
+      toast.success('Rider provisioned.')
     })
   }
 
@@ -311,11 +309,13 @@ export function RiderCreateClient({ vehicleTypes, vehicleBrands }: Props) {
       {step === 2 && (
         <div className="space-y-6">
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
-            <SectionLabel>Current Location</SectionLabel>
-            <div className="grid grid-cols-2 gap-4">
-              <Input label="Latitude" required type="number" step="any" placeholder="6.5244" value={rider.latitude} onChange={(e) => setR('latitude', e.target.value)} error={riderErrors.latitude} />
-              <Input label="Longitude" required type="number" step="any" placeholder="3.3792" value={rider.longitude} onChange={(e) => setR('longitude', e.target.value)} error={riderErrors.longitude} />
-            </div>
+            <SectionLabel>Location</SectionLabel>
+            <Select label="City" required value={rider.cityId} onChange={(e) => setR('cityId', e.target.value)} error={riderErrors.cityId}>
+              <option value="">Select city</option>
+              {cities.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}{c.state ? `, ${c.state}` : ''}</option>
+              ))}
+            </Select>
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
@@ -345,7 +345,6 @@ export function RiderCreateClient({ vehicleTypes, vehicleBrands }: Props) {
               <ColorField value={rider.vehicleColor} onChange={(v) => setR('vehicleColor', v)} />
               <Input label="Plate number" placeholder="ABC-123-XY" value={rider.vehiclePlate} onChange={(e) => setR('vehiclePlate', e.target.value)} />
             </div>
-            <Input label="Max delivery distance (km)" type="number" value={rider.maxDeliveryDistance} onChange={(e) => setR('maxDeliveryDistance', e.target.value)} />
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">

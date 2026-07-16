@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
 import { DocsGrid } from '@/app/components/ui/doc-card'
+import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
 import { approveRider, suspendRider, getRiderDetail } from '@/app/actions/riders'
 import type { RiderSummary } from '@/app/lib/types'
@@ -11,17 +12,19 @@ import type { RiderSummary } from '@/app/lib/types'
 type RStatus = RiderSummary['status']
 
 const STATUS_STYLES: Record<RStatus, string> = {
-  ONLINE:    'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
-  OFFLINE:   'bg-slate-100 text-slate-600 ring-slate-500/20',
-  BUSY:      'bg-amber-50 text-amber-700 ring-amber-600/20',
-  SUSPENDED: 'bg-red-50 text-red-700 ring-red-600/20',
+  ONLINE:      'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
+  OFFLINE:     'bg-slate-100 text-slate-600 ring-slate-500/20',
+  BUSY:        'bg-amber-50 text-amber-700 ring-amber-600/20',
+  ON_DELIVERY: 'bg-sky-50 text-sky-700 ring-sky-600/20',
+  SUSPENDED:   'bg-red-50 text-red-700 ring-red-600/20',
 }
 
 const STATUS_DOT: Record<RStatus, string> = {
-  ONLINE:    'bg-emerald-500',
-  OFFLINE:   'bg-slate-400',
-  BUSY:      'bg-amber-400',
-  SUSPENDED: 'bg-red-500',
+  ONLINE:      'bg-emerald-500',
+  OFFLINE:     'bg-slate-400',
+  BUSY:        'bg-amber-400',
+  ON_DELIVERY: 'bg-sky-500',
+  SUSPENDED:   'bg-red-500',
 }
 
 interface Props {
@@ -56,6 +59,7 @@ function Stars({ rating }: { rating: number }) {
 }
 
 export function RidersClient({ initialRiders, initialPagination }: Props) {
+  const toast = useToast()
   const [riders, setRiders] = useState(initialRiders)
   const [pagination] = useState(initialPagination)
   const [isPending, startTransition] = useTransition()
@@ -86,7 +90,9 @@ export function RidersClient({ initialRiders, initialPagination }: Props) {
   function handleApprove(rider: RiderSummary) {
     startTransition(async () => {
       const res = await approveRider(rider.id)
-      if (!res.error) updateRider(rider.id, { isVerified: true })
+      if (res.error) { toast.error(res.error); return }
+      updateRider(rider.id, { isVerified: true })
+      toast.success('Rider approved.')
     })
   }
 
@@ -94,9 +100,10 @@ export function RidersClient({ initialRiders, initialPagination }: Props) {
     if (!suspendTarget) return
     startTransition(async () => {
       const res = await suspendRider(suspendTarget.id, reason)
-      if (res.error) { setActionError(res.error); return }
+      if (res.error) { setActionError(res.error); toast.error(res.error); return }
       updateRider(suspendTarget.id, { status: 'SUSPENDED' })
       setSuspendTarget(null); setReason('')
+      toast.success('Rider suspended.')
     })
   }
 
