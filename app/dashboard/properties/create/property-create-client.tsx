@@ -7,6 +7,7 @@ import { cn } from '@/app/lib/utils'
 import { ImageUploader } from '@/app/components/ui/image-uploader'
 import { TagInput } from '@/app/components/ui/tag-input'
 import { Button } from '@/app/components/ui/button'
+import { useToast } from '@/app/components/ui/toast'
 import { createProperty } from '@/app/actions/properties'
 import type { PropertyType, City } from '@/app/lib/types'
 
@@ -56,6 +57,7 @@ const INIT_FORM: Form = {
 
 export function PropertyCreateClient({ propertyTypes, cities }: { propertyTypes: PropertyType[]; cities: City[] }) {
   const router = useRouter()
+  const toast = useToast()
   const [form, setForm] = useState<Form>(INIT_FORM)
   const [images, setImages] = useState<string[]>([])
   const [amenities, setAmenities] = useState<string[]>([])
@@ -97,7 +99,8 @@ export function PropertyCreateClient({ propertyTypes, cities }: { propertyTypes:
 
     startTransition(async () => {
       const res = await createProperty(payload)
-      if (res.error) { setSubmitError(res.error); return }
+      if (res.error) { setSubmitError(res.error); toast.error(res.error); return }
+      toast.success('Property created.')
       router.push(`/dashboard/properties/${res.property!.id}`)
     })
   }

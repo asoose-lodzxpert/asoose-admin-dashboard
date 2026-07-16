@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useTransition, useRef } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/app/lib/utils'
+import { useToast } from '@/app/components/ui/toast'
 import { updateCustomerStatus, updateUserProfile } from '@/app/actions/customers'
 import { adjustUserWallet } from '@/app/actions/user-finance'
 import type { CustomerDetail, UserStatus } from '@/app/lib/types'
@@ -45,24 +46,6 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   )
 }
 
-function Toast({ msg, ok, onDismiss }: { msg: string; ok: boolean; onDismiss: () => void }) {
-  return (
-    <div
-      onClick={onDismiss}
-      className={cn(
-        'fixed bottom-6 right-6 z-50 flex cursor-pointer items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium text-white',
-        ok ? 'bg-emerald-600' : 'bg-red-600'
-      )}
-    >
-      {ok
-        ? <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0"><path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" /></svg>
-        : <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0"><path fillRule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clipRule="evenodd" /></svg>
-      }
-      {msg}
-    </div>
-  )
-}
-
 type ModalAction = { status: UserStatus; label: string; needsReason: boolean; destructive?: boolean }
 
 const REASON_PLACEHOLDER: Record<string, string> = {
@@ -81,20 +64,12 @@ type EditForm = {
 
 export function CustomerDetailClient({ customer: initial }: { customer: CustomerDetail }) {
   const router = useRouter()
+  const toast = useToast()
   const [customer, setCustomer] = useState(initial)
   const [isPending, startTransition] = useTransition()
   const [modal, setModal] = useState<ModalAction | null>(null)
   const [reason, setReason] = useState('')
   const [error, setError] = useState('')
-
-  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  function showToast(msg: string, ok: boolean) {
-    if (toastTimer.current) clearTimeout(toastTimer.current)
-    setToast({ msg, ok })
-    toastTimer.current = setTimeout(() => setToast(null), 3500)
-  }
 
   const [showWalletAdjust, setShowWalletAdjust] = useState(false)
   const [walletDirection, setWalletDirection] = useState<'CREDIT' | 'DEBIT'>('CREDIT')
@@ -119,10 +94,10 @@ export function CustomerDetailClient({ customer: initial }: { customer: Customer
     startWalletTransition(async () => {
       setWalletError('')
       const res = await adjustUserWallet(customer.id, { direction: walletDirection, amount: num, reason: walletReason.trim() })
-      if (res.error) { setWalletError(res.error); return }
+      if (res.error) { setWalletError(res.error); toast.error(res.error); return }
       if (res.data) setWalletBalance(res.data.availableBalance)
       setShowWalletAdjust(false)
-      showToast(`Wallet ${walletDirection === 'CREDIT' ? 'credited' : 'debited'} successfully`, true)
+      toast.success(`Wallet ${walletDirection === 'CREDIT' ? 'credited' : 'debited'} successfully.`)
     })
   }
 
@@ -156,12 +131,12 @@ export function CustomerDetailClient({ customer: initial }: { customer: Customer
       const res = await updateUserProfile(customer.id, payload)
       if (res.error) {
         setEditError(res.error)
-        showToast(res.error, false)
+        toast.error(res.error)
         return
       }
       if (res.data) setCustomer(res.data)
       setShowEdit(false)
-      showToast('Profile updated successfully', true)
+      toast.success('Profile updated successfully.')
     })
   }
 
@@ -206,9 +181,10 @@ export function CustomerDetailClient({ customer: initial }: { customer: Customer
   function executeAction(newStatus: UserStatus, r: string) {
     startTransition(async () => {
       const res = await updateCustomerStatus(customer.id, newStatus, r || undefined)
-      if (res.error) { setError(res.error); return }
+      if (res.error) { setError(res.error); toast.error(res.error); return }
       if (res.data) setCustomer(res.data)
       setModal(null)
+      toast.success('Customer status updated.')
     })
   }
 
@@ -625,7 +601,6 @@ export function CustomerDetailClient({ customer: initial }: { customer: Customer
           </div>
         </div>
       )}
-      {toast && <Toast msg={toast.msg} ok={toast.ok} onDismiss={() => setToast(null)} />}
     </main>
   )
 }

@@ -4,6 +4,7 @@ import { useState, useTransition, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/app/components/ui/button'
 import { Stars } from '@/app/components/ui/detail'
+import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
 import { getRiders, approveRider, suspendRider } from '@/app/actions/riders'
 import type { RiderSummary, Pagination } from '@/app/lib/types'
@@ -34,6 +35,7 @@ export function RidersTable({
   initialPagination: Pagination
 }) {
   const router = useRouter()
+  const toast = useToast()
   const [riders, setRiders] = useState(initialRiders)
   const [pagination, setPagination] = useState(initialPagination)
   const [search, setSearch] = useState('')
@@ -92,7 +94,9 @@ export function RidersTable({
     e.stopPropagation()
     startTransition(async () => {
       const res = await approveRider(rider.id)
-      if (!res.error) patchRider(rider.id, { isVerified: true })
+      if (res.error) { toast.error(res.error); return }
+      patchRider(rider.id, { isVerified: true })
+      toast.success('Rider approved.')
     })
   }
 
@@ -100,7 +104,9 @@ export function RidersTable({
     e.stopPropagation()
     startTransition(async () => {
       const res = await suspendRider(rider.id, 'Suspended by admin')
-      if (!res.error) patchRider(rider.id, { status: 'SUSPENDED' })
+      if (res.error) { toast.error(res.error); return }
+      patchRider(rider.id, { status: 'SUSPENDED' })
+      toast.success('Rider suspended.')
     })
   }
 

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
 import { DetailCard, InfoRow, InfoGrid, formatDate } from '@/app/components/ui/detail'
+import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
 import { formatNaira } from '@/app/lib/utils'
 import { assignDriverToRide, requeueRide, forceCancelRide } from '@/app/actions/rides'
@@ -125,6 +126,7 @@ function RouteMap({ ride }: { ride: RideDetail }) {
 /* ─── Main component ──────────────────────────────────── */
 
 export function RideDetailClient({ ride: initialRide }: { ride: RideDetail }) {
+  const toast = useToast()
   const [ride, setRide] = useState(initialRide)
   const [isPending, startTransition] = useTransition()
 
@@ -167,7 +169,7 @@ export function RideDetailClient({ ride: initialRide }: { ride: RideDetail }) {
     if (!selectedDriverId) { setAssignError('Select a driver.'); return }
     startTransition(async () => {
       const res = await assignDriverToRide(ride.id, selectedDriverId)
-      if (res.error) { setAssignError(res.error); return }
+      if (res.error) { setAssignError(res.error); toast.error(res.error); return }
       const assigned = drivers.find((d) => d.id === selectedDriverId)
       if (assigned) {
         setRide((prev) => ({
@@ -183,15 +185,17 @@ export function RideDetailClient({ ride: initialRide }: { ride: RideDetail }) {
         }))
       }
       setShowAssign(false)
+      toast.success('Driver assigned.')
     })
   }
 
   function handleRequeue() {
     startTransition(async () => {
       const res = await requeueRide(ride.id)
-      if (res.error) { setRequeueError(res.error); return }
+      if (res.error) { setRequeueError(res.error); toast.error(res.error); return }
       setRequeueSuccess(true)
       setRide((prev) => ({ ...prev, status: 'SEARCHING_DRIVER' }))
+      toast.success('Ride requeued.')
     })
   }
 
@@ -199,9 +203,10 @@ export function RideDetailClient({ ride: initialRide }: { ride: RideDetail }) {
     if (!cancelReason.trim()) { setCancelError('A reason is required.'); return }
     startTransition(async () => {
       const res = await forceCancelRide(ride.id, cancelReason.trim())
-      if (res.error) { setCancelError(res.error); return }
+      if (res.error) { setCancelError(res.error); toast.error(res.error); return }
       setRide((prev) => ({ ...prev, status: 'CANCELLED', cancelReason: cancelReason.trim() }))
       setShowCancel(false)
+      toast.success('Ride cancelled.')
     })
   }
 

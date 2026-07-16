@@ -1,37 +1,13 @@
 'use client'
 
 import Image from 'next/image'
-import { useState, useEffect, useTransition, useRef } from 'react'
+import { useState, useTransition, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { cn } from '@/app/lib/utils'
 import { formatNaira } from '@/app/lib/utils'
+import { useToast } from '@/app/components/ui/toast'
 import { getCatalogProducts, toggleCatalogFeatured } from '@/app/actions/catalog'
 import type { CatalogItem, CatalogPagination } from '@/app/lib/types'
-
-/* ─── Toast ──────────────────────────────────────────── */
-
-function Toast({ msg, ok, onDismiss }: { msg: string; ok: boolean; onDismiss: () => void }) {
-  return (
-    <div
-      onClick={onDismiss}
-      className={cn(
-        'fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium shadow-lg cursor-pointer',
-        ok ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'
-      )}
-    >
-      {ok ? (
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0">
-          <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
-        </svg>
-      ) : (
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0">
-          <path fillRule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clipRule="evenodd" />
-        </svg>
-      )}
-      {msg}
-    </div>
-  )
-}
 
 /* ─── Star icon ──────────────────────────────────────── */
 
@@ -189,6 +165,7 @@ export function CatalogProductsTable({
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const toast = useToast()
 
   const [items, setItems] = useState(initialItems)
   const [pagination, setPagination] = useState(initialPagination)
@@ -197,13 +174,6 @@ export function CatalogProductsTable({
   const [featuredOnly, setFeaturedOnly] = useState(initialParams.isFeatured === 'true')
   const [isPending, startTransition] = useTransition()
   const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
-  useEffect(() => {
-    if (!toast) return
-    const t = setTimeout(() => setToast(null), 3000)
-    return () => clearTimeout(t)
-  }, [toast])
 
   /* ── URL sync ── */
 
@@ -284,13 +254,10 @@ export function CatalogProductsTable({
       const res = await toggleCatalogFeatured(item.id)
       if (res.error) {
         patchItem(item.id, { isFeatured: item.isFeatured })
-        setToast({ msg: res.error, ok: false })
+        toast.error(res.error)
       } else {
         patchItem(item.id, { isFeatured: res.data!.isFeatured })
-        setToast({
-          msg: res.data!.isFeatured ? 'Marked as featured' : 'Removed from featured',
-          ok: true,
-        })
+        toast.success(res.data!.isFeatured ? 'Marked as featured.' : 'Removed from featured.')
       }
     })
   }
@@ -414,9 +381,6 @@ export function CatalogProductsTable({
           </div>
         </div>
       )}
-
-      {/* Toast */}
-      {toast && <Toast msg={toast.msg} ok={toast.ok} onDismiss={() => setToast(null)} />}
     </main>
   )
 }

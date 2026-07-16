@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { Button } from '@/app/components/ui/button'
 import { DetailCard, InfoRow, InfoGrid } from '@/app/components/ui/detail'
+import { useToast } from '@/app/components/ui/toast'
 import { cn, formatNaira } from '@/app/lib/utils'
 import { checkInBooking, checkOutBooking } from '@/app/actions/bookings'
 import type { BookingDetail, BookingStatus } from '@/app/lib/types'
@@ -39,6 +40,7 @@ function formatDateOnly(d: string) {
 }
 
 export function BookingDetailClient({ booking: initial }: { booking: BookingDetail }) {
+  const toast = useToast()
   const [booking, setBooking] = useState(initial)
   const [isPending, startTransition] = useTransition()
   const [actionError, setActionError] = useState('')
@@ -47,8 +49,9 @@ export function BookingDetailClient({ booking: initial }: { booking: BookingDeta
     startTransition(async () => {
       setActionError('')
       const res = await checkInBooking(booking.id)
-      if (res.error) { setActionError(res.error); return }
+      if (res.error) { setActionError(res.error); toast.error(res.error); return }
       if (res.data) setBooking((b) => ({ ...b, status: res.data!.status, checkedInAt: res.data!.checkedInAt ?? b.checkedInAt }))
+      toast.success('Guest checked in.')
     })
   }
 
@@ -56,8 +59,9 @@ export function BookingDetailClient({ booking: initial }: { booking: BookingDeta
     startTransition(async () => {
       setActionError('')
       const res = await checkOutBooking(booking.id)
-      if (res.error) { setActionError(res.error); return }
+      if (res.error) { setActionError(res.error); toast.error(res.error); return }
       if (res.data) setBooking((b) => ({ ...b, status: res.data!.status, checkedOutAt: res.data!.checkedOutAt ?? b.checkedOutAt }))
+      toast.success('Guest checked out.')
     })
   }
 

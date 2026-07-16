@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
 import { DetailCard, InfoRow, InfoGrid, formatDate } from '@/app/components/ui/detail'
+import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
 import { updateOrderStatus, assignRiderToOrder } from '@/app/actions/orders'
 import { getRiders } from '@/app/actions/riders'
@@ -122,6 +123,7 @@ function sortByActive<T extends { status: string }>(list: T[]): T[] {
 /* ─── Component ────────────────────────────────────────── */
 
 export function OrderDetailClient({ order: initial }: { order: OrderDetail }) {
+  const toast = useToast()
   const [order, setOrder] = useState(initial)
   const [isPending, startTransition] = useTransition()
 
@@ -166,9 +168,10 @@ export function OrderDetailClient({ order: initial }: { order: OrderDetail }) {
     }
     startTransition(async () => {
       const res = await updateOrderStatus(order.id, selectedStatus, reason.trim() || undefined)
-      if (res.error) { setError(res.error); return }
+      if (res.error) { setError(res.error); toast.error(res.error); return }
       if (res.data) setOrder(res.data)
       setShowStatusModal(false)
+      toast.success('Order status updated.')
     })
   }
 
@@ -195,8 +198,9 @@ export function OrderDetailClient({ order: initial }: { order: OrderDetail }) {
     if (!selectedRiderId) { setRiderError('Please select a rider.'); return }
     startTransition(async () => {
       const res = await assignRiderToOrder(order.delivery!.id, selectedRiderId)
-      if (res.error) { setRiderError(res.error); return }
+      if (res.error) { setRiderError(res.error); toast.error(res.error); return }
       setShowRiderModal(false)
+      toast.success('Rider assigned.')
       const assignedRider = riders.find((r) => r.id === selectedRiderId)
       setOrder((prev) => ({
         ...prev,

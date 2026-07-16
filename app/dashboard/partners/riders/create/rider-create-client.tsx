@@ -4,6 +4,7 @@ import { useState, useEffect, useTransition, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/app/lib/utils'
 import { ImageUploader } from '@/app/components/ui/image-uploader'
+import { useToast } from '@/app/components/ui/toast'
 import { adminProvisionRider, getBanks, resolveBankAccount } from '@/app/actions/partner-provision'
 import type { AdminProvisionResult } from '@/app/actions/partner-provision'
 import type { VehicleType, VehicleBrand, City } from '@/app/lib/types'
@@ -161,6 +162,7 @@ interface Props {
 
 export function RiderCreateClient({ vehicleTypes, vehicleBrands, cities }: Props) {
   const router = useRouter()
+  const toast = useToast()
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [account, setAccount] = useState<AccountForm>(INIT_ACCOUNT)
   const [rider, setRider] = useState<RiderForm>(INIT_RIDER)
@@ -263,9 +265,10 @@ export function RiderCreateClient({ vehicleTypes, vehicleBrands, cities }: Props
           },
         },
       })
-      if (res.error) { setServerError(res.error); return }
+      if (res.error) { setServerError(res.error); toast.error(res.error); return }
       setResult(res.data!)
       setStep(3)
+      toast.success('Rider provisioned.')
     })
   }
 

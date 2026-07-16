@@ -950,3 +950,42 @@ export interface BookingSummary {
 }
 
 export type BookingDetail = BookingSummary
+
+/* ─── Reviews ─────────────────────────────────────────── */
+
+export type ReviewSubjectType = 'VENDOR' | 'DRIVER' | 'RIDER' | 'PRODUCT' | 'ORDER' | 'PROPERTY'
+export type ReviewStatus = 'PUBLISHED' | 'PENDING' | 'HIDDEN' | 'REMOVED'
+
+export interface ReviewUser {
+  id: string
+  firstName: string
+  lastName: string
+}
+
+export interface ReviewSubject {
+  id: string
+  name: string
+  image: string | null
+  status?: string
+  rating: number
+  isVerified?: boolean
+}
+
+export interface Review {
+  id: string
+  orderId: string | null
+  userId: string
+  subjectId: string
+  subjectType: ReviewSubjectType
+  rating: number
+  comment: string | null
+  tags: string[]
+  status: ReviewStatus
+  responseText: string | null
+  respondedAt: string | null
+  reportedCount: number
+  helpfulCount: number
+  createdAt: string
+  user: ReviewUser
+  subject: ReviewSubject
+}

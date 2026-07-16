@@ -6,6 +6,7 @@ import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
 import { DetailCard, InfoRow, InfoGrid, Stars, formatDate } from '@/app/components/ui/detail'
 import { DocumentsSection, type DocumentField } from '@/app/components/ui/documents-section'
+import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
 import { approveRider, suspendRider, updateRiderProfile, updateRiderDocuments, updateRiderAvailability, adjustRiderWallet, adjustRiderCommission, type RiderAvailability } from '@/app/actions/riders'
 import { UserFinanceSection } from '@/app/components/user-finance-section'
@@ -91,6 +92,7 @@ interface Props {
 }
 
 export function RiderDetailClient({ rider: initial, displayName, displayEmail, displayPhone, vehicleTypes, vehicleBrands, cities }: Props) {
+  const toast = useToast()
   const [rider, setRider] = useState(initial)
   const [isPending, startTransition] = useTransition()
   const [showSuspend, setShowSuspend] = useState(false)
@@ -135,9 +137,10 @@ export function RiderDetailClient({ rider: initial, displayName, displayEmail, d
         driversLicenseState: editForm.driversLicenseState || undefined,
         isVerified: editForm.isVerified,
       })
-      if (res.error) { setEditError(res.error); return }
+      if (res.error) { setEditError(res.error); toast.error(res.error); return }
       if (res.rider) patch(res.rider)
       setShowEdit(false)
+      toast.success('Rider profile updated.')
     })
   }
 
@@ -146,7 +149,9 @@ export function RiderDetailClient({ rider: initial, displayName, displayEmail, d
   function handleApprove() {
     startTransition(async () => {
       const res = await approveRider(rider.id)
-      if (!res.error) patch({ isVerified: true })
+      if (res.error) { toast.error(res.error); return }
+      patch({ isVerified: true })
+      toast.success('Rider approved.')
     })
   }
 
@@ -156,17 +161,19 @@ export function RiderDetailClient({ rider: initial, displayName, displayEmail, d
     startTransition(async () => {
       const res = await updateRiderAvailability(rider.id, status)
       setAvailabilityPending(false)
-      if (res.error) { setAvailabilityError(res.error); return }
+      if (res.error) { setAvailabilityError(res.error); toast.error(res.error); return }
       patch({ status })
+      toast.success('Availability updated.')
     })
   }
 
   function handleSuspend() {
     startTransition(async () => {
       const res = await suspendRider(rider.id, reason)
-      if (res.error) { setActionError(res.error); return }
+      if (res.error) { setActionError(res.error); toast.error(res.error); return }
       patch({ status: 'SUSPENDED', isVerified: false })
       setShowSuspend(false); setReason('')
+      toast.success('Rider suspended.')
     })
   }
 

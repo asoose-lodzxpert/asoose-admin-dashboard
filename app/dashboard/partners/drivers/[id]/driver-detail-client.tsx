@@ -6,6 +6,7 @@ import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
 import { DetailCard, InfoRow, InfoGrid, Stars, formatDate } from '@/app/components/ui/detail'
 import { DocumentsSection, type DocumentField } from '@/app/components/ui/documents-section'
+import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
 import { approveDriver, suspendDriver, reactivateDriver, updateDriverProfile, updateDriverDocuments, updateDriverAvailability, adjustDriverWallet, adjustDriverCommission, type DriverAvailability } from '@/app/actions/drivers'
 import { UserFinanceSection } from '@/app/components/user-finance-section'
@@ -55,6 +56,7 @@ interface Props {
 }
 
 export function DriverDetailClient({ driver: initial, displayName, displayEmail, displayPhone, vehicleTypes, vehicleBrands }: Props) {
+  const toast = useToast()
   const [driver, setDriver] = useState(initial)
   const [isPending, startTransition] = useTransition()
   const [showSuspend, setShowSuspend] = useState(false)
@@ -105,9 +107,10 @@ export function DriverDetailClient({ driver: initial, displayName, displayEmail,
         maxDeliveryDistance: editForm.maxDeliveryDistance !== '' ? Number(editForm.maxDeliveryDistance) : undefined,
         isVerified: editForm.isVerified,
       })
-      if (res.error) { setEditError(res.error); return }
+      if (res.error) { setEditError(res.error); toast.error(res.error); return }
       if (res.driver) patch(res.driver)
       setShowEdit(false)
+      toast.success('Driver profile updated.')
     })
   }
 
@@ -116,14 +119,18 @@ export function DriverDetailClient({ driver: initial, displayName, displayEmail,
   function handleApprove() {
     startTransition(async () => {
       const res = await approveDriver(driver.id)
-      if (!res.error) patch({ isVerified: true })
+      if (res.error) { toast.error(res.error); return }
+      patch({ isVerified: true })
+      toast.success('Driver approved.')
     })
   }
 
   function handleReactivate() {
     startTransition(async () => {
       const res = await reactivateDriver(driver.id)
-      if (!res.error) patch({ isVerified: true })
+      if (res.error) { toast.error(res.error); return }
+      patch({ isVerified: true })
+      toast.success('Driver reactivated.')
     })
   }
 
@@ -133,17 +140,19 @@ export function DriverDetailClient({ driver: initial, displayName, displayEmail,
     startTransition(async () => {
       const res = await updateDriverAvailability(driver.id, status)
       setAvailabilityPending(false)
-      if (res.error) { setAvailabilityError(res.error); return }
+      if (res.error) { setAvailabilityError(res.error); toast.error(res.error); return }
       patch({ status })
+      toast.success('Availability updated.')
     })
   }
 
   function handleSuspend() {
     startTransition(async () => {
       const res = await suspendDriver(driver.id, reason)
-      if (res.error) { setActionError(res.error); return }
+      if (res.error) { setActionError(res.error); toast.error(res.error); return }
       patch({ isVerified: false })
       setShowSuspend(false); setReason('')
+      toast.success('Driver suspended.')
     })
   }
 

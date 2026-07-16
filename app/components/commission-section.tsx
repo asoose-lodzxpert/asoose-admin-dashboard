@@ -5,6 +5,7 @@ import { cn } from '@/app/lib/utils'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
 import { DetailCard } from '@/app/components/ui/detail'
+import { useToast } from '@/app/components/ui/toast'
 
 const INPUT_CLS =
   'w-full rounded-xl border-0 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow'
@@ -20,6 +21,7 @@ export function CommissionSection({
   commissionPercent: number | null
   onAdjust: CommissionAdjustAction
 }) {
+  const toast = useToast()
   const [current, setCurrent] = useState(commissionPercent)
   const [showEdit, setShowEdit] = useState(false)
   const [value, setValue] = useState(current != null ? String(current) : '')
@@ -45,9 +47,10 @@ export function CommissionSection({
     startTransition(async () => {
       setError('')
       const res = await onAdjust({ commissionPercent: commissionPercentValue })
-      if (res.error) { setError(res.error); return }
+      if (res.error) { setError(res.error); toast.error(res.error); return }
       setCurrent(res.commissionPercent ?? null)
       setShowEdit(false)
+      toast.success('Commission updated.')
     })
   }
 

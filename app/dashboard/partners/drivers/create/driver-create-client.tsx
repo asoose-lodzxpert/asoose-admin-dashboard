@@ -4,6 +4,7 @@ import { useState, useEffect, useTransition, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/app/lib/utils'
 import { ImageUploader } from '@/app/components/ui/image-uploader'
+import { useToast } from '@/app/components/ui/toast'
 import { adminProvisionDriver, getBanks, resolveBankAccount } from '@/app/actions/partner-provision'
 import type { AdminProvisionResult } from '@/app/actions/partner-provision'
 import type { VehicleType, VehicleBrand, City } from '@/app/lib/types'
@@ -163,6 +164,7 @@ interface Props {
 
 export function DriverCreateClient({ vehicleTypes, vehicleBrands, cities }: Props) {
   const router = useRouter()
+  const toast = useToast()
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [account, setAccount] = useState<AccountForm>(INIT_ACCOUNT)
   const [driver, setDriver] = useState<DriverForm>(INIT_DRIVER)
@@ -279,8 +281,9 @@ export function DriverCreateClient({ vehicleTypes, vehicleBrands, cities }: Prop
           },
         },
       })
-      if (res.error) { setServerError(res.error); return }
+      if (res.error) { setServerError(res.error); toast.error(res.error); return }
       setResult(res.data!)
+      toast.success('Driver provisioned.')
       setStep(3)
     })
   }

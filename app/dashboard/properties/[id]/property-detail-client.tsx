@@ -8,6 +8,7 @@ import { Button } from '@/app/components/ui/button'
 import { DetailCard, InfoRow, InfoGrid, Stars, formatDate } from '@/app/components/ui/detail'
 import { ImageUploader } from '@/app/components/ui/image-uploader'
 import { TagInput } from '@/app/components/ui/tag-input'
+import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
 import { updateProperty, publishProperty, suspendProperty } from '@/app/actions/properties'
 import { PropertyRoomTypesSection } from './property-room-types'
@@ -34,6 +35,7 @@ interface Props {
 }
 
 export function PropertyDetailClient({ property: initial, propertyTypes, cities }: Props) {
+  const toast = useToast()
   const [property, setProperty] = useState(initial)
   const [isPending, startTransition] = useTransition()
   const [showEdit, setShowEdit] = useState(false)
@@ -95,9 +97,10 @@ export function PropertyDetailClient({ property: initial, propertyTypes, cities 
         checkInTime: editForm.checkInTime || undefined,
         checkOutTime: editForm.checkOutTime || undefined,
       })
-      if (res.error) { setEditError(res.error); return }
+      if (res.error) { setEditError(res.error); toast.error(res.error); return }
       if (res.property) patch(res.property)
       setShowEdit(false)
+      toast.success('Property updated.')
     })
   }
 
@@ -105,8 +108,9 @@ export function PropertyDetailClient({ property: initial, propertyTypes, cities 
     startTransition(async () => {
       setActionError('')
       const res = await publishProperty(property.id)
-      if (res.error) { setActionError(res.error); return }
+      if (res.error) { setActionError(res.error); toast.error(res.error); return }
       if (res.property) patch(res.property)
+      toast.success('Property published.')
     })
   }
 
@@ -114,8 +118,9 @@ export function PropertyDetailClient({ property: initial, propertyTypes, cities 
     startTransition(async () => {
       setActionError('')
       const res = await suspendProperty(property.id)
-      if (res.error) { setActionError(res.error); return }
+      if (res.error) { setActionError(res.error); toast.error(res.error); return }
       if (res.property) patch(res.property)
+      toast.success('Property suspended.')
     })
   }
 

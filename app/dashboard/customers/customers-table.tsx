@@ -3,6 +3,7 @@
 import { useState, useTransition, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { cn } from '@/app/lib/utils'
+import { useToast } from '@/app/components/ui/toast'
 import { getCustomers, updateCustomerStatus } from '@/app/actions/customers'
 import type { CustomerSummary, UserStatus, Pagination } from '@/app/lib/types'
 
@@ -37,20 +38,6 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(months / 12)}y ago`
 }
 
-function Toast({ msg, ok, onDismiss }: { msg: string; ok: boolean; onDismiss: () => void }) {
-  return (
-    <div
-      onClick={onDismiss}
-      className={cn(
-        'fixed bottom-6 right-6 z-50 flex cursor-pointer items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium text-white shadow-lg',
-        ok ? 'bg-emerald-600' : 'bg-red-600'
-      )}
-    >
-      {ok ? '✓' : '✗'} {msg}
-    </div>
-  )
-}
-
 interface InitialParams {
   search?: string
   status?: string
@@ -68,6 +55,7 @@ export function CustomersTable({
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const toast = useToast()
   const [customers, setCustomers] = useState(initialCustomers)
   const [pagination, setPagination] = useState(initialPagination)
   const [search, setSearch] = useState(initialParams.search ?? '')
@@ -79,15 +67,6 @@ export function CustomersTable({
   const [restoring, setRestoring] = useState<CustomerSummary | null>(null)
   const [restoreReason, setRestoreReason] = useState('')
   const [restoreError, setRestoreError] = useState('')
-
-  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
-  const toastRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  function showToast(msg: string, ok: boolean) {
-    if (toastRef.current) clearTimeout(toastRef.current)
-    setToast({ msg, ok })
-    toastRef.current = setTimeout(() => setToast(null), 3000)
-  }
 
   const isDeletedView = statusFilter === 'DEACTIVATED'
 
@@ -147,10 +126,10 @@ export function CustomersTable({
     const name = `${restoring.firstName} ${restoring.lastName}`
     startRestore(async () => {
       const res = await updateCustomerStatus(restoring.id, 'ACTIVE', restoreReason || undefined)
-      if (res.error) { setRestoreError(res.error); return }
+      if (res.error) { setRestoreError(res.error); toast.error(res.error); return }
       setCustomers(prev => prev.filter(c => c.id !== restoring.id))
       setRestoring(null)
-      showToast(`${name}'s account has been restored`, true)
+      toast.success(`${name}'s account has been restored.`)
     })
   }
 
@@ -414,8 +393,6 @@ export function CustomersTable({
           </div>
         </div>
       )}
-
-      {toast && <Toast msg={toast.msg} ok={toast.ok} onDismiss={() => setToast(null)} />}
     </main>
   )
 }

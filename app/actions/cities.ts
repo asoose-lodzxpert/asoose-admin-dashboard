@@ -46,6 +46,25 @@ export async function createCity(payload: {
   }
 }
 
+export async function updateCityBoundary(cityId: string, coordinates: number[][]): Promise<ActionResult<City>> {
+  try {
+    const data = await apiFetch<City>(`/api/v1/locations/${cityId}/boundary`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        type: 'FeatureCollection',
+        features: [
+          { type: 'Feature', geometry: { type: 'LineString', coordinates } },
+        ],
+      }),
+      token: await token(),
+    })
+    revalidatePath('/dashboard/cities')
+    return { data }
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'Failed to update city boundary.' }
+  }
+}
+
 export async function setCityActive(id: string, isActive: boolean): Promise<ActionResult<City>> {
   try {
     const data = await apiFetch<City>(`/api/v1/locations/${id}/status`, {

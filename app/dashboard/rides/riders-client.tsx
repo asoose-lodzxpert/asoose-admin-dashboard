@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
 import { DocsGrid } from '@/app/components/ui/doc-card'
+import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
 import { approveRider, suspendRider, getRiderDetail } from '@/app/actions/riders'
 import type { RiderSummary } from '@/app/lib/types'
@@ -58,6 +59,7 @@ function Stars({ rating }: { rating: number }) {
 }
 
 export function RidersClient({ initialRiders, initialPagination }: Props) {
+  const toast = useToast()
   const [riders, setRiders] = useState(initialRiders)
   const [pagination] = useState(initialPagination)
   const [isPending, startTransition] = useTransition()
@@ -88,7 +90,9 @@ export function RidersClient({ initialRiders, initialPagination }: Props) {
   function handleApprove(rider: RiderSummary) {
     startTransition(async () => {
       const res = await approveRider(rider.id)
-      if (!res.error) updateRider(rider.id, { isVerified: true })
+      if (res.error) { toast.error(res.error); return }
+      updateRider(rider.id, { isVerified: true })
+      toast.success('Rider approved.')
     })
   }
 
@@ -96,9 +100,10 @@ export function RidersClient({ initialRiders, initialPagination }: Props) {
     if (!suspendTarget) return
     startTransition(async () => {
       const res = await suspendRider(suspendTarget.id, reason)
-      if (res.error) { setActionError(res.error); return }
+      if (res.error) { setActionError(res.error); toast.error(res.error); return }
       updateRider(suspendTarget.id, { status: 'SUSPENDED' })
       setSuspendTarget(null); setReason('')
+      toast.success('Rider suspended.')
     })
   }
 

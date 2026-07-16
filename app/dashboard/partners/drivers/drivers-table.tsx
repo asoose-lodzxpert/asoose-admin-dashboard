@@ -4,6 +4,7 @@ import { useState, useTransition, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/app/components/ui/button'
 import { Stars } from '@/app/components/ui/detail'
+import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
 import { getDrivers, approveDriver, suspendDriver } from '@/app/actions/drivers'
 import type { DriverSummary, Pagination } from '@/app/lib/types'
@@ -32,6 +33,7 @@ export function DriversTable({
   initialPagination: Pagination
 }) {
   const router = useRouter()
+  const toast = useToast()
   const [drivers, setDrivers] = useState(initialDrivers)
   const [pagination, setPagination] = useState(initialPagination)
   const [search, setSearch] = useState('')
@@ -90,7 +92,9 @@ export function DriversTable({
     e.stopPropagation()
     startTransition(async () => {
       const res = await approveDriver(driver.id)
-      if (!res.error) patchDriver(driver.id, { isVerified: true })
+      if (res.error) { toast.error(res.error); return }
+      patchDriver(driver.id, { isVerified: true })
+      toast.success('Driver approved.')
     })
   }
 
@@ -98,7 +102,9 @@ export function DriversTable({
     e.stopPropagation()
     startTransition(async () => {
       const res = await suspendDriver(driver.id, 'Suspended by admin')
-      if (!res.error) patchDriver(driver.id, { isVerified: false })
+      if (res.error) { toast.error(res.error); return }
+      patchDriver(driver.id, { isVerified: false })
+      toast.success('Driver suspended.')
     })
   }
 

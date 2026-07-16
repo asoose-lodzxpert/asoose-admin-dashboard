@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
+import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
 import { formatNaira } from '@/app/lib/utils'
 import type { City, PopularRoute, CityPricing, ParcelPricing } from '@/app/lib/types'
@@ -105,6 +106,7 @@ const EMPTY_PARCEL_PRICING_FORM: ParcelPricingForm = {
 /* ─── Component ───────────────────────────────────────── */
 
 export function LocationsClient({ initialCities }: { initialCities: City[] }) {
+  const toast = useToast()
   const [selectedCity, setSelectedCity] = useState<City | null>(null)
   const [activeTab, setActiveTab] = useState<Tab>('routes')
 
@@ -235,9 +237,10 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
         name: routeForm.name.trim(), latitude: lat, longitude: lng,
         maxRadiusKm: radius, maxDistanceKm: distance, fixedPrice: price,
       })
-      if (res.error) { setCreateError(res.error); return }
+      if (res.error) { setCreateError(res.error); toast.error(res.error); return }
       setRoutes((prev) => [...prev, res.data as PopularRoute])
       setShowCreate(false)
+      toast.success('Route added.')
     })
   }
 
@@ -245,9 +248,10 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
     if (!deleteTarget || !selectedCity) return
     startTransition(async () => {
       const res = await deletePopularRoute(selectedCity.id, deleteTarget.id)
-      if (res.error) { setDeleteError(res.error); return }
+      if (res.error) { setDeleteError(res.error); toast.error(res.error); return }
       setRoutes((prev) => prev.filter((r) => r.id !== deleteTarget.id))
       setDeleteTarget(null)
+      toast.success('Route deleted.')
     })
   }
 
@@ -299,9 +303,10 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
         vatPercent: vatPercent as number,
         commissionPercent: commissionPercent as number,
       })
-      if (res.error) { setPricingError(res.error); return }
+      if (res.error) { setPricingError(res.error); toast.error(res.error); return }
       setPricing(res.data as CityPricing)
       setPricingSuccess(true)
+      toast.success('Ride pricing saved.')
     })
   }
 
@@ -340,9 +345,10 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
         largeMultiplier: largeMultiplier as number,
         commissionPercent: commissionPercent as number,
       })
-      if (res.error) { setParcelPricingError(res.error); return }
+      if (res.error) { setParcelPricingError(res.error); toast.error(res.error); return }
       setParcelPricing(res.data as ParcelPricing)
       setParcelPricingSuccess(true)
+      toast.success('Parcel pricing saved.')
     })
   }
 
