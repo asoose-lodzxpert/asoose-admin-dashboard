@@ -7,7 +7,7 @@ import { Button } from '@/app/components/ui/button'
 import { DetailCard, InfoRow, InfoGrid, Stars, formatDate } from '@/app/components/ui/detail'
 import { DocumentsSection, type DocumentField } from '@/app/components/ui/documents-section'
 import { cn } from '@/app/lib/utils'
-import { approveDriver, suspendDriver, reactivateDriver, updateDriverProfile, updateDriverDocuments, adjustDriverWallet, adjustDriverCommission } from '@/app/actions/drivers'
+import { approveDriver, suspendDriver, reactivateDriver, updateDriverProfile, updateDriverDocuments, updateDriverAvailability, adjustDriverWallet, adjustDriverCommission, type DriverAvailability } from '@/app/actions/drivers'
 import { UserFinanceSection } from '@/app/components/user-finance-section'
 import { CommissionSection } from '@/app/components/commission-section'
 import type { DriverDetail, VehicleType, VehicleBrand } from '@/app/lib/types'
@@ -16,16 +16,25 @@ import { NIGERIAN_STATES } from '@/app/lib/nigeria'
 type DStatus = DriverDetail['status']
 
 const STATUS_STYLES: Record<DStatus, string> = {
-  ONLINE:  'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
-  OFFLINE: 'bg-slate-100 text-slate-600 ring-slate-500/20',
-  BUSY:    'bg-amber-50 text-amber-700 ring-amber-600/20',
+  ONLINE:      'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
+  OFFLINE:     'bg-slate-100 text-slate-600 ring-slate-500/20',
+  BUSY:        'bg-amber-50 text-amber-700 ring-amber-600/20',
+  ON_DELIVERY: 'bg-sky-50 text-sky-700 ring-sky-600/20',
 }
 
 const STATUS_DOT: Record<DStatus, string> = {
-  ONLINE:  'bg-emerald-500',
-  OFFLINE: 'bg-slate-400',
-  BUSY:    'bg-amber-400',
+  ONLINE:      'bg-emerald-500',
+  OFFLINE:     'bg-slate-400',
+  BUSY:        'bg-amber-400',
+  ON_DELIVERY: 'bg-sky-500',
 }
+
+const AVAILABILITY_OPTIONS: { value: DriverAvailability; label: string }[] = [
+  { value: 'ONLINE', label: 'Online' },
+  { value: 'OFFLINE', label: 'Offline' },
+  { value: 'BUSY', label: 'Busy' },
+  { value: 'ON_DELIVERY', label: 'On Delivery' },
+]
 
 const DRIVER_DOCUMENT_FIELDS: DocumentField[] = [
   { key: 'profilePhoto',        label: 'Profile Photo',            clearable: true  },
@@ -67,10 +76,11 @@ export function DriverDetailClient({ driver: initial, displayName, displayEmail,
     insurancePolicyNumber: driver.insurancePolicyNumber ?? '',
     insuranceExpiry: driver.insuranceExpiry ? driver.insuranceExpiry.slice(0, 10) : '',
     maxDeliveryDistance: driver.maxDeliveryDistance ?? '',
-    status: driver.status,
     isVerified: driver.isVerified,
   })
   const [editError, setEditError] = useState('')
+  const [availabilityPending, setAvailabilityPending] = useState(false)
+  const [availabilityError, setAvailabilityError] = useState('')
 
   function ef<K extends keyof typeof editForm>(k: K, v: (typeof editForm)[K]) {
     setEditForm((f) => ({ ...f, [k]: v }))
@@ -93,7 +103,6 @@ export function DriverDetailClient({ driver: initial, displayName, displayEmail,
         insurancePolicyNumber: editForm.insurancePolicyNumber || undefined,
         insuranceExpiry: editForm.insuranceExpiry ? new Date(editForm.insuranceExpiry).toISOString() : undefined,
         maxDeliveryDistance: editForm.maxDeliveryDistance !== '' ? Number(editForm.maxDeliveryDistance) : undefined,
-        status: editForm.status,
         isVerified: editForm.isVerified,
       })
       if (res.error) { setEditError(res.error); return }
@@ -115,6 +124,17 @@ export function DriverDetailClient({ driver: initial, displayName, displayEmail,
     startTransition(async () => {
       const res = await reactivateDriver(driver.id)
       if (!res.error) patch({ isVerified: true })
+    })
+  }
+
+  function handleAvailabilityChange(status: DriverAvailability) {
+    setAvailabilityError('')
+    setAvailabilityPending(true)
+    startTransition(async () => {
+      const res = await updateDriverAvailability(driver.id, status)
+      setAvailabilityPending(false)
+      if (res.error) { setAvailabilityError(res.error); return }
+      patch({ status })
     })
   }
 
@@ -148,10 +168,26 @@ export function DriverDetailClient({ driver: initial, displayName, displayEmail,
             <div className="min-w-0">
               <div className="flex items-center gap-2.5 flex-wrap">
                 <h1 className="text-xl font-bold text-slate-900 truncate">{displayName}</h1>
-                <span className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset', STATUS_STYLES[driver.status])}>
-                  <span className={cn('h-1.5 w-1.5 rounded-full', STATUS_DOT[driver.status])} />
-                  {driver.status}
-                </span>
+                {isSuspended ? (
+                  <span className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset', STATUS_STYLES[driver.status])}>
+                    <span className={cn('h-1.5 w-1.5 rounded-full', STATUS_DOT[driver.status])} />
+                    {driver.status}
+                  </span>
+                ) : (
+                  <span className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full pl-2.5 pr-1.5 py-1 text-xs font-medium ring-1 ring-inset', STATUS_STYLES[driver.status])}>
+                    <span className={cn('h-1.5 w-1.5 rounded-full', STATUS_DOT[driver.status])} />
+                    <select
+                      value={driver.status}
+                      disabled={availabilityPending}
+                      onChange={(e) => handleAvailabilityChange(e.target.value as DriverAvailability)}
+                      className="cursor-pointer border-0 bg-transparent py-0 pl-0 pr-4 text-xs font-medium focus:outline-none focus:ring-0 disabled:opacity-60"
+                    >
+                      {AVAILABILITY_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  </span>
+                )}
                 {driver.isVerified && (
                   <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20">Verified</span>
                 )}
@@ -160,6 +196,7 @@ export function DriverDetailClient({ driver: initial, displayName, displayEmail,
                 )}
               </div>
               <p className="text-sm text-slate-500">{[driver.userEmail ?? displayEmail, driver.userPhone ?? displayPhone].filter(Boolean).join(' · ')}</p>
+              {availabilityError && <p className="mt-1 text-xs text-red-500">{availabilityError}</p>}
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -361,15 +398,6 @@ export function DriverDetailClient({ driver: initial, displayName, displayEmail,
             <label className="mb-1.5 block text-[13px] font-medium text-slate-700">Max Delivery Distance (km)</label>
             <input type="number" min={1} value={editForm.maxDeliveryDistance} onChange={(e) => ef('maxDeliveryDistance', e.target.value)}
               className="w-full rounded-xl border-0 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none" />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-[13px] font-medium text-slate-700">Status</label>
-            <select value={editForm.status} onChange={(e) => ef('status', e.target.value as typeof editForm.status)}
-              className="w-full rounded-xl border-0 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none">
-              <option value="ONLINE">Online</option>
-              <option value="OFFLINE">Offline</option>
-              <option value="BUSY">Busy</option>
-            </select>
           </div>
           <div className="flex items-center gap-3 pt-6">
             <button type="button" role="switch" aria-checked={editForm.isVerified}

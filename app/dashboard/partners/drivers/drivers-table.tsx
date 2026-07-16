@@ -11,15 +11,17 @@ import type { DriverSummary, Pagination } from '@/app/lib/types'
 type DStatus = DriverSummary['status']
 
 const STATUS_STYLES: Record<DStatus, string> = {
-  ONLINE:  'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
-  OFFLINE: 'bg-slate-100 text-slate-600 ring-slate-500/20',
-  BUSY:    'bg-amber-50 text-amber-700 ring-amber-600/20',
+  ONLINE:      'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
+  OFFLINE:     'bg-slate-100 text-slate-600 ring-slate-500/20',
+  BUSY:        'bg-amber-50 text-amber-700 ring-amber-600/20',
+  ON_DELIVERY: 'bg-sky-50 text-sky-700 ring-sky-600/20',
 }
 
 const STATUS_DOT: Record<DStatus, string> = {
-  ONLINE:  'bg-emerald-500',
-  OFFLINE: 'bg-slate-400',
-  BUSY:    'bg-amber-400',
+  ONLINE:      'bg-emerald-500',
+  OFFLINE:     'bg-slate-400',
+  BUSY:        'bg-amber-400',
+  ON_DELIVERY: 'bg-sky-500',
 }
 
 export function DriversTable({
@@ -150,6 +152,7 @@ export function DriversTable({
           <option value="ONLINE">Online</option>
           <option value="OFFLINE">Offline</option>
           <option value="BUSY">Busy</option>
+          <option value="ON_DELIVERY">On Delivery</option>
         </select>
         {/* Verified */}
         <select value={isVerified} onChange={onIsVerified} disabled={isPending}

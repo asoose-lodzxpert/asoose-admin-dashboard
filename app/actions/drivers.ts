@@ -19,9 +19,10 @@ type DriverUpdateData = Partial<{
   insurancePolicyNumber: string
   insuranceExpiry: string
   maxDeliveryDistance: number
-  status: DriverDetail['status']
   isVerified: boolean
 }>
+
+export type DriverAvailability = 'ONLINE' | 'OFFLINE' | 'BUSY' | 'ON_DELIVERY'
 
 async function token() {
   const store = await cookies()
@@ -113,9 +114,9 @@ export async function suspendDriver(
   }
 }
 
-export async function setDriverAvailability(
+export async function updateDriverAvailability(
   driverId: string,
-  status: 'ONLINE' | 'OFFLINE'
+  status: DriverAvailability
 ): Promise<{ error?: string }> {
   try {
     await apiFetch<unknown>(`/api/v1/drivers/admin/${driverId}/availability`, {

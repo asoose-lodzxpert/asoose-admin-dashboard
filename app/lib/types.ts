@@ -170,7 +170,7 @@ export interface RiderSummary {
   email: string
   phone: string
   vehicleType: string
-  status: 'ONLINE' | 'OFFLINE' | 'BUSY' | 'SUSPENDED'
+  status: 'ONLINE' | 'OFFLINE' | 'BUSY' | 'ON_DELIVERY' | 'ON_DELIVERY' | 'SUSPENDED'
   isVerified: boolean
   totalDeliveries: number
   rating: number
@@ -182,6 +182,7 @@ export interface RiderDetail {
   userId: string
   userEmail: string | null
   userPhone: string | null
+  cityId: string | null
   vehicleType: string
   vehicleBrand: string | null
   vehicleModel: string | null
@@ -194,7 +195,7 @@ export interface RiderDetail {
   preferredZones: string[]
   maxDeliveryDistance: number | null
   customCommissionPercent: number | null
-  status: 'ONLINE' | 'OFFLINE' | 'BUSY' | 'SUSPENDED'
+  status: 'ONLINE' | 'OFFLINE' | 'BUSY' | 'ON_DELIVERY' | 'ON_DELIVERY' | 'SUSPENDED'
   isVerified: boolean
   currentLat: number | null
   currentLng: number | null
@@ -232,7 +233,7 @@ export interface DriverSummary {
   vehicleBrand: string | null
   vehicleModel: string | null
   vehiclePlate: string | null
-  status: 'ONLINE' | 'OFFLINE' | 'BUSY'
+  status: 'ONLINE' | 'OFFLINE' | 'BUSY' | 'ON_DELIVERY'
   isVerified: boolean
   totalDeliveries: number
   rating: number
@@ -259,7 +260,7 @@ export interface DriverDetail {
   preferredZones: string[]
   maxDeliveryDistance: number | null
   customCommissionPercent: number | null
-  status: 'ONLINE' | 'OFFLINE' | 'BUSY'
+  status: 'ONLINE' | 'OFFLINE' | 'BUSY' | 'ON_DELIVERY'
   isVerified: boolean
   currentLat: number | null
   currentLng: number | null
@@ -455,6 +456,7 @@ export interface OrderItem {
   quantity: number
   price: number
   image: string | null
+  instructions: string | null
 }
 
 export interface OrderPricing {

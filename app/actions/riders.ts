@@ -6,6 +6,7 @@ import { apiFetch, ApiError } from '@/app/lib/api'
 import type { RiderSummary, RiderDetail, UserWallet } from '@/app/lib/types'
 
 type RiderUpdateData = Partial<{
+  cityId: string
   vehicleType: string
   vehicleBrand: string | null
   vehicleModel: string | null
@@ -15,10 +16,10 @@ type RiderUpdateData = Partial<{
   driversLicenseNumber: string
   driversLicenseExpiry: string
   driversLicenseState: string
-  maxDeliveryDistance: number
-  status: RiderDetail['status']
   isVerified: boolean
 }>
+
+export type RiderAvailability = 'ONLINE' | 'OFFLINE' | 'BUSY' | 'ON_DELIVERY'
 
 async function token() {
   const store = await cookies()
@@ -73,6 +74,23 @@ export async function updateRiderProfile(
     return { rider }
   } catch (err) {
     return { error: err instanceof ApiError ? err.message : 'Failed to update rider profile.' }
+  }
+}
+
+export async function updateRiderAvailability(
+  riderId: string, status: RiderAvailability
+): Promise<{ error?: string }> {
+  try {
+    await apiFetch<null>(`/api/v1/riders/admin/${riderId}/availability`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+      token: await token(),
+    })
+    revalidatePath(`/dashboard/partners/riders/${riderId}`)
+    revalidatePath('/dashboard/partners/riders')
+    return {}
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'Failed to update rider availability.' }
   }
 }
 

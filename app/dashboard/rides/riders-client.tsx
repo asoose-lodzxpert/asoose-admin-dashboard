@@ -11,17 +11,19 @@ import type { RiderSummary } from '@/app/lib/types'
 type RStatus = RiderSummary['status']
 
 const STATUS_STYLES: Record<RStatus, string> = {
-  ONLINE:    'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
-  OFFLINE:   'bg-slate-100 text-slate-600 ring-slate-500/20',
-  BUSY:      'bg-amber-50 text-amber-700 ring-amber-600/20',
-  SUSPENDED: 'bg-red-50 text-red-700 ring-red-600/20',
+  ONLINE:      'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
+  OFFLINE:     'bg-slate-100 text-slate-600 ring-slate-500/20',
+  BUSY:        'bg-amber-50 text-amber-700 ring-amber-600/20',
+  ON_DELIVERY: 'bg-sky-50 text-sky-700 ring-sky-600/20',
+  SUSPENDED:   'bg-red-50 text-red-700 ring-red-600/20',
 }
 
 const STATUS_DOT: Record<RStatus, string> = {
-  ONLINE:    'bg-emerald-500',
-  OFFLINE:   'bg-slate-400',
-  BUSY:      'bg-amber-400',
-  SUSPENDED: 'bg-red-500',
+  ONLINE:      'bg-emerald-500',
+  OFFLINE:     'bg-slate-400',
+  BUSY:        'bg-amber-400',
+  ON_DELIVERY: 'bg-sky-500',
+  SUSPENDED:   'bg-red-500',
 }
 
 interface Props {
