@@ -1,5 +1,6 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { apiFetch, ApiError } from '@/app/lib/api'
 import type { VendorMenu, MenuItem } from '@/app/lib/types'
@@ -41,6 +42,7 @@ export async function updateDish(
       `/api/v1/menu/admin/${itemId}`,
       { method: 'PATCH', body: JSON.stringify(data), token: await token() }
     )
+    revalidatePath('/dashboard/catalog')
     return { dish }
   } catch (err) {
     return { error: err instanceof ApiError ? err.message : 'Failed to update dish.' }

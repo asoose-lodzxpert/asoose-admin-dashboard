@@ -222,7 +222,9 @@ export async function deleteCuisine(id: string): Promise<{ error?: string }> {
 
 export async function getCategories(): Promise<Category[]> {
   try {
-    const result = await apiFetch<unknown>('/api/v1/categories', { token: await token() })
+    const result = await apiFetch<unknown>('/api/v1/categories?page=1&limit=100', {
+      token: await token(),
+    })
     return pluckArray<Category>(result, 'categories')
   } catch { return [] }
 }

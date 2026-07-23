@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useTransition, useMemo } from 'react'
+import { useMemo, useRef, useState, useTransition } from 'react'
 import { cn } from '@/app/lib/utils'
 import { sendBroadcastEmail } from '@/app/actions/notifications'
+import { getCustomers } from '@/app/actions/customers'
 import type { NotificationAudience, EmailBroadcastResult } from '@/app/actions/notifications'
-import type { UserStatus } from '@/app/lib/types'
+import type { CustomerSummary, UserStatus } from '@/app/lib/types'
 import { RichTextEditor } from '@/app/components/ui/rich-text-editor'
 import { useToast } from '@/app/components/ui/toast'
 
@@ -112,27 +113,45 @@ export function EmailBroadcastClient() {
   const toast = useToast()
   const [audience, setAudience] = useState<NotificationAudience>('ALL')
   const [status, setStatus] = useState<UserStatus | ''>('')
-  const [search, setSearch] = useState('')
+  const [customerQuery, setCustomerQuery] = useState('')
+  const [customerResults, setCustomerResults] = useState<CustomerSummary[]>([])
+  const [customerResultTotal, setCustomerResultTotal] = useState(0)
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerSummary | null>(null)
   const [subject, setSubject] = useState('')
   const [heading, setHeading] = useState('')
   const [body, setBody] = useState('')
-  const [errors, setErrors] = useState<{ subject?: string; heading?: string; body?: string }>({})
+  const [errors, setErrors] = useState<{
+    recipient?: string
+    subject?: string
+    heading?: string
+    body?: string
+  }>({})
   const [serverError, setServerError] = useState('')
   const [result, setResult] = useState<EmailBroadcastResult | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [isSearchingCustomers, startCustomerSearch] = useTransition()
+  const [isCustomerSearchQueued, setIsCustomerSearchQueued] = useState(false)
   const [tab, setTab] = useState<'compose' | 'preview'>('compose')
+  const customerSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const customerSearchRequest = useRef(0)
 
   const previewHtml = useMemo(() => buildPreviewHtml(heading, body, subject), [heading, body, subject])
 
   function reset() {
     setSubject(''); setHeading(''); setBody('')
-    setAudience('ALL'); setStatus(''); setSearch('')
+    setAudience('ALL'); setStatus('')
+    setCustomerQuery(''); setCustomerResults([]); setCustomerResultTotal(0)
+    setIsCustomerSearchQueued(false)
+    setSelectedCustomer(null)
     setErrors({}); setServerError(''); setResult(null)
     setTab('compose')
   }
 
   function validate() {
     const errs: typeof errors = {}
+    if (audience === 'CUSTOMER' && customerQuery.trim() && !selectedCustomer) {
+      errs.recipient = 'Select a customer from the search results, or clear the search to target all customers.'
+    }
     if (!subject.trim()) errs.subject = 'Required'
     if (!heading.trim()) errs.heading = 'Required'
     if (!body.trim())    errs.body    = 'Required'
@@ -147,7 +166,7 @@ export function EmailBroadcastClient() {
       const res = await sendBroadcastEmail({
         audience,
         ...(status ? { status } : {}),
-        ...(search.trim() ? { search: search.trim() } : {}),
+        ...(selectedCustomer ? { search: selectedCustomer.email } : {}),
         subject: subject.trim(),
         heading: heading.trim(),
         body: body.trim(),
@@ -159,6 +178,75 @@ export function EmailBroadcastClient() {
   }
 
   const audienceLabel = AUDIENCES.find(a => a.value === audience)?.label ?? 'Everyone'
+  const recipientLabel = selectedCustomer
+    ? selectedCustomer.email
+    : status
+      ? `${STATUSES.find((option) => option.value === status)?.label ?? status} ${audienceLabel}`
+      : audienceLabel
+  const isCustomerSearchBusy = isCustomerSearchQueued || isSearchingCustomers
+
+  function changeAudience(nextAudience: NotificationAudience) {
+    setAudience(nextAudience)
+    setErrors((current) => ({ ...current, recipient: undefined }))
+    if (nextAudience !== 'CUSTOMER') {
+      setCustomerQuery('')
+      setCustomerResults([])
+      setCustomerResultTotal(0)
+      setSelectedCustomer(null)
+      setIsCustomerSearchQueued(false)
+    }
+  }
+
+  function searchCustomersByEmail(query: string, nextStatus = status) {
+    const trimmed = query.trim()
+    const requestId = ++customerSearchRequest.current
+    if (customerSearchTimer.current) clearTimeout(customerSearchTimer.current)
+    if (trimmed.length < 2) {
+      setCustomerResults([])
+      setCustomerResultTotal(0)
+      setIsCustomerSearchQueued(false)
+      return
+    }
+
+    setIsCustomerSearchQueued(true)
+    customerSearchTimer.current = setTimeout(() => {
+      startCustomerSearch(async () => {
+        const response = await getCustomers({
+          search: trimmed,
+          status: nextStatus || undefined,
+          page: 1,
+          limit: 8,
+        })
+        if (requestId !== customerSearchRequest.current) return
+        setCustomerResults(response.customers)
+        setCustomerResultTotal(response.pagination.total)
+        setIsCustomerSearchQueued(false)
+      })
+    }, 350)
+  }
+
+  function changeCustomerQuery(value: string) {
+    setCustomerQuery(value)
+    setSelectedCustomer(null)
+    setErrors((current) => ({ ...current, recipient: undefined }))
+    searchCustomersByEmail(value)
+  }
+
+  function selectCustomer(customer: CustomerSummary) {
+    setSelectedCustomer(customer)
+    setCustomerQuery(customer.email)
+    setCustomerResults([])
+    setErrors((current) => ({ ...current, recipient: undefined }))
+    setIsCustomerSearchQueued(false)
+  }
+
+  function clearSelectedCustomer() {
+    setSelectedCustomer(null)
+    setCustomerQuery('')
+    setCustomerResults([])
+    setCustomerResultTotal(0)
+    setIsCustomerSearchQueued(false)
+  }
 
   return (
     <main className="px-8 py-8">
@@ -181,7 +269,7 @@ export function EmailBroadcastClient() {
                   <button
                     key={a.value}
                     type="button"
-                    onClick={() => setAudience(a.value)}
+                    onClick={() => changeAudience(a.value)}
                     className={cn(
                       'group flex flex-col gap-2.5 rounded-2xl border p-3.5 text-left transition-all',
                       active
@@ -206,14 +294,38 @@ export function EmailBroadcastClient() {
           </div>
 
           {/* Refine audience */}
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Refine audience</p>
-            <div className="grid grid-cols-2 gap-3">
+          <div className="overflow-visible rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/70 to-white">
+            <div className="flex items-start justify-between gap-4 border-b border-indigo-100/70 px-4 py-3.5">
+              <div className="flex items-start gap-3">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-xs font-bold text-white shadow-sm">
+                  1
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Choose recipients</p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    Refine the audience or select one customer by email.
+                  </p>
+                </div>
+              </div>
+              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-100">
+                <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                {selectedCustomer ? '1 recipient' : audienceLabel}
+              </span>
+            </div>
+
+            <div className="space-y-4 p-4">
+              <div className={cn('grid gap-3', audience === 'CUSTOMER' ? 'sm:grid-cols-2' : 'grid-cols-1')}>
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1.5">Account status</label>
                 <select
                   value={status}
-                  onChange={(e) => setStatus(e.target.value as UserStatus | '')}
+                  onChange={(event) => {
+                    const nextStatus = event.target.value as UserStatus | ''
+                    setStatus(nextStatus)
+                    if (audience === 'CUSTOMER' && customerQuery.trim() && !selectedCustomer) {
+                      searchCustomersByEmail(customerQuery, nextStatus)
+                    }
+                  }}
                   className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                 >
                   {STATUSES.map(s => (
@@ -221,23 +333,135 @@ export function EmailBroadcastClient() {
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1.5">Search</label>
-                <input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Name or email…"
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                />
+              {audience === 'CUSTOMER' && (
+                <div className="relative">
+                  <label htmlFor="customer-email-search" className="mb-1.5 block text-xs font-medium text-slate-600">
+                    Find customer by email
+                  </label>
+                  <div className="relative">
+                    <svg viewBox="0 0 20 20" fill="currentColor" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true">
+                      <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clipRule="evenodd" />
+                    </svg>
+                    <input
+                      id="customer-email-search"
+                      value={customerQuery}
+                      onChange={(event) => changeCustomerQuery(event.target.value)}
+                      disabled={!!selectedCustomer}
+                      placeholder="Start typing an email address…"
+                      autoComplete="off"
+                      className={cn(
+                        'w-full rounded-xl border bg-white py-2.5 pl-9 pr-9 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20',
+                        errors.recipient ? 'border-red-300' : 'border-slate-200 focus:border-indigo-500',
+                        selectedCustomer && 'bg-slate-50 text-slate-500'
+                      )}
+                    />
+                    {isCustomerSearchBusy ? (
+                      <svg className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-indigo-500" viewBox="0 0 24 24" fill="none" aria-label="Searching">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4Z" />
+                      </svg>
+                    ) : customerQuery && !selectedCustomer ? (
+                      <button
+                        type="button"
+                        onClick={clearSelectedCustomer}
+                        aria-label="Clear customer search"
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                      >
+                        <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5" aria-hidden="true">
+                          <path d="M5.22 5.22a.75.75 0 0 1 1.06 0L10 8.94l3.72-3.72a.75.75 0 1 1 1.06 1.06L11.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06L10 11.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06L8.94 10 5.22 6.28a.75.75 0 0 1 0-1.06Z" />
+                        </svg>
+                      </button>
+                    ) : null}
+                  </div>
+
+                  {!selectedCustomer && customerQuery.trim().length >= 2 && !isCustomerSearchBusy && (
+                    <div className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-900/10">
+                      {customerResults.length ? (
+                        <>
+                          <div className="max-h-64 overflow-y-auto py-1.5">
+                            {customerResults.map((customer) => {
+                              const initials = `${customer.firstName[0] ?? ''}${customer.lastName[0] ?? ''}`.toUpperCase()
+                              return (
+                                <button
+                                  key={customer.id}
+                                  type="button"
+                                  onClick={() => selectCustomer(customer)}
+                                  className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors hover:bg-indigo-50"
+                                >
+                                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-[11px] font-bold text-indigo-700">
+                                    {initials || 'C'}
+                                  </span>
+                                  <span className="min-w-0 flex-1">
+                                    <span className="block truncate text-sm font-medium text-slate-900">
+                                      {customer.firstName} {customer.lastName}
+                                    </span>
+                                    <span className="block truncate text-xs text-slate-500">{customer.email}</span>
+                                  </span>
+                                  <span className={cn(
+                                    'rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                                    customer.status === 'ACTIVE'
+                                      ? 'bg-emerald-50 text-emerald-700'
+                                      : 'bg-slate-100 text-slate-500'
+                                  )}>
+                                    {customer.status.replace(/_/g, ' ')}
+                                  </span>
+                                </button>
+                              )
+                            })}
+                          </div>
+                          {customerResultTotal > customerResults.length && (
+                            <p className="border-t border-slate-100 px-3.5 py-2 text-[11px] text-slate-400">
+                              Showing {customerResults.length} of {customerResultTotal} matches. Refine the email to narrow results.
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <div className="px-4 py-5 text-center">
+                          <p className="text-sm font-medium text-slate-700">No customers found</p>
+                          <p className="mt-0.5 text-xs text-slate-400">Check the email and try again.</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
               </div>
+
+              {errors.recipient && <p className="text-xs font-medium text-red-600">{errors.recipient}</p>}
+
+              {selectedCustomer ? (
+                <div className="flex items-center gap-3 rounded-xl border border-indigo-200 bg-white p-3 shadow-sm">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">
+                    {`${selectedCustomer.firstName[0] ?? ''}${selectedCustomer.lastName[0] ?? ''}`.toUpperCase() || 'C'}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-slate-900">
+                      {selectedCustomer.firstName} {selectedCustomer.lastName}
+                    </p>
+                    <p className="truncate text-xs text-slate-500">{selectedCustomer.email}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={clearSelectedCustomer}
+                    className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
+                  >
+                    Change
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-4 rounded-xl bg-white/80 px-3.5 py-3 ring-1 ring-inset ring-indigo-100">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Current target</p>
+                    <p className="mt-0.5 text-sm font-semibold text-slate-700">{recipientLabel}</p>
+                  </div>
+                  {audience === 'CUSTOMER' && (
+                    <p className="max-w-48 text-right text-[11px] leading-4 text-slate-400">
+                      Leave email search empty to send to all matching customers.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
-            <p className="text-xs text-slate-400">
-              Targeting:{' '}
-              <span className="font-semibold text-slate-600">
-                {status ? `${STATUSES.find(s => s.value === status)?.label} ` : ''}{audienceLabel}
-                {search.trim() ? ` matching "${search.trim()}"` : ''}
-              </span>
-            </p>
           </div>
 
           {/* Subject */}
@@ -358,7 +582,7 @@ export function EmailBroadcastClient() {
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
                     <path d="M3.105 2.288a.75.75 0 0 0-.826.95l1.414 4.926A1.5 1.5 0 0 0 5.135 9.25h6.115a.75.75 0 0 1 0 1.5H5.135a1.5 1.5 0 0 0-1.442 1.086l-1.414 4.926a.75.75 0 0 0 .826.95 28.897 28.897 0 0 0 15.293-7.155.75.75 0 0 0 0-1.114A28.897 28.897 0 0 0 3.105 2.288Z" />
                   </svg>
-                  Send to {audienceLabel}
+                  Send to {selectedCustomer ? selectedCustomer.firstName : audienceLabel}
                 </>
               )}
             </button>

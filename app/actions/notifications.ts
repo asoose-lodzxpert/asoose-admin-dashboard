@@ -2,6 +2,7 @@
 
 import { cookies } from 'next/headers'
 import { apiFetch, ApiError } from '@/app/lib/api'
+import type { NotificationsData } from '@/app/lib/types'
 async function token() {
   const store = await cookies()
   return store.get('access_token')?.value ?? ''
@@ -9,6 +10,61 @@ async function token() {
 
 export type NotificationAudience = 'ALL' | 'CUSTOMER' | 'VENDOR' | 'RIDER' | 'DRIVER'
 type UserStatus = 'ACTIVE' | 'PENDING_VERIFICATION' | 'SUSPENDED' | 'BANNED' | 'DEACTIVATED'
+
+export async function getNotifications(
+  page = 1,
+  limit = 20,
+  unreadOnly = false
+): Promise<{ data?: NotificationsData; error?: string }> {
+  try {
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+      ...(unreadOnly ? { unreadOnly: 'true' } : {}),
+    })
+    const data = await apiFetch<NotificationsData>(`/api/v1/notifications?${params}`, {
+      token: await token(),
+    })
+    return { data }
+  } catch (err) {
+    return {
+      error: err instanceof ApiError ? err.message : 'Failed to retrieve notifications.',
+    }
+  }
+}
+
+export async function getUnreadNotificationCount(): Promise<{
+  data?: { unreadCount: number }
+  error?: string
+}> {
+  try {
+    const data = await apiFetch<{ unreadCount: number }>('/api/v1/notifications/unread-count', {
+      token: await token(),
+    })
+    return { data }
+  } catch (err) {
+    return {
+      error: err instanceof ApiError ? err.message : 'Failed to retrieve the unread count.',
+    }
+  }
+}
+
+export async function markAllNotificationsRead(): Promise<{
+  data?: { markedCount: number }
+  error?: string
+}> {
+  try {
+    const data = await apiFetch<{ markedCount: number }>('/api/v1/notifications/read-all', {
+      method: 'PATCH',
+      token: await token(),
+    })
+    return { data }
+  } catch (err) {
+    return {
+      error: err instanceof ApiError ? err.message : 'Failed to mark notifications as read.',
+    }
+  }
+}
 
 export interface EmailBroadcastResult {
   sent: number

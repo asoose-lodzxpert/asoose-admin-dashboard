@@ -31,6 +31,110 @@ export interface Pagination {
   totalPages: number
 }
 
+/* ─── In-app notifications ───────────────────────────── */
+
+export interface InAppNotification {
+  id: string
+  title: string
+  body: string
+  type: string
+  isRead: boolean
+  channel?: string
+  referenceId: string | null
+  referenceType: string | null
+  data: Record<string, unknown>
+  createdAt: string
+}
+
+export interface NotificationsData {
+  notifications: InAppNotification[]
+  unreadCount: number
+  pagination: Pagination
+}
+
+/* ─── Activity timelines ──────────────────────────────── */
+
+export type TimelineEntity = 'orders' | 'parcels' | 'rides' | 'bookings'
+export type TimelineSource = 'STATUS_CHANGE' | 'WORKFLOW_UPDATE' | string
+
+export interface TimelineEvent {
+  id: string
+  source: TimelineSource
+  status: string | null
+  previousStatus: string | null
+  stage: string | null
+  message: string | null
+  note: string | null
+  actorId: string | null
+  actorRole: string | null
+  actorName: string | null
+  metadata: Record<string, unknown> | null
+  createdAt: string
+}
+
+/* ─── Disputes ───────────────────────────────────────── */
+
+export type DisputeStatus = 'OPEN' | 'IN_REVIEW' | 'ESCALATED' | 'CLOSED' | 'RESOLVED'
+export type DisputePriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+export type DisputeResolution =
+  | 'REFUND_FULL'
+  | 'REFUND_PARTIAL'
+  | 'REPLACEMENT'
+  | 'NO_ACTION'
+  | 'COMPENSATION'
+
+export interface DisputeSummary {
+  id: string
+  title: string
+  message: string
+  category: string
+  priority: DisputePriority
+  status: DisputeStatus
+  assignedToId: string | null
+  resolution: DisputeResolution | null
+  refundAmount: number | null
+  resolvedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface DisputeMessage {
+  id: string
+  senderId: string
+  senderRole: string
+  senderName: string
+  message: string
+  attachmentUrls: string[]
+  isInternal: boolean
+  createdAt: string
+}
+
+export interface DisputeDetail extends DisputeSummary {
+  customer: {
+    id: string
+    firstName: string
+    lastName: string
+    name: string
+    email: string
+    phone: string
+    phoneCountryCode: string | null
+    avatar: string | null
+    role: string
+    status: string
+    emailVerified: boolean
+    phoneVerified: boolean
+    joinedAt: string
+  }
+  assignedAdmin: {
+    id: string
+    name: string
+    email: string
+    role: string
+  } | null
+  relatedTransaction: Record<string, unknown> | null
+  messages: DisputeMessage[]
+}
+
 /* ─── Configuration entities ──────────────────────────── */
 
 export interface ConfigItem {
@@ -822,6 +926,8 @@ export interface CatalogItem {
   name: string
   image: string | null
   price: number
+  stock?: number
+  categoryId?: string | null
   isAvailable: boolean
   isFeatured: boolean
   vendorName: string

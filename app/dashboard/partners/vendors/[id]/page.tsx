@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { getVendorDetail, getVendorProducts } from '@/app/actions/vendors'
 import { getVendorMenu } from '@/app/actions/menu'
 import { getActiveCities } from '@/app/actions/cities'
+import { getCategories } from '@/app/actions/configurations'
 import { VendorDetailClient } from './vendor-detail-client'
 
 export const metadata: Metadata = { title: 'Vendor Detail' }
@@ -16,10 +17,11 @@ export default async function VendorDetailPage({
   const vendor = await getVendorDetail(id)
   if (!vendor) notFound()
 
-  const [menu, { products, pagination: productPagination }, cities] = await Promise.all([
+  const [menu, { products, pagination: productPagination }, cities, categories] = await Promise.all([
     vendor.businessType === 'RESTAURANT' ? getVendorMenu(vendor.id) : Promise.resolve(null),
     getVendorProducts(vendor.id, { page: 1, limit: 20 }),
     getActiveCities(),
+    getCategories(),
   ])
 
   return (
@@ -29,6 +31,7 @@ export default async function VendorDetailPage({
       initialProducts={products}
       productTotal={productPagination.total}
       cities={cities}
+      categories={categories.filter((category) => category.isActive)}
     />
   )
 }

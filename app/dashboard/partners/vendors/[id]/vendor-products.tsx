@@ -4,7 +4,7 @@ import Image from 'next/image'
 import { useState, useTransition, useRef } from 'react'
 import { cn } from '@/app/lib/utils'
 import { getVendorProducts, createProduct, updateProduct, deleteProduct } from '@/app/actions/vendors'
-import type { Product } from '@/app/lib/types'
+import type { Category, Product } from '@/app/lib/types'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
 import { ImageUploader } from '@/app/components/ui/image-uploader'
@@ -34,6 +34,7 @@ const EMPTY_FORM = {
   sku: '',
   images: [] as string[],
   stock: '',
+  categoryId: '',
   isFeatured: false,
   isActive: true,
 }
@@ -50,6 +51,7 @@ function productToForm(p: Product): FormState {
     sku: p.sku ?? '',
     images,
     stock: String(p.stock),
+    categoryId: p.categoryId ?? '',
     isFeatured: p.isFeatured,
     isActive: p.isActive,
   }
@@ -64,12 +66,14 @@ function ProductFormModal({
   onSaved,
   vendorId,
   editing,
+  categories,
 }: {
   open: boolean
   onClose: () => void
   onSaved: (p: Product) => void
   vendorId: string
   editing: Product | null
+  categories: Category[]
 }) {
   const toast = useToast()
   const [form, setForm] = useState<FormState>(() => editing ? productToForm(editing) : EMPTY_FORM)
@@ -104,6 +108,7 @@ function ProductFormModal({
       data.image = form.images[0]
     }
     if (form.stock) data.stock = parseInt(form.stock, 10)
+    if (form.categoryId) data.categoryId = form.categoryId
     if (editing) data.isActive = form.isActive
 
     start(async () => {
@@ -156,6 +161,23 @@ function ProductFormModal({
           <div>
             <label className={LABEL}>Stock Quantity</label>
             <input type="number" min="0" value={form.stock} onChange={set('stock')} placeholder="0" className={INPUT} />
+          </div>
+          <div>
+            <label className={LABEL}>Category</label>
+            <select
+              value={form.categoryId}
+              onChange={(event) => setForm((current) => ({ ...current, categoryId: event.target.value }))}
+              className={cn(INPUT, 'cursor-pointer')}
+            >
+              <option value="">Select a category</option>
+              {[...categories]
+                .sort((first, second) => first.name.localeCompare(second.name))
+                .map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+            </select>
           </div>
           <div>
             <label className={LABEL}>SKU</label>
@@ -394,9 +416,15 @@ interface Props {
   vendorId: string
   initialProducts: Product[]
   total: number
+  categories: Category[]
 }
 
-export function VendorProductsSection({ vendorId, initialProducts, total }: Props) {
+export function VendorProductsSection({
+  vendorId,
+  initialProducts,
+  total,
+  categories,
+}: Props) {
   const toast = useToast()
   const [products, setProducts] = useState(initialProducts)
   const [count, setCount] = useState(total)
@@ -562,6 +590,7 @@ export function VendorProductsSection({ vendorId, initialProducts, total }: Prop
           onSaved={onProductSaved}
           vendorId={vendorId}
           editing={editingProduct}
+          categories={categories}
         />
       )}
 
