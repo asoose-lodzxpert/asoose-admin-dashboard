@@ -6,8 +6,15 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { cn } from '@/app/lib/utils'
 import { formatNaira } from '@/app/lib/utils'
 import { useToast } from '@/app/components/ui/toast'
-import { getCatalogProducts, toggleCatalogFeatured } from '@/app/actions/catalog'
-import type { CatalogItem, CatalogPagination } from '@/app/lib/types'
+import { Button } from '@/app/components/ui/button'
+import { Modal } from '@/app/components/ui/modal'
+import {
+  getCatalogProducts,
+  toggleCatalogFeatured,
+  updateAdminProduct,
+} from '@/app/actions/catalog'
+import { updateDish } from '@/app/actions/menu'
+import type { CatalogItem, CatalogPagination, Category } from '@/app/lib/types'
 
 /* ─── Star icon ──────────────────────────────────────── */
 
@@ -34,10 +41,12 @@ function StarIcon({ filled }: { filled: boolean }) {
 function ProductCard({
   item,
   isPending,
+  onEdit,
   onToggleFeatured,
 }: {
   item: CatalogItem
   isPending: boolean
+  onEdit: (item: CatalogItem) => void
   onToggleFeatured: (e: React.MouseEvent, item: CatalogItem) => void
 }) {
   return (
@@ -74,21 +83,36 @@ function ProductCard({
           )}
         </div>
 
-        {/* Featured star button */}
-        <button
-          onClick={(e) => onToggleFeatured(e, item)}
-          disabled={isPending}
-          aria-label={item.isFeatured ? 'Remove from featured' : 'Mark as featured'}
-          title={item.isFeatured ? 'Remove from featured' : 'Mark as featured'}
-          className={cn(
-            'group absolute right-3 top-3 rounded-xl p-1.5 shadow-sm transition-all duration-150 active:scale-90 disabled:opacity-50 disabled:active:scale-100',
-            item.isFeatured
-              ? 'bg-amber-400 ring-2 ring-white/70 hover:bg-amber-500'
-              : 'bg-white/90 backdrop-blur-sm hover:bg-white hover:shadow-md'
-          )}
-        >
-          <StarIcon filled={item.isFeatured} />
-        </button>
+        <div className="absolute right-3 top-3 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onEdit(item)}
+            disabled={isPending}
+            aria-label={`Edit ${item.name}`}
+            title={item.type === 'PRODUCT' ? 'Edit product' : 'Edit menu item'}
+            className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/90 text-slate-500 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:text-indigo-600 hover:shadow-md active:scale-90 disabled:opacity-50"
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+              <path d="m5.433 13.917 1.262-3.155A4 4 0 0 1 7.58 9.42l6.92-6.918a2.121 2.121 0 0 1 3 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 0 1-.65-.65Z" />
+              <path d="M3.5 5.75c0-.69.56-1.25 1.25-1.25H10A.75.75 0 0 0 10 3H4.75A2.75 2.75 0 0 0 2 5.75v9.5A2.75 2.75 0 0 0 4.75 18h9.5A2.75 2.75 0 0 0 17 15.25V10a.75.75 0 0 0-1.5 0v5.25c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-9.5Z" />
+            </svg>
+          </button>
+
+          <button
+            onClick={(e) => onToggleFeatured(e, item)}
+            disabled={isPending}
+            aria-label={item.isFeatured ? 'Remove from featured' : 'Mark as featured'}
+            title={item.isFeatured ? 'Remove from featured' : 'Mark as featured'}
+            className={cn(
+              'group rounded-xl p-1.5 shadow-sm transition-all duration-150 active:scale-90 disabled:opacity-50 disabled:active:scale-100',
+              item.isFeatured
+                ? 'bg-amber-400 ring-2 ring-white/70 hover:bg-amber-500'
+                : 'bg-white/90 backdrop-blur-sm hover:bg-white hover:shadow-md'
+            )}
+          >
+            <StarIcon filled={item.isFeatured} />
+          </button>
+        </div>
       </div>
 
       {/* Body */}
@@ -137,6 +161,193 @@ function ProductCard({
   )
 }
 
+/* ─── Edit catalog item modal ────────────────────────── */
+
+const INPUT_CLASS =
+  'h-10 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 outline-none transition-shadow placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500'
+
+function EditCatalogItemModal({
+  item,
+  categories,
+  onClose,
+  onSaved,
+}: {
+  item: CatalogItem
+  categories: Category[]
+  onClose: () => void
+  onSaved: (patch: Partial<CatalogItem>) => void
+}) {
+  const toast = useToast()
+  const matchedCategory = categories.find(
+    (category) => category.name.toLowerCase() === item.category?.toLowerCase()
+  )
+  const [name, setName] = useState(item.name)
+  const [categoryId, setCategoryId] = useState(item.categoryId ?? matchedCategory?.id ?? '')
+  const [price, setPrice] = useState(String(item.price))
+  const [stock, setStock] = useState(item.stock == null ? '' : String(item.stock))
+  const [error, setError] = useState('')
+  const [isSaving, startSaving] = useTransition()
+
+  function save() {
+    const parsedPrice = Number(price)
+    const parsedStock = Number(stock)
+
+    if (!name.trim()) {
+      setError('Product name is required.')
+      return
+    }
+    if (!categoryId) {
+      setError('Select a category.')
+      return
+    }
+    if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
+      setError('Enter a valid price.')
+      return
+    }
+    if (item.type === 'PRODUCT' && (!Number.isInteger(parsedStock) || parsedStock < 0)) {
+      setError('Stock must be a whole number of zero or more.')
+      return
+    }
+
+    setError('')
+    startSaving(async () => {
+      let serverPatch: Partial<CatalogItem> = {}
+      let requestError: string | undefined
+
+      if (item.type === 'PRODUCT') {
+        const result = await updateAdminProduct(item.id, {
+          name: name.trim(),
+          categoryId,
+          price: parsedPrice,
+          stock: parsedStock,
+        })
+        serverPatch = result.data ?? {}
+        requestError = result.error
+      } else {
+        const result = await updateDish(item.id, {
+          name: name.trim(),
+          categoryId,
+          price: parsedPrice,
+        })
+        requestError = result.error
+      }
+
+      if (requestError) {
+        setError(requestError)
+        toast.error(requestError)
+        return
+      }
+
+      const category = categories.find((option) => option.id === categoryId)
+      onSaved({
+        ...serverPatch,
+        name: name.trim(),
+        categoryId,
+        category: category?.name ?? item.category,
+        price: parsedPrice,
+        ...(item.type === 'PRODUCT' ? { stock: parsedStock } : {}),
+      })
+      toast.success(item.type === 'PRODUCT' ? 'Product updated.' : 'Menu item updated.')
+      onClose()
+    })
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={item.type === 'PRODUCT' ? 'Edit product' : 'Edit menu item'}
+      description={`Update ${item.name}'s catalog information.`}
+      footer={
+        <>
+          <Button variant="secondary" size="sm" onClick={onClose} disabled={isSaving}>
+            Cancel
+          </Button>
+          <Button size="sm" loading={isSaving} onClick={save}>
+            Save changes
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        {error && (
+          <p className="rounded-xl bg-red-50 px-3.5 py-2.5 text-sm text-red-600 ring-1 ring-inset ring-red-200">
+            {error}
+          </p>
+        )}
+
+        <div>
+          <label htmlFor="product-name" className="mb-1.5 block text-xs font-semibold text-slate-700">
+            Product name
+          </label>
+          <input
+            id="product-name"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            className={INPUT_CLASS}
+            autoFocus
+          />
+        </div>
+
+        <div>
+          <label htmlFor="product-category" className="mb-1.5 block text-xs font-semibold text-slate-700">
+            Category
+          </label>
+          <select
+            id="product-category"
+            value={categoryId}
+            onChange={(event) => setCategoryId(event.target.value)}
+            className={cn(INPUT_CLASS, 'cursor-pointer')}
+          >
+            <option value="">Select a category</option>
+            {[...categories]
+              .sort((first, second) => first.name.localeCompare(second.name))
+              .map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+          </select>
+        </div>
+
+        <div className={cn('grid grid-cols-1 gap-4', item.type === 'PRODUCT' && 'sm:grid-cols-2')}>
+          <div>
+            <label htmlFor="product-price" className="mb-1.5 block text-xs font-semibold text-slate-700">
+              Price (₦)
+            </label>
+            <input
+              id="product-price"
+              type="number"
+              min="0"
+              step="0.01"
+              value={price}
+              onChange={(event) => setPrice(event.target.value)}
+              className={INPUT_CLASS}
+            />
+          </div>
+          {item.type === 'PRODUCT' && (
+            <div>
+              <label htmlFor="product-stock" className="mb-1.5 block text-xs font-semibold text-slate-700">
+                Stock
+              </label>
+              <input
+                id="product-stock"
+                type="number"
+                min="0"
+                step="1"
+                value={stock}
+                onChange={(event) => setStock(event.target.value)}
+                placeholder="Enter quantity"
+                className={INPUT_CLASS}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 /* ─── Main component ─────────────────────────────────── */
 
 type TypeFilter = 'PRODUCT' | 'MENU_ITEM' | ''
@@ -158,10 +369,12 @@ export function CatalogProductsTable({
   initialItems,
   initialPagination,
   initialParams,
+  categories,
 }: {
   initialItems: CatalogItem[]
   initialPagination: CatalogPagination
   initialParams: InitialParams
+  categories: Category[]
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -172,6 +385,7 @@ export function CatalogProductsTable({
   const [search, setSearch] = useState(initialParams.search ?? '')
   const [typeFilter, setTypeFilter] = useState<TypeFilter>((initialParams.type as TypeFilter) ?? '')
   const [featuredOnly, setFeaturedOnly] = useState(initialParams.isFeatured === 'true')
+  const [editingItem, setEditingItem] = useState<CatalogItem | null>(null)
   const [isPending, startTransition] = useTransition()
   const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -345,6 +559,7 @@ export function CatalogProductsTable({
               key={item.id}
               item={item}
               isPending={isPending}
+              onEdit={setEditingItem}
               onToggleFeatured={handleToggleFeatured}
             />
           ))}
@@ -380,6 +595,15 @@ export function CatalogProductsTable({
             </button>
           </div>
         </div>
+      )}
+
+      {editingItem && (
+        <EditCatalogItemModal
+          item={editingItem}
+          categories={categories}
+          onClose={() => setEditingItem(null)}
+          onSaved={(patch) => patchItem(editingItem.id, patch)}
+        />
       )}
     </main>
   )

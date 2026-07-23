@@ -2,14 +2,17 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
-import { DetailCard, InfoRow, InfoGrid, formatDate } from '@/app/components/ui/detail'
+import { ActivityTimeline } from '@/app/components/ui/activity-timeline'
+import { DetailCard, InfoRow, InfoGrid } from '@/app/components/ui/detail'
 import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
 import { formatNaira } from '@/app/lib/utils'
 import { assignDriverToRide, requeueRide, forceCancelRide } from '@/app/actions/rides'
 import { getDrivers } from '@/app/actions/drivers'
+import type { TimelineResult } from '@/app/actions/timeline'
 import type { RideDetail, RideStatus, RideDriver, DriverSummary } from '@/app/lib/types'
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY
@@ -125,14 +128,24 @@ function RouteMap({ ride }: { ride: RideDetail }) {
 
 /* ─── Main component ──────────────────────────────────── */
 
-export function RideDetailClient({ ride: initialRide }: { ride: RideDetail }) {
+export function RideDetailClient({
+  ride: initialRide,
+  timeline,
+}: {
+  ride: RideDetail
+  timeline: TimelineResult
+}) {
   const toast = useToast()
+  const router = useRouter()
   const [ride, setRide] = useState(initialRide)
   const [isPending, startTransition] = useTransition()
 
   const isTerminal = TERMINAL.includes(ride.status)
-  const canAssign = !isTerminal
-  const canRequeue = !isTerminal && !ride.driver && ride.paymentStatus !== 'PENDING'
+  const isPaid = ['COMPLETED', 'PAID', 'SUCCESS', 'SUCCESSFUL'].includes(
+    (ride.paymentStatus ?? '').toUpperCase()
+  )
+  const canAssign = !isTerminal && isPaid
+  const canRequeue = !isTerminal && isPaid && !ride.driver
   const canCancel = !isTerminal
 
   /* assign driver modal */
@@ -153,6 +166,7 @@ export function RideDetailClient({ ride: initialRide }: { ride: RideDetail }) {
   const [cancelError, setCancelError] = useState('')
 
   function openAssign() {
+    if (!canAssign) return
     setSelectedDriverId('')
     setAssignError('')
     setShowAssign(true)
@@ -186,6 +200,7 @@ export function RideDetailClient({ ride: initialRide }: { ride: RideDetail }) {
       }
       setShowAssign(false)
       toast.success('Driver assigned.')
+      router.refresh()
     })
   }
 
@@ -196,6 +211,7 @@ export function RideDetailClient({ ride: initialRide }: { ride: RideDetail }) {
       setRequeueSuccess(true)
       setRide((prev) => ({ ...prev, status: 'SEARCHING_DRIVER' }))
       toast.success('Ride requeued.')
+      router.refresh()
     })
   }
 
@@ -207,6 +223,7 @@ export function RideDetailClient({ ride: initialRide }: { ride: RideDetail }) {
       setRide((prev) => ({ ...prev, status: 'CANCELLED', cancelReason: cancelReason.trim() }))
       setShowCancel(false)
       toast.success('Ride cancelled.')
+      router.refresh()
     })
   }
 
@@ -276,17 +293,11 @@ export function RideDetailClient({ ride: initialRide }: { ride: RideDetail }) {
               </InfoGrid>
             </DetailCard>
 
-            {/* Timeline */}
-            <DetailCard title="Timeline">
-              <InfoGrid>
-                <InfoRow label="Requested" value={formatDateTime(ride.createdAt)} />
-                <InfoRow label="Started" value={formatDateTime(ride.startedAt)} />
-                {ride.isScheduled && <InfoRow label="Scheduled For" value={formatDateTime(ride.scheduledAt)} />}
-                <InfoRow label="Completed" value={formatDateTime(ride.completedAt)} />
-                <InfoRow label="Cancelled" value={formatDateTime(ride.cancelledAt)} />
-                <InfoRow label="Last Updated" value={formatDateTime(ride.updatedAt)} />
-              </InfoGrid>
-            </DetailCard>
+            <ActivityTimeline
+              events={timeline.events}
+              error={timeline.error}
+              entityLabel="Ride"
+            />
           </div>
 
           {/* Right col */}

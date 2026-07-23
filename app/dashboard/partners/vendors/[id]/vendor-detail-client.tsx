@@ -15,7 +15,7 @@ import { approveVendor, rejectVendor, suspendVendor, updateVendorStore, updateVe
 import { uploadImage } from '@/app/actions/uploads'
 import { updateStorefrontBranding } from '@/app/actions/catalog'
 import { UserFinanceSection } from '@/app/components/user-finance-section'
-import type { VendorDetail, VendorMenu, Product, VendorStoreDetail, City } from '@/app/lib/types'
+import type { VendorDetail, VendorMenu, Product, VendorStoreDetail, City, Category } from '@/app/lib/types'
 
 type VStatus = VendorDetail['verificationStatus']
 
@@ -48,9 +48,17 @@ interface Props {
   initialProducts: Product[]
   productTotal: number
   cities: City[]
+  categories: Category[]
 }
 
-export function VendorDetailClient({ vendor: initial, menu, initialProducts, productTotal, cities }: Props) {
+export function VendorDetailClient({
+  vendor: initial,
+  menu,
+  initialProducts,
+  productTotal,
+  cities,
+  categories,
+}: Props) {
   const toast = useToast()
   const [vendor, setVendor] = useState(initial)
   const [isPending, startTransition] = useTransition()
@@ -261,7 +269,12 @@ export function VendorDetailClient({ vendor: initial, menu, initialProducts, pro
       {/* Products tab */}
       {tab === 'products' && (
         <div className="px-8 py-6">
-          <VendorProductsSection vendorId={vendor.id} initialProducts={initialProducts} total={productTotal} />
+          <VendorProductsSection
+            vendorId={vendor.id}
+            initialProducts={initialProducts}
+            total={productTotal}
+            categories={categories}
+          />
         </div>
       )}
 

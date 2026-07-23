@@ -2,15 +2,18 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
+import { ActivityTimeline } from '@/app/components/ui/activity-timeline'
 import { DocCard } from '@/app/components/ui/doc-card'
-import { DetailCard, InfoRow, InfoGrid, formatDate } from '@/app/components/ui/detail'
+import { DetailCard, InfoRow, InfoGrid } from '@/app/components/ui/detail'
 import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
 import { formatNaira } from '@/app/lib/utils'
 import { assignRiderToParcel } from '@/app/actions/parcels'
 import { getRiders } from '@/app/actions/riders'
+import type { TimelineResult } from '@/app/actions/timeline'
 import type { ParcelDetail, ParcelStatus, RiderSummary } from '@/app/lib/types'
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY
@@ -116,8 +119,15 @@ function RouteMap({ parcel }: { parcel: ParcelDetail }) {
 
 /* ─── Main component ──────────────────────────────────── */
 
-export function ParcelDetailClient({ parcel: initialParcel }: { parcel: ParcelDetail }) {
+export function ParcelDetailClient({
+  parcel: initialParcel,
+  timeline,
+}: {
+  parcel: ParcelDetail
+  timeline: TimelineResult
+}) {
   const toast = useToast()
+  const router = useRouter()
   const [parcel, setParcel] = useState(initialParcel)
   const [isPending, startTransition] = useTransition()
 
@@ -165,6 +175,7 @@ export function ParcelDetailClient({ parcel: initialParcel }: { parcel: ParcelDe
       }
       setShowAssign(false)
       toast.success('Rider assigned.')
+      router.refresh()
     })
   }
 
@@ -221,16 +232,11 @@ export function ParcelDetailClient({ parcel: initialParcel }: { parcel: ParcelDe
               </InfoGrid>
             </DetailCard>
 
-            {/* Timeline */}
-            <DetailCard title="Timeline">
-              <InfoGrid>
-                <InfoRow label="Created" value={formatDateTime(parcel.createdAt)} />
-                <InfoRow label="Picked Up" value={formatDateTime(parcel.pickedUpAt)} />
-                <InfoRow label="Delivered" value={formatDateTime(parcel.deliveredAt)} />
-                <InfoRow label="Cancelled" value={formatDateTime(parcel.cancelledAt)} />
-                <InfoRow label="Last Updated" value={formatDateTime(parcel.updatedAt)} />
-              </InfoGrid>
-            </DetailCard>
+            <ActivityTimeline
+              events={timeline.events}
+              error={timeline.error}
+              entityLabel="Parcel"
+            />
           </div>
 
           {/* Right col */}

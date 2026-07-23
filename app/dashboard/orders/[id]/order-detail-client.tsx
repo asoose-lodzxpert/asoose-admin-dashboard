@@ -3,13 +3,16 @@
 import { useState, useTransition } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
+import { ActivityTimeline } from '@/app/components/ui/activity-timeline'
 import { DetailCard, InfoRow, InfoGrid, formatDate } from '@/app/components/ui/detail'
 import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
 import { updateOrderStatus, assignRiderToOrder } from '@/app/actions/orders'
 import { getRiders } from '@/app/actions/riders'
+import type { TimelineResult } from '@/app/actions/timeline'
 import type { OrderDetail, OrderStatus, PaymentStatus, RiderSummary } from '@/app/lib/types'
 
 /* ─── Helpers ──────────────────────────────────────────── */
@@ -122,8 +125,15 @@ function sortByActive<T extends { status: string }>(list: T[]): T[] {
 
 /* ─── Component ────────────────────────────────────────── */
 
-export function OrderDetailClient({ order: initial }: { order: OrderDetail }) {
+export function OrderDetailClient({
+  order: initial,
+  timeline,
+}: {
+  order: OrderDetail
+  timeline: TimelineResult
+}) {
   const toast = useToast()
+  const router = useRouter()
   const [order, setOrder] = useState(initial)
   const [isPending, startTransition] = useTransition()
 
@@ -172,6 +182,7 @@ export function OrderDetailClient({ order: initial }: { order: OrderDetail }) {
       if (res.data) setOrder(res.data)
       setShowStatusModal(false)
       toast.success('Order status updated.')
+      router.refresh()
     })
   }
 
@@ -219,6 +230,7 @@ export function OrderDetailClient({ order: initial }: { order: OrderDetail }) {
           } : prev.delivery.rider,
         } : prev.delivery,
       }))
+      router.refresh()
     })
   }
 
@@ -370,12 +382,11 @@ export function OrderDetailClient({ order: initial }: { order: OrderDetail }) {
             </DetailCard>
           )}
 
-          <DetailCard title="Timeline">
-            <InfoGrid className="grid-cols-2">
-              <InfoRow label="Created" value={formatDate(order.createdAt)} />
-              <InfoRow label="Last Updated" value={formatDate(order.updatedAt)} />
-            </InfoGrid>
-          </DetailCard>
+          <ActivityTimeline
+            events={timeline.events}
+            error={timeline.error}
+            entityLabel="Order"
+          />
         </div>
 
         {/* Right: Info cards */}

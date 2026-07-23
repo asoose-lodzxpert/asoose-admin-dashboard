@@ -159,9 +159,11 @@ export async function updateProduct(
 ): Promise<{ product?: Product; error?: string }> {
   try {
     const product = await apiFetch<Product>(
-      `/api/v1/vendors/admin/${vendorId}/products/${productId}`,
+      `/api/v1/vendors/admin/products/${productId}`,
       { method: 'PATCH', body: JSON.stringify(data), token: await token() }
     )
+    revalidatePath(`/dashboard/partners/vendors/${vendorId}`)
+    revalidatePath('/dashboard/catalog')
     return { product }
   } catch (err) {
     return { error: err instanceof ApiError ? err.message : 'Failed to update product.' }

@@ -2,11 +2,14 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/app/components/ui/button'
+import { ActivityTimeline } from '@/app/components/ui/activity-timeline'
 import { DetailCard, InfoRow, InfoGrid } from '@/app/components/ui/detail'
 import { useToast } from '@/app/components/ui/toast'
 import { cn, formatNaira } from '@/app/lib/utils'
 import { checkInBooking, checkOutBooking } from '@/app/actions/bookings'
+import type { TimelineResult } from '@/app/actions/timeline'
 import type { BookingDetail, BookingStatus } from '@/app/lib/types'
 
 const STATUS_STYLES: Record<BookingStatus, string> = {
@@ -39,8 +42,15 @@ function formatDateOnly(d: string) {
   return new Date(d).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-export function BookingDetailClient({ booking: initial }: { booking: BookingDetail }) {
+export function BookingDetailClient({
+  booking: initial,
+  timeline,
+}: {
+  booking: BookingDetail
+  timeline: TimelineResult
+}) {
   const toast = useToast()
+  const router = useRouter()
   const [booking, setBooking] = useState(initial)
   const [isPending, startTransition] = useTransition()
   const [actionError, setActionError] = useState('')
@@ -52,6 +62,7 @@ export function BookingDetailClient({ booking: initial }: { booking: BookingDeta
       if (res.error) { setActionError(res.error); toast.error(res.error); return }
       if (res.data) setBooking((b) => ({ ...b, status: res.data!.status, checkedInAt: res.data!.checkedInAt ?? b.checkedInAt }))
       toast.success('Guest checked in.')
+      router.refresh()
     })
   }
 
@@ -62,6 +73,7 @@ export function BookingDetailClient({ booking: initial }: { booking: BookingDeta
       if (res.error) { setActionError(res.error); toast.error(res.error); return }
       if (res.data) setBooking((b) => ({ ...b, status: res.data!.status, checkedOutAt: res.data!.checkedOutAt ?? b.checkedOutAt }))
       toast.success('Guest checked out.')
+      router.refresh()
     })
   }
 
@@ -133,6 +145,12 @@ export function BookingDetailClient({ booking: initial }: { booking: BookingDeta
                 </InfoGrid>
               </DetailCard>
             )}
+
+            <ActivityTimeline
+              events={timeline.events}
+              error={timeline.error}
+              entityLabel="Booking"
+            />
           </div>
 
           <div className="space-y-6">
@@ -151,15 +169,6 @@ export function BookingDetailClient({ booking: initial }: { booking: BookingDeta
               </InfoGrid>
             </DetailCard>
 
-            <DetailCard title="Timeline">
-              <InfoGrid className="grid-cols-1">
-                <InfoRow label="Created" value={formatDateTime(booking.createdAt)} />
-                <InfoRow label="Checked In" value={formatDateTime(booking.checkedInAt)} />
-                <InfoRow label="Checked Out" value={formatDateTime(booking.checkedOutAt)} />
-                <InfoRow label="Cancelled" value={formatDateTime(booking.cancelledAt)} />
-                <InfoRow label="Last Updated" value={formatDateTime(booking.updatedAt)} />
-              </InfoGrid>
-            </DetailCard>
           </div>
         </div>
       </div>
