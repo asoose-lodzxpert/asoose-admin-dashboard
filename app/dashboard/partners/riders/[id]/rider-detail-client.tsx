@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
@@ -83,15 +84,12 @@ function ColorField({ value, onChange }: { value: string; onChange: (v: string) 
 
 interface Props {
   rider: RiderDetail
-  displayName: string
-  displayEmail?: string
-  displayPhone?: string
   vehicleTypes: VehicleType[]
   vehicleBrands: VehicleBrand[]
   cities: City[]
 }
 
-export function RiderDetailClient({ rider: initial, displayName, displayEmail, displayPhone, vehicleTypes, vehicleBrands, cities }: Props) {
+export function RiderDetailClient({ rider: initial, vehicleTypes, vehicleBrands, cities }: Props) {
   const toast = useToast()
   const [rider, setRider] = useState(initial)
   const [isPending, startTransition] = useTransition()
@@ -101,6 +99,10 @@ export function RiderDetailClient({ rider: initial, displayName, displayEmail, d
   const [actionError, setActionError] = useState('')
 
   const [editForm, setEditForm] = useState({
+    firstName: rider.firstName ?? '',
+    lastName: rider.lastName ?? '',
+    email: rider.email ?? '',
+    phone: rider.phone ?? '',
     cityId: rider.cityId ?? '',
     vehicleType: rider.vehicleType ?? '',
     vehicleBrand: rider.vehicleBrand ?? '',
@@ -125,6 +127,10 @@ export function RiderDetailClient({ rider: initial, displayName, displayEmail, d
     startTransition(async () => {
       setEditError('')
       const res = await updateRiderProfile(rider.id, {
+        firstName: editForm.firstName.trim() || undefined,
+        lastName: editForm.lastName.trim() || undefined,
+        email: editForm.email.trim() || undefined,
+        phone: editForm.phone.trim() || undefined,
         cityId: editForm.cityId || undefined,
         vehicleType: editForm.vehicleType || undefined,
         vehicleBrand: editForm.vehicleBrand || null,
@@ -177,6 +183,8 @@ export function RiderDetailClient({ rider: initial, displayName, displayEmail, d
     })
   }
 
+  const displayName =
+    [rider.firstName, rider.lastName].filter(Boolean).join(' ') || 'Rider'
   const initials = displayName.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
 
   return (
@@ -191,7 +199,21 @@ export function RiderDetailClient({ rider: initial, displayName, displayEmail, d
         </Link>
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-base font-bold text-sky-700">{initials}</div>
+            {rider.avatar ? (
+              <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-sky-100">
+                <Image
+                  src={rider.avatar}
+                  alt={displayName}
+                  fill
+                  className="object-cover"
+                  unoptimized
+                />
+              </div>
+            ) : (
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-base font-bold text-sky-700">
+                {initials}
+              </div>
+            )}
             <div className="min-w-0">
               <div className="flex items-center gap-2.5">
                 <h1 className="text-xl font-bold text-slate-900 truncate">{displayName}</h1>
@@ -219,7 +241,9 @@ export function RiderDetailClient({ rider: initial, displayName, displayEmail, d
                   <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20">Verified</span>
                 )}
               </div>
-              <p className="text-sm text-slate-500">{[rider.userEmail ?? displayEmail, rider.userPhone ?? displayPhone].filter(Boolean).join(' · ')}</p>
+              <p className="text-sm text-slate-500">
+                {[rider.email, rider.phone].filter(Boolean).join(' · ')}
+              </p>
               {availabilityError && <p className="mt-1 text-xs text-red-500">{availabilityError}</p>}
             </div>
           </div>
@@ -239,6 +263,17 @@ export function RiderDetailClient({ rider: initial, displayName, displayEmail, d
       <div className="px-8 py-6 space-y-6">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2 space-y-6">
+            <DetailCard title="Personal & Contact Information">
+              <InfoGrid>
+                <InfoRow label="First Name" value={rider.firstName} />
+                <InfoRow label="Last Name" value={rider.lastName} />
+                <InfoRow label="Email" value={rider.email} />
+                <InfoRow label="Phone" value={rider.phone} />
+                <InfoRow label="Country Code" value={rider.phoneCountryCode} />
+                <InfoRow label="User ID" value={rider.userId} />
+              </InfoGrid>
+            </DetailCard>
+
             <DetailCard title="Vehicle Information">
               <InfoGrid>
                 <InfoRow label="Type" value={rider.vehicleType} />
@@ -265,6 +300,22 @@ export function RiderDetailClient({ rider: initial, displayName, displayEmail, d
           </div>
 
           <div className="space-y-6">
+            <DetailCard title="Account">
+              <InfoGrid className="grid-cols-1">
+                <InfoRow label="Account Status" value={rider.accountStatus} />
+                <InfoRow label="Active" value={rider.isActive ? 'Yes' : 'No'} />
+                <InfoRow label="Email Verified" value={rider.emailVerified ? 'Yes' : 'No'} />
+                <InfoRow label="Phone Verified" value={rider.phoneVerified ? 'Yes' : 'No'} />
+                <InfoRow label="City ID" value={rider.cityId} />
+                <InfoRow
+                  label="Last Login"
+                  value={rider.lastLoginAt
+                    ? new Date(rider.lastLoginAt).toLocaleString('en-NG')
+                    : null}
+                />
+              </InfoGrid>
+            </DetailCard>
+
             <DetailCard title="Stats">
               <InfoGrid className="grid-cols-1">
                 <div>
@@ -274,6 +325,15 @@ export function RiderDetailClient({ rider: initial, displayName, displayEmail, d
                 <InfoRow label="Total Deliveries" value={rider.totalDeliveries} />
                 <InfoRow label="Total Reviews" value={rider.totalReviews} />
                 <InfoRow label="Max Distance" value={rider.maxDeliveryDistance != null ? `${rider.maxDeliveryDistance} km` : null} />
+              </InfoGrid>
+            </DetailCard>
+
+            <DetailCard title="Live Telemetry">
+              <InfoGrid className="grid-cols-1">
+                <InfoRow label="Latitude" value={rider.currentLat} />
+                <InfoRow label="Longitude" value={rider.currentLng} />
+                <InfoRow label="Speed" value={rider.speed != null ? `${rider.speed} km/h` : null} />
+                <InfoRow label="Heading" value={rider.heading != null ? `${rider.heading}°` : null} />
               </InfoGrid>
             </DetailCard>
 
@@ -287,10 +347,10 @@ export function RiderDetailClient({ rider: initial, displayName, displayEmail, d
               }}
             />
 
-            {rider.preferredZones?.length > 0 && (
+            {(rider.preferredZones?.length ?? 0) > 0 && (
               <DetailCard title="Preferred Zones">
                 <div className="flex flex-wrap gap-2">
-                  {rider.preferredZones.map((z) => (
+                  {rider.preferredZones?.map((z) => (
                     <span key={z} className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">{z}</span>
                   ))}
                 </div>
@@ -333,6 +393,32 @@ export function RiderDetailClient({ rider: initial, displayName, displayEmail, d
       >
         {editError && <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">{editError}</div>}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <h3 className="sm:col-span-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+            Personal & Contact
+          </h3>
+          <div>
+            <label className="mb-1.5 block text-[13px] font-medium text-slate-700">First Name</label>
+            <input value={editForm.firstName} onChange={(e) => ef('firstName', e.target.value)}
+              className="w-full rounded-xl border-0 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-[13px] font-medium text-slate-700">Last Name</label>
+            <input value={editForm.lastName} onChange={(e) => ef('lastName', e.target.value)}
+              className="w-full rounded-xl border-0 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-[13px] font-medium text-slate-700">Email</label>
+            <input type="email" value={editForm.email} onChange={(e) => ef('email', e.target.value)}
+              className="w-full rounded-xl border-0 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-[13px] font-medium text-slate-700">Phone</label>
+            <input type="tel" value={editForm.phone} onChange={(e) => ef('phone', e.target.value)}
+              className="w-full rounded-xl border-0 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none" />
+          </div>
+          <h3 className="sm:col-span-2 border-t border-slate-100 pt-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
+            Vehicle & License
+          </h3>
           <div>
             <label className="mb-1.5 block text-[13px] font-medium text-slate-700">City</label>
             <select value={editForm.cityId} onChange={(e) => ef('cityId', e.target.value)}

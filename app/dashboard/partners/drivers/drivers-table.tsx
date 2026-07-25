@@ -109,8 +109,7 @@ export function DriversTable({
   }
 
   function navToDetail(driver: DriverSummary) {
-    const q = new URLSearchParams({ name: driver.fullName, email: driver.email, phone: driver.phone })
-    router.push(`/dashboard/partners/drivers/${driver.id}?${q}`)
+    router.push(`/dashboard/partners/drivers/${driver.id}`)
   }
 
   return (

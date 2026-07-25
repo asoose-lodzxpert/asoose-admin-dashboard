@@ -7,13 +7,25 @@ import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
 import { ActivityTimeline } from '@/app/components/ui/activity-timeline'
 import { DetailCard, InfoRow, InfoGrid } from '@/app/components/ui/detail'
+import { FulfillmentCodeCard } from '@/app/components/ui/fulfillment-code-card'
+import { AssignmentIcon } from '@/app/components/ui/assignment-icon'
 import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
 import { formatNaira } from '@/app/lib/utils'
-import { assignDriverToRide, requeueRide, forceCancelRide } from '@/app/actions/rides'
+import {
+  assignDriverToRide,
+  requeueRide,
+  forceCancelRide,
+  getRideConfirmationCode,
+} from '@/app/actions/rides'
 import { getDrivers } from '@/app/actions/drivers'
 import type { TimelineResult } from '@/app/actions/timeline'
-import type { RideDetail, RideStatus, RideDriver, DriverSummary } from '@/app/lib/types'
+import type {
+  RideDetail,
+  RideStatus,
+  RideDriver,
+  DriverSummary,
+} from '@/app/lib/types'
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY
 
@@ -147,6 +159,7 @@ export function RideDetailClient({
   const canAssign = !isTerminal && isPaid
   const canRequeue = !isTerminal && isPaid && !ride.driver
   const canCancel = !isTerminal
+  const canRetrieveCode = !isTerminal
 
   /* assign driver modal */
   const [showAssign, setShowAssign] = useState(false)
@@ -250,10 +263,13 @@ export function RideDetailClient({
           </span>
           <div className="ml-auto flex items-center gap-2">
             {canAssign && (
-              <Button size="sm" onClick={openAssign} disabled={isPending}>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-                  <path d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" />
-                </svg>
+              <Button
+                variant={ride.driver ? 'secondary' : 'primary'}
+                size="sm"
+                onClick={openAssign}
+                disabled={isPending}
+              >
+                <AssignmentIcon reassign={Boolean(ride.driver)} />
                 {ride.driver ? 'Reassign Driver' : 'Assign Driver'}
               </Button>
             )}
@@ -345,6 +361,16 @@ export function RideDetailClient({
                   <InfoRow label="Rating" value={ride.driver.rating} />
                 </InfoGrid>
               </DetailCard>
+            )}
+
+            {/* Ride completion code */}
+            {canRetrieveCode && (
+              <FulfillmentCodeCard
+                title="Ride Completion Code"
+                description="Retrieve and share this code with the assigned driver so they can complete the ride."
+                retrieveLabel="Retrieve Completion Code"
+                retrieveCode={() => getRideConfirmationCode(ride.id)}
+              />
             )}
 
             {/* Cancellation */}

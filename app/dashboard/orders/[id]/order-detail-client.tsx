@@ -8,9 +8,15 @@ import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
 import { ActivityTimeline } from '@/app/components/ui/activity-timeline'
 import { DetailCard, InfoRow, InfoGrid, formatDate } from '@/app/components/ui/detail'
+import { FulfillmentCodeCard } from '@/app/components/ui/fulfillment-code-card'
+import { AssignmentIcon } from '@/app/components/ui/assignment-icon'
 import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
-import { updateOrderStatus, assignRiderToOrder } from '@/app/actions/orders'
+import {
+  updateOrderStatus,
+  assignRiderToOrder,
+  getOrderDeliveryCode,
+} from '@/app/actions/orders'
 import { getRiders } from '@/app/actions/riders'
 import type { TimelineResult } from '@/app/actions/timeline'
 import type { OrderDetail, OrderStatus, PaymentStatus, RiderSummary } from '@/app/lib/types'
@@ -102,6 +108,13 @@ const NEXT_STATUSES: Partial<Record<OrderStatus, OrderStatus[]>> = {
 }
 
 const REQUIRES_REASON = new Set<OrderStatus>(['CANCELLED', 'REJECTED'])
+const TERMINAL_STATUSES = new Set<OrderStatus>([
+  'DELIVERED',
+  'CANCELLED',
+  'REJECTED',
+  'REFUNDED',
+  'COMPLETED',
+])
 
 const RIDER_STATUS_DOT: Record<string, string> = {
   ONLINE:      'bg-emerald-500',
@@ -155,6 +168,7 @@ export function OrderDetailClient({
   const vendorName = order.storeName || order.restaurantName || 'Vendor'
   const items = Array.isArray(order.items) ? order.items : []
   const canAssignRider = !!order.delivery?.id && order.status !== 'DELIVERED'
+  const canRetrieveDeliveryCode = !TERMINAL_STATUSES.has(order.status)
 
   /* ─── Status handlers ─────────────────────────────────── */
 
@@ -267,7 +281,12 @@ export function OrderDetailClient({
                 {STATUS_LABELS[order.status]}
               </span>
               {canAssignRider && (
-                <Button variant="secondary" size="sm" onClick={openRiderModal}>
+                <Button
+                  variant={order.delivery?.rider ? 'secondary' : 'primary'}
+                  size="sm"
+                  onClick={openRiderModal}
+                >
+                  <AssignmentIcon reassign={Boolean(order.delivery?.rider)} />
                   {order.delivery?.rider ? 'Reassign Rider' : 'Assign Rider'}
                 </Button>
               )}
@@ -437,6 +456,15 @@ export function OrderDetailClient({
               <InfoRow label="Total" value={formatNairaFull(order.total)} />
             </InfoGrid>
           </DetailCard>
+
+          {canRetrieveDeliveryCode && (
+            <FulfillmentCodeCard
+              title="Order Delivery Code"
+              description="Retrieve and share this code with the assigned rider so they can confirm delivery."
+              retrieveLabel="Retrieve Delivery Code"
+              retrieveCode={() => getOrderDeliveryCode(order.id)}
+            />
+          )}
         </div>
       </div>
 

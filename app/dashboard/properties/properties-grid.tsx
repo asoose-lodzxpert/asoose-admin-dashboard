@@ -51,7 +51,9 @@ function PropertyCard({ property }: { property: PropertySummary }) {
 
       <div className="flex flex-col gap-1.5 p-4 flex-1">
         <h3 className="font-semibold text-slate-900 leading-snug line-clamp-1">{property.name}</h3>
-        <p className="text-xs text-slate-500">{property.propertyType} · {property.city.name}</p>
+        <p className="text-xs text-slate-500">
+          {property.propertyType} · {property.city?.name ?? 'City not assigned'}
+        </p>
 
         <div className="mt-auto flex items-center justify-between pt-2.5 border-t border-slate-100">
           <span className="text-sm font-bold text-slate-900">

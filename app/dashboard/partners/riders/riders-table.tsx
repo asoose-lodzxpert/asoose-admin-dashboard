@@ -111,8 +111,7 @@ export function RidersTable({
   }
 
   function navToDetail(rider: RiderSummary) {
-    const q = new URLSearchParams({ name: rider.fullName, email: rider.email, phone: rider.phone })
-    router.push(`/dashboard/partners/riders/${rider.id}?${q}`)
+    router.push(`/dashboard/partners/riders/${rider.id}`)
   }
 
   return (

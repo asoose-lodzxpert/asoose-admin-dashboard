@@ -6,6 +6,12 @@ import { apiFetch, ApiError } from '@/app/lib/api'
 import type { RiderSummary, RiderDetail, UserWallet } from '@/app/lib/types'
 
 type RiderUpdateData = Partial<{
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  phoneCountryCode: string
+  avatar: string
   cityId: string
   vehicleType: string
   vehicleBrand: string | null

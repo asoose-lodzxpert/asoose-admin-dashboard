@@ -66,6 +66,27 @@ export async function markAllNotificationsRead(): Promise<{
   }
 }
 
+export async function markNotificationRead(
+  notificationId: string
+): Promise<{ error?: string }> {
+  try {
+    await apiFetch<unknown>(
+      `/api/v1/notifications/${encodeURIComponent(notificationId)}/read`,
+      {
+        method: 'PATCH',
+        token: await token(),
+      }
+    )
+    return {}
+  } catch (err) {
+    return {
+      error: err instanceof ApiError
+        ? err.message
+        : 'Failed to mark the notification as read.',
+    }
+  }
+}
+
 export interface EmailBroadcastResult {
   sent: number
   failed: number

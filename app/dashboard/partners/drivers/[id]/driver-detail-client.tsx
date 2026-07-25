@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
@@ -48,14 +49,11 @@ const DRIVER_DOCUMENT_FIELDS: DocumentField[] = [
 
 interface Props {
   driver: DriverDetail
-  displayName: string
-  displayEmail?: string
-  displayPhone?: string
   vehicleTypes: VehicleType[]
   vehicleBrands: VehicleBrand[]
 }
 
-export function DriverDetailClient({ driver: initial, displayName, displayEmail, displayPhone, vehicleTypes, vehicleBrands }: Props) {
+export function DriverDetailClient({ driver: initial, vehicleTypes, vehicleBrands }: Props) {
   const toast = useToast()
   const [driver, setDriver] = useState(initial)
   const [isPending, startTransition] = useTransition()
@@ -65,6 +63,10 @@ export function DriverDetailClient({ driver: initial, displayName, displayEmail,
   const [actionError, setActionError] = useState('')
 
   const [editForm, setEditForm] = useState({
+    firstName: driver.firstName ?? '',
+    lastName: driver.lastName ?? '',
+    email: driver.email ?? '',
+    phone: driver.phone ?? '',
     vehicleType: driver.vehicleType ?? '',
     vehicleBrand: driver.vehicleBrand ?? '',
     vehicleModel: driver.vehicleModel ?? '',
@@ -92,6 +94,10 @@ export function DriverDetailClient({ driver: initial, displayName, displayEmail,
     startTransition(async () => {
       setEditError('')
       const res = await updateDriverProfile(driver.id, {
+        firstName: editForm.firstName.trim() || undefined,
+        lastName: editForm.lastName.trim() || undefined,
+        email: editForm.email.trim() || undefined,
+        phone: editForm.phone.trim() || undefined,
         vehicleType: editForm.vehicleType || undefined,
         vehicleBrand: editForm.vehicleBrand || undefined,
         vehicleModel: editForm.vehicleModel || undefined,
@@ -157,8 +163,14 @@ export function DriverDetailClient({ driver: initial, displayName, displayEmail,
   }
 
   const isNew = !driver.isVerified && driver.totalDeliveries === 0
-  const isSuspended = !driver.isVerified && driver.totalDeliveries > 0
+  const isSuspended =
+    driver.accountStatus === 'SUSPENDED' ||
+    (!driver.isVerified && driver.totalDeliveries > 0)
 
+  const displayName =
+    driver.fullName ||
+    [driver.firstName, driver.lastName].filter(Boolean).join(' ') ||
+    'Driver'
   const initials = displayName.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
 
   return (
@@ -173,7 +185,21 @@ export function DriverDetailClient({ driver: initial, displayName, displayEmail,
         </Link>
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-base font-bold text-violet-700">{initials}</div>
+            {driver.avatar ? (
+              <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-violet-100">
+                <Image
+                  src={driver.avatar}
+                  alt={displayName}
+                  fill
+                  className="object-cover"
+                  unoptimized
+                />
+              </div>
+            ) : (
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-base font-bold text-violet-700">
+                {initials}
+              </div>
+            )}
             <div className="min-w-0">
               <div className="flex items-center gap-2.5 flex-wrap">
                 <h1 className="text-xl font-bold text-slate-900 truncate">{displayName}</h1>
@@ -204,7 +230,9 @@ export function DriverDetailClient({ driver: initial, displayName, displayEmail,
                   <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/20">Suspended</span>
                 )}
               </div>
-              <p className="text-sm text-slate-500">{[driver.userEmail ?? displayEmail, driver.userPhone ?? displayPhone].filter(Boolean).join(' · ')}</p>
+              <p className="text-sm text-slate-500">
+                {[driver.email, driver.phone].filter(Boolean).join(' · ')}
+              </p>
               {availabilityError && <p className="mt-1 text-xs text-red-500">{availabilityError}</p>}
             </div>
           </div>
@@ -227,6 +255,17 @@ export function DriverDetailClient({ driver: initial, displayName, displayEmail,
       <div className="px-8 py-6 space-y-6">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2 space-y-6">
+            <DetailCard title="Personal & Contact Information">
+              <InfoGrid>
+                <InfoRow label="First Name" value={driver.firstName} />
+                <InfoRow label="Last Name" value={driver.lastName} />
+                <InfoRow label="Email" value={driver.email} />
+                <InfoRow label="Phone" value={driver.phone} />
+                <InfoRow label="Country Code" value={driver.phoneCountryCode} />
+                <InfoRow label="User ID" value={driver.userId} />
+              </InfoGrid>
+            </DetailCard>
+
             <DetailCard title="Vehicle Information">
               <InfoGrid>
                 <InfoRow label="Type" value={driver.vehicleType} />
@@ -261,6 +300,22 @@ export function DriverDetailClient({ driver: initial, displayName, displayEmail,
           </div>
 
           <div className="space-y-6">
+            <DetailCard title="Account">
+              <InfoGrid className="grid-cols-1">
+                <InfoRow label="Account Status" value={driver.accountStatus} />
+                <InfoRow label="Active" value={driver.isActive ? 'Yes' : 'No'} />
+                <InfoRow label="Email Verified" value={driver.emailVerified ? 'Yes' : 'No'} />
+                <InfoRow label="Phone Verified" value={driver.phoneVerified ? 'Yes' : 'No'} />
+                <InfoRow label="City ID" value={driver.cityId} />
+                <InfoRow
+                  label="Last Login"
+                  value={driver.lastLoginAt
+                    ? new Date(driver.lastLoginAt).toLocaleString('en-NG')
+                    : null}
+                />
+              </InfoGrid>
+            </DetailCard>
+
             <DetailCard title="Stats">
               <InfoGrid className="grid-cols-1">
                 <div>
@@ -270,6 +325,16 @@ export function DriverDetailClient({ driver: initial, displayName, displayEmail,
                 <InfoRow label="Total Deliveries" value={driver.totalDeliveries} />
                 <InfoRow label="Total Reviews" value={driver.totalReviews} />
                 <InfoRow label="Max Distance" value={driver.maxDeliveryDistance != null ? `${driver.maxDeliveryDistance} km` : null} />
+              </InfoGrid>
+            </DetailCard>
+
+            <DetailCard title="Live Telemetry">
+              <InfoGrid className="grid-cols-1">
+                <InfoRow label="Latitude" value={driver.currentLat} />
+                <InfoRow label="Longitude" value={driver.currentLng} />
+                <InfoRow label="Speed" value={driver.speed != null ? `${driver.speed} km/h` : null} />
+                <InfoRow label="Heading" value={driver.heading != null ? `${driver.heading}°` : null} />
+                <InfoRow label="Battery" value={driver.batteryLevel != null ? `${driver.batteryLevel}%` : null} />
               </InfoGrid>
             </DetailCard>
 
@@ -283,10 +348,10 @@ export function DriverDetailClient({ driver: initial, displayName, displayEmail,
               }}
             />
 
-            {driver.preferredZones?.length > 0 && (
+            {(driver.preferredZones?.length ?? 0) > 0 && (
               <DetailCard title="Preferred Zones">
                 <div className="flex flex-wrap gap-2">
-                  {driver.preferredZones.map((z) => (
+                  {driver.preferredZones?.map((z) => (
                     <span key={z} className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">{z}</span>
                   ))}
                 </div>
@@ -328,6 +393,32 @@ export function DriverDetailClient({ driver: initial, displayName, displayEmail,
       >
         {editError && <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">{editError}</div>}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <h3 className="sm:col-span-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+            Personal & Contact
+          </h3>
+          <div>
+            <label className="mb-1.5 block text-[13px] font-medium text-slate-700">First Name</label>
+            <input value={editForm.firstName} onChange={(e) => ef('firstName', e.target.value)}
+              className="w-full rounded-xl border-0 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-[13px] font-medium text-slate-700">Last Name</label>
+            <input value={editForm.lastName} onChange={(e) => ef('lastName', e.target.value)}
+              className="w-full rounded-xl border-0 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-[13px] font-medium text-slate-700">Email</label>
+            <input type="email" value={editForm.email} onChange={(e) => ef('email', e.target.value)}
+              className="w-full rounded-xl border-0 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-[13px] font-medium text-slate-700">Phone</label>
+            <input type="tel" value={editForm.phone} onChange={(e) => ef('phone', e.target.value)}
+              className="w-full rounded-xl border-0 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none" />
+          </div>
+          <h3 className="sm:col-span-2 border-t border-slate-100 pt-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
+            Vehicle & Compliance
+          </h3>
           <div>
             <label className="mb-1.5 block text-[13px] font-medium text-slate-700">Vehicle Type</label>
             <select value={editForm.vehicleType} onChange={(e) => ef('vehicleType', e.target.value)}
