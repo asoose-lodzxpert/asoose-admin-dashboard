@@ -3,7 +3,13 @@
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { apiFetch, ApiError } from '@/app/lib/api'
-import type { RideSummary, RideDetail, RideStatus, Pagination } from '@/app/lib/types'
+import type {
+  RideSummary,
+  RideDetail,
+  RideStatus,
+  RideConfirmationCode,
+  Pagination,
+} from '@/app/lib/types'
 
 async function token() {
   return (await cookies()).get('access_token')?.value ?? ''
@@ -36,6 +42,24 @@ export async function getRideDetail(rideId: string): Promise<RideDetail | null> 
   try {
     return await apiFetch<RideDetail>(`/api/v1/rides/admin/${rideId}`, { token: await token() })
   } catch { return null }
+}
+
+export async function getRideConfirmationCode(
+  rideId: string
+): Promise<{ data?: RideConfirmationCode; error?: string }> {
+  try {
+    const data = await apiFetch<RideConfirmationCode>(
+      `/api/v1/rides/admin/${encodeURIComponent(rideId)}/confirmation-code`,
+      { token: await token() }
+    )
+    return { data }
+  } catch (err) {
+    return {
+      error: err instanceof ApiError
+        ? err.message
+        : 'Failed to retrieve the ride confirmation code.',
+    }
+  }
 }
 
 export async function assignDriverToRide(rideId: string, driverId: string): Promise<{ error?: string }> {

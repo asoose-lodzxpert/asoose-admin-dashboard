@@ -8,10 +8,11 @@ import { Button } from '@/app/components/ui/button'
 import { ActivityTimeline } from '@/app/components/ui/activity-timeline'
 import { DocCard } from '@/app/components/ui/doc-card'
 import { DetailCard, InfoRow, InfoGrid } from '@/app/components/ui/detail'
+import { FulfillmentCodeCard } from '@/app/components/ui/fulfillment-code-card'
 import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
 import { formatNaira } from '@/app/lib/utils'
-import { assignRiderToParcel } from '@/app/actions/parcels'
+import { assignRiderToParcel, getParcelConfirmationCode } from '@/app/actions/parcels'
 import { getRiders } from '@/app/actions/riders'
 import type { TimelineResult } from '@/app/actions/timeline'
 import type { ParcelDetail, ParcelStatus, RiderSummary } from '@/app/lib/types'
@@ -281,6 +282,15 @@ export function ParcelDetailClient({
                   <InfoRow label="Rating" value={parcel.rider.rating} />
                 </InfoGrid>
               </DetailCard>
+            )}
+
+            {!isTerminal && (
+              <FulfillmentCodeCard
+                title="Parcel Confirmation Code"
+                description="Retrieve and share this code with the assigned rider so they can confirm delivery."
+                retrieveLabel="Retrieve Confirmation Code"
+                retrieveCode={() => getParcelConfirmationCode(parcel.id)}
+              />
             )}
 
             {/* Proof of Delivery */}

@@ -6,7 +6,13 @@ import { Button } from '@/app/components/ui/button'
 import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
 import { formatNaira } from '@/app/lib/utils'
-import type { City, PopularRoute, CityPricing, ParcelPricing } from '@/app/lib/types'
+import type {
+  City,
+  PopularRoute,
+  CityPricing,
+  ParcelPricing,
+  AccommodationPricing,
+} from '@/app/lib/types'
 import {
   getPopularRoutes,
   createPopularRoute,
@@ -15,12 +21,14 @@ import {
   updateCityPricing,
   getParcelPricing,
   updateParcelPricing,
+  getAccommodationPricing,
+  updateAccommodationPricing,
 } from '@/app/actions/cities'
 
 const INPUT_CLS =
   'w-full rounded-xl border-0 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow'
 
-type Tab = 'routes' | 'pricing' | 'parcel-pricing'
+type Tab = 'routes' | 'pricing' | 'parcel-pricing' | 'accommodation-pricing'
 
 /* ─── Route form ──────────────────────────────────────── */
 
@@ -103,6 +111,31 @@ const EMPTY_PARCEL_PRICING_FORM: ParcelPricingForm = {
   commissionPercent: '',
 }
 
+/* ─── Accommodation Pricing form ────────────────────── */
+
+interface AccommodationPricingForm {
+  serviceFeePercent: string
+  serviceFeeMin: string
+  serviceFeeMax: string
+  isActive: boolean
+}
+
+function accommodationPricingToForm(p: AccommodationPricing): AccommodationPricingForm {
+  return {
+    serviceFeePercent: String(p.serviceFeePercent),
+    serviceFeeMin: String(p.serviceFeeMin),
+    serviceFeeMax: String(p.serviceFeeMax),
+    isActive: p.isActive,
+  }
+}
+
+const EMPTY_ACCOMMODATION_PRICING_FORM: AccommodationPricingForm = {
+  serviceFeePercent: '',
+  serviceFeeMin: '',
+  serviceFeeMax: '',
+  isActive: true,
+}
+
 /* ─── Component ───────────────────────────────────────── */
 
 export function LocationsClient({ initialCities }: { initialCities: City[] }) {
@@ -120,18 +153,23 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
   const [deleteError, setDeleteError] = useState('')
 
   /* pricing state */
-  const [pricing, setPricing] = useState<CityPricing | null>(null)
   const [pricingLoaded, setPricingLoaded] = useState(false)
   const [pricingForm, setPricingForm] = useState<PricingForm>(EMPTY_PRICING_FORM)
   const [pricingError, setPricingError] = useState('')
   const [pricingSuccess, setPricingSuccess] = useState(false)
 
   /* parcel pricing state */
-  const [parcelPricing, setParcelPricing] = useState<ParcelPricing | null>(null)
   const [parcelPricingLoaded, setParcelPricingLoaded] = useState(false)
   const [parcelPricingForm, setParcelPricingForm] = useState<ParcelPricingForm>(EMPTY_PARCEL_PRICING_FORM)
   const [parcelPricingError, setParcelPricingError] = useState('')
   const [parcelPricingSuccess, setParcelPricingSuccess] = useState(false)
+
+  /* accommodation pricing state */
+  const [accommodationPricingLoaded, setAccommodationPricingLoaded] = useState(false)
+  const [accommodationPricingForm, setAccommodationPricingForm] =
+    useState<AccommodationPricingForm>(EMPTY_ACCOMMODATION_PRICING_FORM)
+  const [accommodationPricingError, setAccommodationPricingError] = useState('')
+  const [accommodationPricingSuccess, setAccommodationPricingSuccess] = useState(false)
 
   const [isPending, startTransition] = useTransition()
 
@@ -142,16 +180,18 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
     setSelectedCity(city)
     setRoutes([])
     setRoutesLoaded(false)
-    setPricing(null)
     setPricingLoaded(false)
     setPricingForm(EMPTY_PRICING_FORM)
     setPricingError('')
     setPricingSuccess(false)
-    setParcelPricing(null)
     setParcelPricingLoaded(false)
     setParcelPricingForm(EMPTY_PARCEL_PRICING_FORM)
     setParcelPricingError('')
     setParcelPricingSuccess(false)
+    setAccommodationPricingLoaded(false)
+    setAccommodationPricingForm(EMPTY_ACCOMMODATION_PRICING_FORM)
+    setAccommodationPricingError('')
+    setAccommodationPricingSuccess(false)
     // Load the active tab's data
     loadTabData(city, activeTab)
   }
@@ -168,16 +208,22 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
     } else if (tab === 'pricing' && !pricingLoaded) {
       startTransition(async () => {
         const data = await getCityPricing(selectedCity.id)
-        setPricing(data)
         setPricingForm(data ? pricingToForm(data) : EMPTY_PRICING_FORM)
         setPricingLoaded(true)
       })
     } else if (tab === 'parcel-pricing' && !parcelPricingLoaded) {
       startTransition(async () => {
         const data = await getParcelPricing(selectedCity.id)
-        setParcelPricing(data)
         setParcelPricingForm(data ? parcelPricingToForm(data) : EMPTY_PARCEL_PRICING_FORM)
         setParcelPricingLoaded(true)
+      })
+    } else if (tab === 'accommodation-pricing' && !accommodationPricingLoaded) {
+      startTransition(async () => {
+        const data = await getAccommodationPricing(selectedCity.id)
+        setAccommodationPricingForm(
+          data ? accommodationPricingToForm(data) : EMPTY_ACCOMMODATION_PRICING_FORM
+        )
+        setAccommodationPricingLoaded(true)
       })
     }
   }
@@ -192,16 +238,22 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
     } else if (tab === 'pricing') {
       startTransition(async () => {
         const data = await getCityPricing(city.id)
-        setPricing(data)
         setPricingForm(data ? pricingToForm(data) : EMPTY_PRICING_FORM)
         setPricingLoaded(true)
       })
     } else if (tab === 'parcel-pricing') {
       startTransition(async () => {
         const data = await getParcelPricing(city.id)
-        setParcelPricing(data)
         setParcelPricingForm(data ? parcelPricingToForm(data) : EMPTY_PARCEL_PRICING_FORM)
         setParcelPricingLoaded(true)
+      })
+    } else if (tab === 'accommodation-pricing') {
+      startTransition(async () => {
+        const data = await getAccommodationPricing(city.id)
+        setAccommodationPricingForm(
+          data ? accommodationPricingToForm(data) : EMPTY_ACCOMMODATION_PRICING_FORM
+        )
+        setAccommodationPricingLoaded(true)
       })
     }
   }
@@ -304,7 +356,6 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
         commissionPercent: commissionPercent as number,
       })
       if (res.error) { setPricingError(res.error); toast.error(res.error); return }
-      setPricing(res.data as CityPricing)
       setPricingSuccess(true)
       toast.success('Ride pricing saved.')
     })
@@ -346,9 +397,76 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
         commissionPercent: commissionPercent as number,
       })
       if (res.error) { setParcelPricingError(res.error); toast.error(res.error); return }
-      setParcelPricing(res.data as ParcelPricing)
       setParcelPricingSuccess(true)
       toast.success('Parcel pricing saved.')
+    })
+  }
+
+  /* ── accommodation pricing actions ────────────────── */
+
+  function setAccommodationPricingField(
+    key: keyof Omit<AccommodationPricingForm, 'isActive'>,
+    val: string
+  ) {
+    setAccommodationPricingForm((prev) => ({ ...prev, [key]: val }))
+    setAccommodationPricingError('')
+    setAccommodationPricingSuccess(false)
+  }
+
+  function handleSaveAccommodationPricing() {
+    if (!selectedCity) return
+
+    const serviceFeePercent = parseOptional(
+      accommodationPricingForm.serviceFeePercent,
+      'Service fee %'
+    )
+    const serviceFeeMin = parseOptional(
+      accommodationPricingForm.serviceFeeMin,
+      'Service fee min'
+    )
+    const serviceFeeMax = parseOptional(
+      accommodationPricingForm.serviceFeeMax,
+      'Service fee max'
+    )
+
+    for (const value of [serviceFeePercent, serviceFeeMin, serviceFeeMax]) {
+      if (typeof value === 'string') {
+        setAccommodationPricingError(value)
+        return
+      }
+    }
+
+    if ((serviceFeePercent as number) > 100) {
+      setAccommodationPricingError('Service fee % cannot exceed 100.')
+      return
+    }
+    if (
+      (serviceFeeMax as number) > 0 &&
+      (serviceFeeMax as number) < (serviceFeeMin as number)
+    ) {
+      setAccommodationPricingError(
+        'Service fee max must be greater than or equal to service fee min.'
+      )
+      return
+    }
+
+    startTransition(async () => {
+      const res = await updateAccommodationPricing(selectedCity.id, {
+        serviceFeePercent: serviceFeePercent as number,
+        serviceFeeMin: serviceFeeMin as number,
+        serviceFeeMax: serviceFeeMax as number,
+        isActive: accommodationPricingForm.isActive,
+      })
+      if (res.error) {
+        setAccommodationPricingError(res.error)
+        toast.error(res.error)
+        return
+      }
+      setAccommodationPricingForm(
+        accommodationPricingToForm(res.data as AccommodationPricing)
+      )
+      setAccommodationPricingSuccess(true)
+      toast.success('Accommodation pricing saved.')
     })
   }
 
@@ -358,7 +476,9 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
     <main className="flex h-full flex-col px-8 py-8">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-900">Locations</h1>
-        <p className="mt-0.5 text-sm text-slate-500">Manage popular routes, ride pricing, and parcel pricing per city.</p>
+        <p className="mt-0.5 text-sm text-slate-500">
+          Manage popular routes and service pricing per city.
+        </p>
       </div>
 
       <div className="flex flex-1 gap-6 min-h-0">
@@ -437,9 +557,23 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
                       Save Parcel Pricing
                     </Button>
                   )}
+                  {activeTab === 'accommodation-pricing' && (
+                    <Button
+                      size="sm"
+                      loading={isPending}
+                      onClick={handleSaveAccommodationPricing}
+                    >
+                      Save Accommodation Pricing
+                    </Button>
+                  )}
                 </div>
                 <div className="flex gap-1">
-                  {([['routes', 'Popular Routes'], ['pricing', 'Ride Pricing'], ['parcel-pricing', 'Parcel Pricing']] as [Tab, string][]).map(([tab, label]) => (
+                  {([
+                    ['routes', 'Popular Routes'],
+                    ['pricing', 'Ride Pricing'],
+                    ['parcel-pricing', 'Parcel Pricing'],
+                    ['accommodation-pricing', 'Accommodation Pricing'],
+                  ] as [Tab, string][]).map(([tab, label]) => (
                     <button
                       key={tab}
                       onClick={() => switchTab(tab)}
@@ -481,6 +615,21 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
                   success={parcelPricingSuccess}
                   onChange={setParcelPricingField}
                 />}
+                {activeTab === 'accommodation-pricing' && (
+                  <AccommodationPricingTab
+                    form={accommodationPricingForm}
+                    loaded={accommodationPricingLoaded}
+                    isPending={isPending}
+                    error={accommodationPricingError}
+                    success={accommodationPricingSuccess}
+                    onChange={setAccommodationPricingField}
+                    onActiveChange={(isActive) => {
+                      setAccommodationPricingForm((prev) => ({ ...prev, isActive }))
+                      setAccommodationPricingError('')
+                      setAccommodationPricingSuccess(false)
+                    }}
+                  />
+                )}
               </div>
             </div>
           )}
@@ -782,6 +931,126 @@ function ParcelPricingTab({
               className={
                 'w-full rounded-xl border-0 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow'
               }
+              disabled={isPending}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/* ─── Accommodation Pricing tab ─────────────────────── */
+
+const ACCOMMODATION_PRICING_FIELDS: {
+  key: keyof Omit<AccommodationPricingForm, 'isActive'>
+  label: string
+  suffix: string
+  placeholder: string
+}[] = [
+  {
+    key: 'serviceFeePercent',
+    label: 'Service Fee',
+    suffix: '%',
+    placeholder: 'e.g. 5',
+  },
+  {
+    key: 'serviceFeeMin',
+    label: 'Service Fee Min',
+    suffix: '₦',
+    placeholder: 'e.g. 500',
+  },
+  {
+    key: 'serviceFeeMax',
+    label: 'Service Fee Max',
+    suffix: '₦',
+    placeholder: 'e.g. 10000',
+  },
+]
+
+function AccommodationPricingTab({
+  form,
+  loaded,
+  isPending,
+  error,
+  success,
+  onChange,
+  onActiveChange,
+}: {
+  form: AccommodationPricingForm
+  loaded: boolean
+  isPending: boolean
+  error: string
+  success: boolean
+  onChange: (
+    key: keyof Omit<AccommodationPricingForm, 'isActive'>,
+    val: string
+  ) => void
+  onActiveChange: (isActive: boolean) => void
+}) {
+  if (isPending && !loaded) return <Spinner />
+
+  return (
+    <div className="px-6 py-6">
+      {error && (
+        <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          {error}
+        </div>
+      )}
+      {success && (
+        <div className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          Accommodation pricing saved successfully.
+        </div>
+      )}
+
+      <div className="mb-6 flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+        <div>
+          <p className="text-sm font-medium text-slate-800">Accommodation service fee</p>
+          <p className="mt-0.5 text-xs text-slate-500">
+            Apply this city-based fee to accommodation bookings.
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={form.isActive}
+          disabled={isPending}
+          onClick={() => onActiveChange(!form.isActive)}
+          className={cn(
+            'relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-60',
+            form.isActive ? 'bg-indigo-600' : 'bg-slate-300'
+          )}
+        >
+          <span
+            className={cn(
+              'mt-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform',
+              form.isActive ? 'translate-x-5' : 'translate-x-0.5'
+            )}
+          />
+          <span className="sr-only">
+            {form.isActive ? 'Deactivate accommodation pricing' : 'Activate accommodation pricing'}
+          </span>
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-x-6 gap-y-5">
+        {ACCOMMODATION_PRICING_FIELDS.map(({ key, label, suffix, placeholder }) => (
+          <div key={key}>
+            <label className="mb-1.5 flex items-center gap-1 text-[13px] font-medium text-slate-700">
+              {label}
+              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">
+                {suffix}
+              </span>
+            </label>
+            <input
+              type="number"
+              step="any"
+              min="0"
+              max={key === 'serviceFeePercent' ? 100 : undefined}
+              value={form[key]}
+              onChange={(e) => onChange(key, e.target.value)}
+              placeholder={placeholder}
+              className={INPUT_CLS}
               disabled={isPending}
             />
           </div>

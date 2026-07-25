@@ -6,6 +6,7 @@ import { io } from 'socket.io-client'
 import {
   getNotifications,
   markAllNotificationsRead,
+  markNotificationRead,
 } from '@/app/actions/notifications'
 import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
@@ -127,9 +128,11 @@ function NotificationGlyph({ type }: { type: string }) {
 
 function NotificationRow({
   notification,
+  onRead,
   onNavigate,
 }: {
   notification: InAppNotification
+  onRead: (notification: InAppNotification) => void
   onNavigate: () => void
 }) {
   const href = notificationHref(notification)
@@ -159,9 +162,24 @@ function NotificationRow({
     'flex w-full gap-3 border-b border-slate-100 px-4 py-3.5 text-left transition-colors last:border-0 hover:bg-slate-50'
 
   return href ? (
-    <Link href={href} onClick={onNavigate} className={className}>
+    <Link
+      href={href}
+      onClick={() => {
+        onRead(notification)
+        onNavigate()
+      }}
+      className={className}
+    >
       {content}
     </Link>
+  ) : !notification.isRead ? (
+    <button
+      type="button"
+      onClick={() => onRead(notification)}
+      className={className}
+    >
+      {content}
+    </button>
   ) : (
     <div className={className}>{content}</div>
   )
@@ -176,6 +194,9 @@ export function NotificationCenter({
   const toast = useToast()
   const panelRef = useRef<HTMLDivElement>(null)
   const knownIds = useRef(new Set(initialData?.notifications.map((item) => item.id) ?? []))
+  const markingIds = useRef(new Set<string>())
+  const unreadOnlyRef = useRef(false)
+  const playNotificationSound = useRef<() => void>(() => undefined)
   const [open, setOpen] = useState(false)
   const [unreadOnly, setUnreadOnly] = useState(false)
   const [notifications, setNotifications] = useState(initialData?.notifications ?? [])
@@ -183,6 +204,82 @@ export function NotificationCenter({
   const [liveNotification, setLiveNotification] = useState<InAppNotification | null>(null)
   const [isLoading, startLoading] = useTransition()
   const [isMarkingRead, startMarkingRead] = useTransition()
+
+  useEffect(() => {
+    let audioContext: AudioContext | null = null
+
+    function getAudioContext() {
+      if (audioContext) return audioContext
+
+      const AudioContextClass =
+        window.AudioContext ??
+        (window as typeof window & {
+          webkitAudioContext?: typeof AudioContext
+        }).webkitAudioContext
+
+      if (!AudioContextClass) return null
+      audioContext = new AudioContextClass()
+      return audioContext
+    }
+
+    function unlockAudio() {
+      const context = getAudioContext()
+      if (context?.state === 'suspended') {
+        void context.resume().catch(() => undefined)
+      }
+    }
+
+    function scheduleTone(
+      context: AudioContext,
+      frequency: number,
+      startAt: number,
+      duration: number,
+      volume: number
+    ) {
+      const oscillator = context.createOscillator()
+      const gain = context.createGain()
+      const endAt = startAt + duration
+
+      oscillator.type = 'triangle'
+      oscillator.frequency.setValueAtTime(frequency, startAt)
+      gain.gain.setValueAtTime(0.0001, startAt)
+      gain.gain.exponentialRampToValueAtTime(volume, startAt + 0.015)
+      gain.gain.exponentialRampToValueAtTime(0.0001, endAt)
+      oscillator.connect(gain)
+      gain.connect(context.destination)
+      oscillator.start(startAt)
+      oscillator.stop(endAt)
+    }
+
+    playNotificationSound.current = () => {
+      const context = getAudioContext()
+      if (!context || context.state !== 'running') return
+
+      const now = context.currentTime
+      const alertPulses = [880, 1318.51, 880, 1318.51, 880, 1318.51]
+      alertPulses.forEach((frequency, index) => {
+        scheduleTone(
+          context,
+          frequency,
+          now + index * 0.5,
+          0.46,
+          index % 2 === 0 ? 0.24 : 0.3
+        )
+      })
+    }
+
+    window.addEventListener('pointerdown', unlockAudio, { once: true })
+    window.addEventListener('keydown', unlockAudio, { once: true })
+
+    return () => {
+      window.removeEventListener('pointerdown', unlockAudio)
+      window.removeEventListener('keydown', unlockAudio)
+      playNotificationSound.current = () => undefined
+      if (audioContext && audioContext.state !== 'closed') {
+        void audioContext.close()
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (!open) return
@@ -227,6 +324,7 @@ export function NotificationCenter({
       setNotifications((current) => [notification, ...current].slice(0, 20))
       setUnreadCount((current) => current + 1)
       setLiveNotification(notification)
+      playNotificationSound.current()
     })
 
     socket.on('connect_error', () => {
@@ -240,6 +338,7 @@ export function NotificationCenter({
 
   function loadNotifications(nextUnreadOnly: boolean) {
     setUnreadOnly(nextUnreadOnly)
+    unreadOnlyRef.current = nextUnreadOnly
     startLoading(async () => {
       const result = await getNotifications(1, 20, nextUnreadOnly)
       if (result.error || !result.data) {
@@ -269,7 +368,35 @@ export function NotificationCenter({
       setNotifications((current) =>
         unreadOnly ? [] : current.map((notification) => ({ ...notification, isRead: true }))
       )
+      setLiveNotification((current) =>
+        current ? { ...current, isRead: true } : current
+      )
       toast.success('All notifications marked as read.')
+    })
+  }
+
+  function markOneRead(notification: InAppNotification) {
+    if (notification.isRead || markingIds.current.has(notification.id)) return
+
+    markingIds.current.add(notification.id)
+    void markNotificationRead(notification.id).then((result) => {
+      markingIds.current.delete(notification.id)
+      if (result.error) {
+        toast.error(result.error)
+        return
+      }
+
+      setUnreadCount((current) => Math.max(0, current - 1))
+      setNotifications((current) =>
+        unreadOnlyRef.current
+          ? current.filter((item) => item.id !== notification.id)
+          : current.map((item) =>
+              item.id === notification.id ? { ...item, isRead: true } : item
+            )
+      )
+      setLiveNotification((current) =>
+        current?.id === notification.id ? { ...current, isRead: true } : current
+      )
     })
   }
 
@@ -363,6 +490,7 @@ export function NotificationCenter({
                     <NotificationRow
                       key={notification.id}
                       notification={notification}
+                      onRead={markOneRead}
                       onNavigate={() => setOpen(false)}
                     />
                   ))
@@ -427,7 +555,10 @@ export function NotificationCenter({
               {notificationHref(liveNotification) && (
                 <Link
                   href={notificationHref(liveNotification)!}
-                  onClick={() => setLiveNotification(null)}
+                  onClick={() => {
+                    markOneRead(liveNotification)
+                    setLiveNotification(null)
+                  }}
                   className="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-700"
                 >
                   View details

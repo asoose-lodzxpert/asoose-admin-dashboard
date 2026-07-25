@@ -3,7 +3,13 @@
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { apiFetch, ApiError } from '@/app/lib/api'
-import type { City, PopularRoute, CityPricing, ParcelPricing } from '@/app/lib/types'
+import type {
+  City,
+  PopularRoute,
+  CityPricing,
+  ParcelPricing,
+  AccommodationPricing,
+} from '@/app/lib/types'
 
 type ActionResult<T> = { data: T; error?: never } | { error: string; data?: never }
 
@@ -174,6 +180,48 @@ export async function updateParcelPricing(
     return { data }
   } catch (err) {
     return { error: err instanceof ApiError ? err.message : 'Failed to update parcel pricing.' }
+  }
+}
+
+export async function getAccommodationPricing(
+  cityId: string
+): Promise<AccommodationPricing | null> {
+  try {
+    return await apiFetch<AccommodationPricing>(
+      `/api/v1/locations/${encodeURIComponent(cityId)}/accommodation-pricing`,
+      { token: await token() }
+    )
+  } catch {
+    return null
+  }
+}
+
+export async function updateAccommodationPricing(
+  cityId: string,
+  payload: {
+    serviceFeePercent: number
+    serviceFeeMin: number
+    serviceFeeMax: number
+    isActive: boolean
+  }
+): Promise<ActionResult<AccommodationPricing>> {
+  try {
+    const data = await apiFetch<AccommodationPricing>(
+      `/api/v1/locations/${encodeURIComponent(cityId)}/accommodation-pricing`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+        token: await token(),
+      }
+    )
+    revalidatePath('/dashboard/locations')
+    return { data }
+  } catch (err) {
+    return {
+      error: err instanceof ApiError
+        ? err.message
+        : 'Failed to update accommodation pricing.',
+    }
   }
 }
 

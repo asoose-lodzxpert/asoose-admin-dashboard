@@ -787,6 +787,37 @@ export interface RideDetail extends Omit<RideSummary, 'driver'> {
   driver: RideDriver | null
 }
 
+export interface RideConfirmationCode {
+  rideId: string
+  trackingId: string
+  confirmationCode: string
+  codeGeneratedAt: string
+  source: string
+}
+
+export interface OrderDeliveryCode {
+  orderId: string
+  orderNumber: string
+  deliveryCode: string
+  codeGeneratedAt: string
+  source: string
+}
+
+export interface ParcelConfirmationCode {
+  parcelId: string
+  trackingId: string
+  confirmationCode: string
+  codeGeneratedAt: string
+  source: string
+}
+
+export interface FulfillmentCodeData {
+  confirmationCode?: string
+  deliveryCode?: string
+  codeGeneratedAt: string
+  source: string
+}
+
 /* ─── Locations / Popular Routes ─────────────────────── */
 
 export interface CityPricing {
@@ -805,6 +836,17 @@ export interface CityPricing {
   isActive: boolean
   createdAt: string
   updatedAt: string
+}
+
+export interface AccommodationPricing {
+  id?: string
+  cityId?: string
+  serviceFeePercent: number
+  serviceFeeMin: number
+  serviceFeeMax: number
+  isActive: boolean
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface PopularRoute {
@@ -996,7 +1038,7 @@ export interface PropertySummary {
   address: string
   lat: number | null
   lng: number | null
-  city: PropertyCity
+  city: PropertyCity | null
   images: string[]
   image: string | null
   amenities: string[]

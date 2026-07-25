@@ -7,13 +7,24 @@ import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
 import { ActivityTimeline } from '@/app/components/ui/activity-timeline'
 import { DetailCard, InfoRow, InfoGrid } from '@/app/components/ui/detail'
+import { FulfillmentCodeCard } from '@/app/components/ui/fulfillment-code-card'
 import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
 import { formatNaira } from '@/app/lib/utils'
-import { assignDriverToRide, requeueRide, forceCancelRide } from '@/app/actions/rides'
+import {
+  assignDriverToRide,
+  requeueRide,
+  forceCancelRide,
+  getRideConfirmationCode,
+} from '@/app/actions/rides'
 import { getDrivers } from '@/app/actions/drivers'
 import type { TimelineResult } from '@/app/actions/timeline'
-import type { RideDetail, RideStatus, RideDriver, DriverSummary } from '@/app/lib/types'
+import type {
+  RideDetail,
+  RideStatus,
+  RideDriver,
+  DriverSummary,
+} from '@/app/lib/types'
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY
 
@@ -147,6 +158,7 @@ export function RideDetailClient({
   const canAssign = !isTerminal && isPaid
   const canRequeue = !isTerminal && isPaid && !ride.driver
   const canCancel = !isTerminal
+  const canRetrieveCode = !isTerminal
 
   /* assign driver modal */
   const [showAssign, setShowAssign] = useState(false)
@@ -345,6 +357,16 @@ export function RideDetailClient({
                   <InfoRow label="Rating" value={ride.driver.rating} />
                 </InfoGrid>
               </DetailCard>
+            )}
+
+            {/* Ride completion code */}
+            {canRetrieveCode && (
+              <FulfillmentCodeCard
+                title="Ride Completion Code"
+                description="Retrieve and share this code with the assigned driver so they can complete the ride."
+                retrieveLabel="Retrieve Completion Code"
+                retrieveCode={() => getRideConfirmationCode(ride.id)}
+              />
             )}
 
             {/* Cancellation */}

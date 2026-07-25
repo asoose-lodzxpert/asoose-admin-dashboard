@@ -46,7 +46,7 @@ export function PropertyDetailClient({ property: initial, propertyTypes, cities 
     propertyTypeId: property.propertyTypeId,
     description: property.description ?? '',
     address: property.address,
-    cityId: property.city.id,
+    cityId: property.city?.id ?? '',
     lat: property.lat != null ? String(property.lat) : '',
     lng: property.lng != null ? String(property.lng) : '',
     checkInTime: property.checkInTime ?? '',
@@ -68,7 +68,7 @@ export function PropertyDetailClient({ property: initial, propertyTypes, cities 
       propertyTypeId: property.propertyTypeId,
       description: property.description ?? '',
       address: property.address,
-      cityId: property.city.id,
+      cityId: property.city?.id ?? '',
       lat: property.lat != null ? String(property.lat) : '',
       lng: property.lng != null ? String(property.lng) : '',
       checkInTime: property.checkInTime ?? '',
@@ -81,6 +81,10 @@ export function PropertyDetailClient({ property: initial, propertyTypes, cities 
   }
 
   function handleEdit() {
+    if (!editForm.cityId) {
+      setEditError('Select a city before saving this property.')
+      return
+    }
     startTransition(async () => {
       setEditError('')
       const res = await updateProperty(property.id, {
@@ -153,7 +157,9 @@ export function PropertyDetailClient({ property: initial, propertyTypes, cities 
                   {property.status}
                 </span>
               </div>
-              <p className="text-sm text-slate-500">{property.propertyType} · {property.city.name}</p>
+              <p className="text-sm text-slate-500">
+                {property.propertyType} · {property.city?.name ?? 'City not assigned'}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -186,7 +192,12 @@ export function PropertyDetailClient({ property: initial, propertyTypes, cities 
             <DetailCard title="Location">
               <InfoGrid>
                 <InfoRow label="Address" value={property.address} wide />
-                <InfoRow label="City" value={`${property.city.name}, ${property.city.state}`} />
+                <InfoRow
+                  label="City"
+                  value={property.city
+                    ? `${property.city.name}, ${property.city.state}`
+                    : 'Not assigned'}
+                />
                 <InfoRow label="Coordinates" value={property.lat != null && property.lng != null ? `${property.lat}, ${property.lng}` : null} />
               </InfoGrid>
             </DetailCard>
@@ -272,6 +283,7 @@ export function PropertyDetailClient({ property: initial, propertyTypes, cities 
             <div>
               <label className="mb-1.5 block text-[13px] font-medium text-slate-700">City</label>
               <select value={editForm.cityId} onChange={(e) => ef('cityId', e.target.value)} className={INPUT_CLS}>
+                <option value="">Select a city</option>
                 {cities.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}, {c.state}</option>
                 ))}
