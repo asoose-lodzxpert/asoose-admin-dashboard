@@ -9,6 +9,7 @@ import { ActivityTimeline } from '@/app/components/ui/activity-timeline'
 import { DocCard } from '@/app/components/ui/doc-card'
 import { DetailCard, InfoRow, InfoGrid } from '@/app/components/ui/detail'
 import { FulfillmentCodeCard } from '@/app/components/ui/fulfillment-code-card'
+import { AssignmentIcon } from '@/app/components/ui/assignment-icon'
 import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
 import { formatNaira } from '@/app/lib/utils'
@@ -201,10 +202,13 @@ export function ParcelDetailClient({
           </span>
           <div className="ml-auto flex items-center gap-2">
             {canAssign && (
-              <Button size="sm" onClick={openAssign} disabled={isPending}>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-                  <path d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
-                </svg>
+              <Button
+                variant={parcel.rider ? 'secondary' : 'primary'}
+                size="sm"
+                onClick={openAssign}
+                disabled={isPending}
+              >
+                <AssignmentIcon reassign={Boolean(parcel.rider)} />
                 {parcel.rider ? 'Reassign Rider' : 'Assign Rider'}
               </Button>
             )}

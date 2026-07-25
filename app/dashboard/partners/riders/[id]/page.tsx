@@ -9,13 +9,10 @@ export const metadata: Metadata = { title: 'Rider Detail' }
 
 export default async function RiderDetailPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ name?: string; email?: string; phone?: string }>
 }) {
   const { id } = await params
-  const { name, email, phone } = await searchParams
   const [rider, vehicleTypes, vehicleBrands, cities] = await Promise.all([
     getRiderDetail(id),
     getVehicleTypes(),
@@ -26,9 +23,6 @@ export default async function RiderDetailPage({
   return (
     <RiderDetailClient
       rider={rider}
-      displayName={name ?? 'Rider'}
-      displayEmail={email}
-      displayPhone={phone}
       vehicleTypes={vehicleTypes}
       vehicleBrands={vehicleBrands}
       cities={cities}

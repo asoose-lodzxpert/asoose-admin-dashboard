@@ -6,6 +6,11 @@ import { apiFetch, ApiError } from '@/app/lib/api'
 import type { DriverSummary, DriverDetail, UserWallet } from '@/app/lib/types'
 
 type DriverUpdateData = Partial<{
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  avatar: string
   licenseNumber: string
   licenseExpiry: string
   licenseState: string

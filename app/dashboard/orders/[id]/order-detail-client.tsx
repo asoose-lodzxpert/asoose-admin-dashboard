@@ -9,6 +9,7 @@ import { Button } from '@/app/components/ui/button'
 import { ActivityTimeline } from '@/app/components/ui/activity-timeline'
 import { DetailCard, InfoRow, InfoGrid, formatDate } from '@/app/components/ui/detail'
 import { FulfillmentCodeCard } from '@/app/components/ui/fulfillment-code-card'
+import { AssignmentIcon } from '@/app/components/ui/assignment-icon'
 import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
 import {
@@ -280,7 +281,12 @@ export function OrderDetailClient({
                 {STATUS_LABELS[order.status]}
               </span>
               {canAssignRider && (
-                <Button variant="secondary" size="sm" onClick={openRiderModal}>
+                <Button
+                  variant={order.delivery?.rider ? 'secondary' : 'primary'}
+                  size="sm"
+                  onClick={openRiderModal}
+                >
+                  <AssignmentIcon reassign={Boolean(order.delivery?.rider)} />
                   {order.delivery?.rider ? 'Reassign Rider' : 'Assign Rider'}
                 </Button>
               )}

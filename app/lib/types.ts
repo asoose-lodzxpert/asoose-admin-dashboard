@@ -284,6 +284,17 @@ export interface RiderSummary {
 export interface RiderDetail {
   id: string
   userId: string
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  phoneCountryCode: string | null
+  avatar: string | null
+  emailVerified: boolean
+  phoneVerified: boolean
+  accountStatus: string
+  isActive: boolean
+  lastLoginAt: string | null
   userEmail: string | null
   userPhone: string | null
   cityId: string | null
@@ -296,13 +307,15 @@ export interface RiderDetail {
   driversLicenseNumber: string | null
   driversLicenseExpiry: string | null
   driversLicenseState: string | null
-  preferredZones: string[]
+  preferredZones?: string[]
   maxDeliveryDistance: number | null
   customCommissionPercent: number | null
-  status: 'ONLINE' | 'OFFLINE' | 'BUSY' | 'ON_DELIVERY' | 'ON_DELIVERY' | 'SUSPENDED'
+  status: 'ONLINE' | 'OFFLINE' | 'BUSY' | 'ON_DELIVERY' | 'SUSPENDED'
   isVerified: boolean
   currentLat: number | null
   currentLng: number | null
+  heading: number | null
+  speed: number | null
   totalDeliveries: number
   rating: number
   totalReviews: number
@@ -312,9 +325,10 @@ export interface RiderDetail {
     driversLicenseBack: string | null
     vehiclePhoto: string | null
     insuranceDocument: string | null
+    backgroundCheckConsent: boolean | null
   }
   bankDetails: {
-    bankCode: string
+    bankCode?: string
     bankName: string
     accountName: string
     accountNumber: string
@@ -347,6 +361,19 @@ export interface DriverSummary {
 export interface DriverDetail {
   id: string
   userId: string
+  fullName: string
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  phoneCountryCode: string | null
+  avatar: string | null
+  emailVerified: boolean
+  phoneVerified: boolean
+  accountStatus: string
+  isActive: boolean
+  cityId: string | null
+  lastLoginAt: string | null
   userEmail: string | null
   userPhone: string | null
   licenseNumber: string | null
@@ -361,13 +388,16 @@ export interface DriverDetail {
   insuranceProvider: string | null
   insurancePolicyNumber: string | null
   insuranceExpiry: string | null
-  preferredZones: string[]
+  preferredZones?: string[]
   maxDeliveryDistance: number | null
   customCommissionPercent: number | null
   status: 'ONLINE' | 'OFFLINE' | 'BUSY' | 'ON_DELIVERY'
   isVerified: boolean
   currentLat: number | null
   currentLng: number | null
+  heading: number | null
+  speed: number | null
+  batteryLevel: number | null
   totalDeliveries: number
   rating: number
   totalReviews: number
@@ -383,8 +413,9 @@ export interface DriverDetail {
   bankDetails: {
     bankName: string
     accountNumber: string
-    accountHolderName: string
-    bankCode: string
+    accountName: string
+    accountHolderName?: string
+    bankCode?: string
   } | null
   createdAt: string
   updatedAt: string
