@@ -4,28 +4,32 @@ import { useState, useEffect, useTransition, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/app/lib/utils'
 import { ImageUploader } from '@/app/components/ui/image-uploader'
+import { useToast } from '@/app/components/ui/toast'
 import { adminProvisionDriver, getBanks, resolveBankAccount } from '@/app/actions/partner-provision'
 import type { AdminProvisionResult } from '@/app/actions/partner-provision'
+import type { VehicleType, VehicleBrand, City } from '@/app/lib/types'
+
+const VEHICLE_COLORS = ['Black', 'White', 'Silver', 'Grey', 'Red', 'Blue', 'Green', 'Yellow', 'Orange', 'Brown', 'Gold', 'Maroon']
+const CURRENT_YEAR = new Date().getFullYear()
+const VEHICLE_YEARS = Array.from({ length: CURRENT_YEAR - 1989 }, (_, i) => CURRENT_YEAR - i)
 
 interface AccountForm { firstName: string; lastName: string; email: string; phone: string }
 interface DriverForm {
-  latitude: string; longitude: string
+  cityId: string
   vehicleType: string; vehicleBrand: string; vehicleModel: string
   vehicleYear: string; vehicleColor: string; vehiclePlate: string
   driversLicenseNumber: string; driversLicenseExpiry: string; driversLicenseState: string
   insuranceProvider: string; insurancePolicyNumber: string; insuranceExpiry: string
-  maxDeliveryDistance: string
   accountNumber: string; accountName: string
 }
 
 const INIT_ACCOUNT: AccountForm = { firstName: '', lastName: '', email: '', phone: '' }
 const INIT_DRIVER: DriverForm = {
-  latitude: '', longitude: '',
+  cityId: '',
   vehicleType: '', vehicleBrand: '', vehicleModel: '',
   vehicleYear: '', vehicleColor: '', vehiclePlate: '',
   driversLicenseNumber: '', driversLicenseExpiry: '', driversLicenseState: '',
   insuranceProvider: '', insurancePolicyNumber: '', insuranceExpiry: '',
-  maxDeliveryDistance: '20',
   accountNumber: '', accountName: '',
 }
 
@@ -47,6 +51,53 @@ function Input({ label, required, error, ...props }: React.InputHTMLAttributes<H
         error ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-slate-50'
       )} />
       <FieldError msg={error} />
+    </div>
+  )
+}
+
+function Select({ label, required, error, children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement> & { label: string; required?: boolean; error?: string }) {
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      <select {...props} className={cn(
+        'w-full rounded-xl border px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500',
+        error ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-slate-50'
+      )}>
+        {children}
+      </select>
+      <FieldError msg={error} />
+    </div>
+  )
+}
+
+function ColorField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [custom, setCustom] = useState(value !== '' && !VEHICLE_COLORS.includes(value))
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-slate-700 mb-1.5">Color <span className="text-red-500">*</span></label>
+      <select
+        value={custom ? '__other__' : value}
+        onChange={(e) => {
+          if (e.target.value === '__other__') { setCustom(true); onChange('') }
+          else { setCustom(false); onChange(e.target.value) }
+        }}
+        className="w-full rounded-xl border px-3.5 py-2.5 text-sm text-slate-900 border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+      >
+        <option value="">Select color</option>
+        {VEHICLE_COLORS.map((c) => <option key={c} value={c}>{c}</option>)}
+        <option value="__other__">Other…</option>
+      </select>
+      {custom && (
+        <input
+          autoFocus
+          placeholder="Enter color"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="mt-2 w-full rounded-xl border px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+        />
+      )}
     </div>
   )
 }
@@ -105,8 +156,15 @@ function BankCombobox({ banks, selectedBank, onSelect, error }: {
   )
 }
 
-export function DriverCreateClient() {
+interface Props {
+  vehicleTypes: VehicleType[]
+  vehicleBrands: VehicleBrand[]
+  cities: City[]
+}
+
+export function DriverCreateClient({ vehicleTypes, vehicleBrands, cities }: Props) {
   const router = useRouter()
+  const toast = useToast()
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [account, setAccount] = useState<AccountForm>(INIT_ACCOUNT)
   const [driver, setDriver] = useState<DriverForm>(INIT_DRIVER)
@@ -158,8 +216,7 @@ export function DriverCreateClient() {
 
   function validateDriver(): boolean {
     const errs: Partial<Record<keyof DriverForm | 'bank' | 'driversLicenseFront' | 'insuranceDocument', string>> = {}
-    if (!driver.latitude || isNaN(Number(driver.latitude))) errs.latitude = 'Valid number required'
-    if (!driver.longitude || isNaN(Number(driver.longitude))) errs.longitude = 'Valid number required'
+    if (!driver.cityId) errs.cityId = 'Required'
     if (!driver.vehicleType.trim()) errs.vehicleType = 'Required'
     if (!driver.vehicleBrand.trim()) errs.vehicleBrand = 'Required'
     if (!driver.vehicleModel.trim()) errs.vehicleModel = 'Required'
@@ -195,8 +252,7 @@ export function DriverCreateClient() {
           ...(account.phone.trim() ? { phone: account.phone.trim() } : {}),
         },
         driver: {
-          latitude: Number(driver.latitude),
-          longitude: Number(driver.longitude),
+          cityId: driver.cityId,
           vehicleType: driver.vehicleType.trim(),
           vehicleBrand: driver.vehicleBrand.trim(),
           vehicleModel: driver.vehicleModel.trim(),
@@ -217,8 +273,6 @@ export function DriverCreateClient() {
             ...(vehiclePhotoUrls[0] ? { vehiclePhoto: vehiclePhotoUrls[0] } : {}),
             ...(vehicleRegUrls[0] ? { vehicleRegistration: vehicleRegUrls[0] } : {}),
           },
-          preferredZones: [],
-          maxDeliveryDistance: Number(driver.maxDeliveryDistance) || 20,
           bankDetails: {
             bankName: selectedBank!.name,
             bankCode: selectedBank!.code,
@@ -227,8 +281,9 @@ export function DriverCreateClient() {
           },
         },
       })
-      if (res.error) { setServerError(res.error); return }
+      if (res.error) { setServerError(res.error); toast.error(res.error); return }
       setResult(res.data!)
+      toast.success('Driver provisioned.')
       setStep(3)
     })
   }
@@ -270,28 +325,42 @@ export function DriverCreateClient() {
       {step === 2 && (
         <div className="space-y-6">
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
-            <SectionLabel>Current Location</SectionLabel>
-            <div className="grid grid-cols-2 gap-4">
-              <Input label="Latitude" required type="number" step="any" placeholder="6.5244" value={driver.latitude} onChange={(e) => setD('latitude', e.target.value)} error={driverErrors.latitude} />
-              <Input label="Longitude" required type="number" step="any" placeholder="3.3792" value={driver.longitude} onChange={(e) => setD('longitude', e.target.value)} error={driverErrors.longitude} />
-            </div>
+            <SectionLabel>Location</SectionLabel>
+            <Select label="City" required value={driver.cityId} onChange={(e) => setD('cityId', e.target.value)} error={driverErrors.cityId}>
+              <option value="">Select city</option>
+              {cities.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}{c.state ? `, ${c.state}` : ''}</option>
+              ))}
+            </Select>
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
             <SectionLabel>Vehicle Info</SectionLabel>
             <div className="grid grid-cols-2 gap-4">
-              <Input label="Vehicle type" required placeholder="SEDAN" value={driver.vehicleType} onChange={(e) => setD('vehicleType', e.target.value)} error={driverErrors.vehicleType} />
-              <Input label="Brand" required placeholder="Toyota" value={driver.vehicleBrand} onChange={(e) => setD('vehicleBrand', e.target.value)} error={driverErrors.vehicleBrand} />
+              <Select label="Vehicle type" required value={driver.vehicleType} onChange={(e) => setD('vehicleType', e.target.value)} error={driverErrors.vehicleType}>
+                <option value="">Select vehicle type</option>
+                {vehicleTypes.filter((t) => t.appliesTo === 'DRIVER').map((t) => (
+                  <option key={t.id} value={t.code}>{t.name}</option>
+                ))}
+              </Select>
+              <Select label="Brand" required value={driver.vehicleBrand} onChange={(e) => setD('vehicleBrand', e.target.value)} error={driverErrors.vehicleBrand}>
+                <option value="">Select brand</option>
+                {vehicleBrands.map((b) => (
+                  <option key={b.id} value={b.name}>{b.name}</option>
+                ))}
+              </Select>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <Input label="Model" required placeholder="Camry" value={driver.vehicleModel} onChange={(e) => setD('vehicleModel', e.target.value)} error={driverErrors.vehicleModel} />
-              <Input label="Year" required type="number" placeholder="2022" value={driver.vehicleYear} onChange={(e) => setD('vehicleYear', e.target.value)} error={driverErrors.vehicleYear} />
+              <Select label="Year" required value={driver.vehicleYear} onChange={(e) => setD('vehicleYear', e.target.value)} error={driverErrors.vehicleYear}>
+                <option value="">Select year</option>
+                {VEHICLE_YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+              </Select>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <Input label="Color" required placeholder="White" value={driver.vehicleColor} onChange={(e) => setD('vehicleColor', e.target.value)} error={driverErrors.vehicleColor} />
+              <ColorField value={driver.vehicleColor} onChange={(v) => setD('vehicleColor', v)} />
               <Input label="Plate number" required placeholder="ABC-123-XY" value={driver.vehiclePlate} onChange={(e) => setD('vehiclePlate', e.target.value)} error={driverErrors.vehiclePlate} />
             </div>
-            <Input label="Max delivery distance (km)" type="number" value={driver.maxDeliveryDistance} onChange={(e) => setD('maxDeliveryDistance', e.target.value)} />
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">

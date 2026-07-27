@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { getOrderDetail } from '@/app/actions/orders'
+import { getTimeline } from '@/app/actions/timeline'
 import { OrderDetailClient } from './order-detail-client'
 
 interface Props {
@@ -8,7 +9,10 @@ interface Props {
 
 export default async function OrderDetailPage({ params }: Props) {
   const { id } = await params
-  const order = await getOrderDetail(id)
+  const [order, timeline] = await Promise.all([
+    getOrderDetail(id),
+    getTimeline('orders', id),
+  ])
   if (!order) notFound()
-  return <OrderDetailClient order={order} />
+  return <OrderDetailClient order={order} timeline={timeline} />
 }

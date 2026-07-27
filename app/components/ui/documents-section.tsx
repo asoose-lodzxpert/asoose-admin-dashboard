@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { cn } from '@/app/lib/utils'
 import { uploadImage } from '@/app/actions/uploads'
+import { useToast } from '@/app/components/ui/toast'
 
 export interface DocumentField {
   key: string
@@ -26,29 +27,6 @@ function isValidUrl(v: unknown): v is string {
 
 function isPdfUrl(v: string): boolean {
   return v.toLowerCase().includes('.pdf')
-}
-
-function Toast({ msg, ok, onDismiss }: { msg: string; ok: boolean; onDismiss: () => void }) {
-  return (
-    <div
-      onClick={onDismiss}
-      className={cn(
-        'fixed bottom-6 right-6 z-50 flex cursor-pointer items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium text-white',
-        ok ? 'bg-emerald-600' : 'bg-red-600'
-      )}
-    >
-      {ok ? (
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0">
-          <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
-        </svg>
-      ) : (
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0">
-          <path fillRule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clipRule="evenodd" />
-        </svg>
-      )}
-      {msg}
-    </div>
-  )
 }
 
 function DocSlot({
@@ -185,16 +163,9 @@ export function DocumentsSection({
   onUpdate,
   className,
 }: DocumentsSectionProps) {
+  const toast = useToast()
   const [pendingField, setPendingField] = useState<string | null>(null)
   const [confirmingRemove, setConfirmingRemove] = useState<string | null>(null)
-  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
-  const toastRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  function showToast(msg: string, ok: boolean) {
-    if (toastRef.current) clearTimeout(toastRef.current)
-    setToast({ msg, ok })
-    toastRef.current = setTimeout(() => setToast(null), 3000)
-  }
 
   async function handleUpload(fieldKey: string, file: File) {
     setPendingField(fieldKey)
@@ -202,11 +173,11 @@ export function DocumentsSection({
       const fd = new FormData()
       fd.append('file', file)
       const up = await uploadImage(fd, 'general')
-      if (up.error) { showToast(up.error, false); return }
+      if (up.error) { toast.error(up.error); return }
       const res = await patchDocuments({ [fieldKey]: up.url! })
-      if (res.error) { showToast(res.error, false); return }
+      if (res.error) { toast.error(res.error); return }
       onUpdate(res.data!)
-      showToast('Document updated', true)
+      toast.success('Document updated.')
     } finally {
       setPendingField(null)
     }
@@ -217,9 +188,9 @@ export function DocumentsSection({
     setConfirmingRemove(null)
     try {
       const res = await patchDocuments({ [fieldKey]: null })
-      if (res.error) { showToast(res.error, false); return }
+      if (res.error) { toast.error(res.error); return }
       onUpdate(res.data!)
-      showToast('Document removed', true)
+      toast.success('Document removed.')
     } finally {
       setPendingField(null)
     }
@@ -274,8 +245,6 @@ export function DocumentsSection({
           </div>
         </div>
       )}
-
-      {toast && <Toast msg={toast.msg} ok={toast.ok} onDismiss={() => setToast(null)} />}
     </div>
   )
 }

@@ -3,7 +3,13 @@
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { apiFetch, ApiError } from '@/app/lib/api'
-import type { ParcelSummary, ParcelDetail, ParcelStatus, Pagination } from '@/app/lib/types'
+import type {
+  ParcelSummary,
+  ParcelDetail,
+  ParcelStatus,
+  ParcelConfirmationCode,
+  Pagination,
+} from '@/app/lib/types'
 
 async function token() {
   return (await cookies()).get('access_token')?.value ?? ''
@@ -36,6 +42,24 @@ export async function getParcelDetail(parcelId: string): Promise<ParcelDetail | 
   try {
     return await apiFetch<ParcelDetail>(`/api/v1/parcels/admin/${parcelId}`, { token: await token() })
   } catch { return null }
+}
+
+export async function getParcelConfirmationCode(
+  parcelId: string
+): Promise<{ data?: ParcelConfirmationCode; error?: string }> {
+  try {
+    const data = await apiFetch<ParcelConfirmationCode>(
+      `/api/v1/parcels/admin/${encodeURIComponent(parcelId)}/confirmation-code`,
+      { token: await token() }
+    )
+    return { data }
+  } catch (err) {
+    return {
+      error: err instanceof ApiError
+        ? err.message
+        : 'Failed to retrieve the parcel confirmation code.',
+    }
+  }
 }
 
 export async function assignRiderToParcel(parcelId: string, riderId: string): Promise<{ error?: string }> {

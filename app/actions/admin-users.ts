@@ -100,9 +100,9 @@ export async function deactivateAdmin(
   reason?: string
 ): Promise<{ data?: AdminUser; error?: string }> {
   try {
-    const data = await apiFetch<AdminUser>(`/api/v1/users/admins/${adminId}/deactivate`, {
+    const data = await apiFetch<AdminUser>(`/api/v1/users/${adminId}/status`, {
       method: 'PATCH',
-      body: JSON.stringify(reason ? { reason } : {}),
+      body: JSON.stringify({ status: 'DEACTIVATED', ...(reason ? { reason } : {}) }),
       token: await token(),
     })
     revalidatePath('/dashboard/admin-users')

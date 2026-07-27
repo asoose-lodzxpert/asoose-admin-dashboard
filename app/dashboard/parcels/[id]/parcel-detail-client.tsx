@@ -2,14 +2,20 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
+import { ActivityTimeline } from '@/app/components/ui/activity-timeline'
 import { DocCard } from '@/app/components/ui/doc-card'
 import { DetailCard, InfoRow, InfoGrid } from '@/app/components/ui/detail'
+import { FulfillmentCodeCard } from '@/app/components/ui/fulfillment-code-card'
+import { AssignmentIcon } from '@/app/components/ui/assignment-icon'
+import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
 import { formatNaira } from '@/app/lib/utils'
-import { assignRiderToParcel } from '@/app/actions/parcels'
+import { assignRiderToParcel, getParcelConfirmationCode } from '@/app/actions/parcels'
 import { getRiders } from '@/app/actions/riders'
+import type { TimelineResult } from '@/app/actions/timeline'
 import type { ParcelDetail, ParcelStatus, RiderSummary } from '@/app/lib/types'
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY
@@ -115,14 +121,20 @@ function RouteMap({ parcel }: { parcel: ParcelDetail }) {
 
 /* ─── Main component ──────────────────────────────────── */
 
-export function ParcelDetailClient({ parcel: initialParcel }: { parcel: ParcelDetail }) {
+export function ParcelDetailClient({
+  parcel: initialParcel,
+  timeline,
+}: {
+  parcel: ParcelDetail
+  timeline: TimelineResult
+}) {
+  const toast = useToast()
+  const router = useRouter()
   const [parcel, setParcel] = useState(initialParcel)
   const [isPending, startTransition] = useTransition()
 
   const isTerminal = TERMINAL.includes(parcel.status)
-  const paymentAllowsAssignment =
-    parcel.paymentStatus !== 'PENDING' || parcel.paymentMethod === 'CASH'
-  const canAssign = !isTerminal && !parcel.rider && paymentAllowsAssignment
+  const canAssign = !isTerminal && parcel.paymentStatus !== 'PENDING'
 
   /* assign rider modal */
   const [showAssign, setShowAssign] = useState(false)
@@ -148,7 +160,7 @@ export function ParcelDetailClient({ parcel: initialParcel }: { parcel: ParcelDe
     if (!selectedRiderId) { setAssignError('Select a rider.'); return }
     startTransition(async () => {
       const res = await assignRiderToParcel(parcel.id, selectedRiderId)
-      if (res.error) { setAssignError(res.error); return }
+      if (res.error) { setAssignError(res.error); toast.error(res.error); return }
       const assigned = riders.find((r) => r.id === selectedRiderId)
       if (assigned) {
         setParcel((prev) => ({
@@ -164,6 +176,8 @@ export function ParcelDetailClient({ parcel: initialParcel }: { parcel: ParcelDe
         }))
       }
       setShowAssign(false)
+      toast.success('Rider assigned.')
+      router.refresh()
     })
   }
 
@@ -188,11 +202,14 @@ export function ParcelDetailClient({ parcel: initialParcel }: { parcel: ParcelDe
           </span>
           <div className="ml-auto flex items-center gap-2">
             {canAssign && (
-              <Button size="sm" onClick={openAssign} disabled={isPending}>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-                  <path d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
-                </svg>
-                Assign Rider
+              <Button
+                variant={parcel.rider ? 'secondary' : 'primary'}
+                size="sm"
+                onClick={openAssign}
+                disabled={isPending}
+              >
+                <AssignmentIcon reassign={Boolean(parcel.rider)} />
+                {parcel.rider ? 'Reassign Rider' : 'Assign Rider'}
               </Button>
             )}
           </div>
@@ -220,16 +237,11 @@ export function ParcelDetailClient({ parcel: initialParcel }: { parcel: ParcelDe
               </InfoGrid>
             </DetailCard>
 
-            {/* Timeline */}
-            <DetailCard title="Timeline">
-              <InfoGrid>
-                <InfoRow label="Created" value={formatDateTime(parcel.createdAt)} />
-                <InfoRow label="Picked Up" value={formatDateTime(parcel.pickedUpAt)} />
-                <InfoRow label="Delivered" value={formatDateTime(parcel.deliveredAt)} />
-                <InfoRow label="Cancelled" value={formatDateTime(parcel.cancelledAt)} />
-                <InfoRow label="Last Updated" value={formatDateTime(parcel.updatedAt)} />
-              </InfoGrid>
-            </DetailCard>
+            <ActivityTimeline
+              events={timeline.events}
+              error={timeline.error}
+              entityLabel="Parcel"
+            />
           </div>
 
           {/* Right col */}
@@ -274,6 +286,15 @@ export function ParcelDetailClient({ parcel: initialParcel }: { parcel: ParcelDe
                   <InfoRow label="Rating" value={parcel.rider.rating} />
                 </InfoGrid>
               </DetailCard>
+            )}
+
+            {!isTerminal && (
+              <FulfillmentCodeCard
+                title="Parcel Confirmation Code"
+                description="Retrieve and share this code with the assigned rider so they can confirm delivery."
+                retrieveLabel="Retrieve Confirmation Code"
+                retrieveCode={() => getParcelConfirmationCode(parcel.id)}
+              />
             )}
 
             {/* Proof of Delivery */}

@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { cn, formatNaira } from '@/app/lib/utils'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
+import { useToast } from '@/app/components/ui/toast'
 import { getPayouts, approvePayout, confirmApproval, rejectPayout } from '@/app/actions/payouts'
 import type { PayoutSummary, PayoutStatus, Pagination } from '@/app/lib/types'
 
@@ -55,6 +56,7 @@ export function PayoutsTable({
   initialPayouts: PayoutSummary[]
   initialPagination: Pagination
 }) {
+  const toast = useToast()
   const [payouts, setPayouts] = useState(initialPayouts)
   const [pagination, setPagination] = useState(initialPagination)
   const [status, setStatus] = useState<PayoutStatus | ''>('')
@@ -109,6 +111,7 @@ export function PayoutsTable({
       const res = await approvePayout(approveTarget.id)
       if (res.error) {
         setApproveError(res.error)
+        toast.error(res.error)
         return
       }
       setApproveStep('otp')
@@ -122,10 +125,12 @@ export function PayoutsTable({
       const res = await confirmApproval(approveTarget.id, otp.trim())
       if (res.error) {
         setApproveError(res.error)
+        toast.error(res.error)
         return
       }
       setApproveTarget(null)
       refetch()
+      toast.success('Payout approved.')
     })
   }
 
@@ -145,10 +150,12 @@ export function PayoutsTable({
       const res = await rejectPayout(rejectTarget.id, rejectReason.trim())
       if (res.error) {
         setRejectError(res.error)
+        toast.error(res.error)
         return
       }
       setRejectTarget(null)
       refetch()
+      toast.success('Payout rejected.')
     })
   }
 

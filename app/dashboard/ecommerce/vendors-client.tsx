@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
 import { DocsGrid } from '@/app/components/ui/doc-card'
+import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
 import { approveVendor, rejectVendor, suspendVendor, getVendorDetail } from '@/app/actions/vendors'
 import type { VendorSummary, VendorDetail } from '@/app/lib/types'
@@ -52,6 +53,7 @@ function InfoRow({ label, value }: { label: string; value?: string | null }) {
 /* ─── Main component ─────────────────────────────────────── */
 
 export function VendorsClient({ initialVendors, initialPagination }: Props) {
+  const toast = useToast()
   const [vendors, setVendors] = useState(initialVendors)
   const [pagination] = useState(initialPagination)
   const [filter, setFilter] = useState('')
@@ -87,7 +89,9 @@ export function VendorsClient({ initialVendors, initialPagination }: Props) {
   function handleApprove(vendor: VendorSummary) {
     startTransition(async () => {
       const res = await approveVendor(vendor.id)
-      if (!res.error) updateVendor(vendor.id, { verificationStatus: 'VERIFIED', isVerified: true })
+      if (res.error) { toast.error(res.error); return }
+      updateVendor(vendor.id, { verificationStatus: 'VERIFIED', isVerified: true })
+      toast.success('Vendor approved.')
     })
   }
 
@@ -95,9 +99,10 @@ export function VendorsClient({ initialVendors, initialPagination }: Props) {
     if (!rejectTarget) return
     startTransition(async () => {
       const res = await rejectVendor(rejectTarget.id, reason)
-      if (res.error) { setActionError(res.error); return }
+      if (res.error) { setActionError(res.error); toast.error(res.error); return }
       updateVendor(rejectTarget.id, { verificationStatus: 'REJECTED' })
       setRejectTarget(null); setReason('')
+      toast.success('Vendor rejected.')
     })
   }
 
@@ -105,9 +110,10 @@ export function VendorsClient({ initialVendors, initialPagination }: Props) {
     if (!suspendTarget) return
     startTransition(async () => {
       const res = await suspendVendor(suspendTarget.id, reason)
-      if (res.error) { setActionError(res.error); return }
+      if (res.error) { setActionError(res.error); toast.error(res.error); return }
       updateVendor(suspendTarget.id, { verificationStatus: 'SUSPENDED' })
       setSuspendTarget(null); setReason('')
+      toast.success('Vendor suspended.')
     })
   }
 

@@ -6,6 +6,11 @@ import { apiFetch, ApiError } from '@/app/lib/api'
 import type { DriverSummary, DriverDetail, UserWallet } from '@/app/lib/types'
 
 type DriverUpdateData = Partial<{
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  avatar: string
   licenseNumber: string
   licenseExpiry: string
   licenseState: string
@@ -19,9 +24,10 @@ type DriverUpdateData = Partial<{
   insurancePolicyNumber: string
   insuranceExpiry: string
   maxDeliveryDistance: number
-  status: DriverDetail['status']
   isVerified: boolean
 }>
+
+export type DriverAvailability = 'ONLINE' | 'OFFLINE' | 'BUSY' | 'ON_DELIVERY'
 
 async function token() {
   const store = await cookies()
@@ -113,9 +119,9 @@ export async function suspendDriver(
   }
 }
 
-export async function setDriverAvailability(
+export async function updateDriverAvailability(
   driverId: string,
-  status: 'ONLINE' | 'OFFLINE'
+  status: DriverAvailability
 ): Promise<{ error?: string }> {
   try {
     await apiFetch<unknown>(`/api/v1/drivers/admin/${driverId}/availability`, {
@@ -161,6 +167,22 @@ export async function adjustDriverWallet(
     return { data }
   } catch (err) {
     return { error: err instanceof ApiError ? err.message : 'Failed to adjust wallet.' }
+  }
+}
+
+export async function adjustDriverCommission(
+  driverId: string,
+  payload: { commissionPercent: number | null }
+): Promise<{ driver?: DriverDetail; error?: string }> {
+  try {
+    const driver = await apiFetch<DriverDetail>(
+      `/api/v1/drivers/admin/${driverId}/commission`,
+      { method: 'PATCH', body: JSON.stringify(payload), token: await token() }
+    )
+    revalidatePath(`/dashboard/partners/drivers/${driverId}`)
+    return { driver }
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'Failed to update commission.' }
   }
 }
 

@@ -3,7 +3,13 @@
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { apiFetch, ApiError } from '@/app/lib/api'
-import type { OrderSummary, OrderDetail, OrderStatus, Pagination } from '@/app/lib/types'
+import type {
+  OrderSummary,
+  OrderDetail,
+  OrderStatus,
+  OrderDeliveryCode,
+  Pagination,
+} from '@/app/lib/types'
 
 async function token() {
   return (await cookies()).get('access_token')?.value ?? ''
@@ -52,8 +58,27 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
       }
     }
     return result as unknown as OrderDetail
-  } catch {
+  } catch (err) {
+    console.error('getOrderDetail failed:', err)
     return null
+  }
+}
+
+export async function getOrderDeliveryCode(
+  orderId: string
+): Promise<{ data?: OrderDeliveryCode; error?: string }> {
+  try {
+    const data = await apiFetch<OrderDeliveryCode>(
+      `/api/v1/orders/admin/${encodeURIComponent(orderId)}/delivery-code`,
+      { token: await token() }
+    )
+    return { data }
+  } catch (err) {
+    return {
+      error: err instanceof ApiError
+        ? err.message
+        : 'Failed to retrieve the order delivery code.',
+    }
   }
 }
 

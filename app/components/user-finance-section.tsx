@@ -4,6 +4,7 @@ import { useState, useTransition, useEffect, useRef, useCallback } from 'react'
 import { cn, formatNaira, formatNumber } from '@/app/lib/utils'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
+import { useToast } from '@/app/components/ui/toast'
 import { getBanks } from '@/app/actions/partner-provision'
 import {
   getUserWallet,
@@ -51,6 +52,7 @@ type WalletAdjustAction = (payload: {
 /* ─── Wallet Tab ─────────────────────────────────────────── */
 
 function WalletTab({ userId, adjustWalletAction }: { userId: string; adjustWalletAction?: WalletAdjustAction }) {
+  const toast = useToast()
   const [wallet, setWallet] = useState<UserWallet | null>(null)
   const [error, setError] = useState('')
   const [loading, startTransition] = useTransition()
@@ -90,9 +92,10 @@ function WalletTab({ userId, adjustWalletAction }: { userId: string; adjustWalle
     startAdjustTransition(async () => {
       setAdjustError('')
       const res = await adjustWalletAction({ direction, amount: num, reason: reason.trim() })
-      if (res.error) { setAdjustError(res.error); return }
+      if (res.error) { setAdjustError(res.error); toast.error(res.error); return }
       if (res.data) setWallet(res.data)
       setShowAdjust(false)
+      toast.success(`Wallet ${direction === 'CREDIT' ? 'credited' : 'debited'}.`)
     })
   }
 
@@ -249,6 +252,7 @@ function BalanceCard({ label, amount, color }: { label: string; amount: number; 
 /* ─── Bank Accounts Tab ──────────────────────────────────── */
 
 function BankAccountsTab({ userId }: { userId: string }) {
+  const toast = useToast()
   const [accounts, setAccounts] = useState<UserBankAccount[]>([])
   const [error, setError] = useState('')
   const [loading, startTransition] = useTransition()
@@ -319,9 +323,10 @@ function BankAccountsTab({ userId }: { userId: string }) {
         bankCode: selectedBank.code,
         bankName: selectedBank.name,
       })
-      if (res.error) { setAddError(res.error); return }
+      if (res.error) { setAddError(res.error); toast.error(res.error); return }
       if (res.data) setAccounts((prev) => [res.data!, ...prev])
       setShowAdd(false)
+      toast.success('Bank account added.')
     })
   }
 
@@ -469,6 +474,7 @@ function BankAccountsTab({ userId }: { userId: string }) {
 /* ─── Payouts Tab ────────────────────────────────────────── */
 
 function PayoutsTab({ userId }: { userId: string }) {
+  const toast = useToast()
   const [payouts, setPayouts] = useState<PayoutSummary[]>([])
   const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 20, total: 0, totalPages: 0 })
   const [page, setPage] = useState(1)
@@ -513,8 +519,9 @@ function PayoutsTab({ userId }: { userId: string }) {
     startRequestTransition(async () => {
       setRequestError('')
       const res = await requestUserPayout(userId, num)
-      if (res.error) { setRequestError(res.error); return }
+      if (res.error) { setRequestError(res.error); toast.error(res.error); return }
       setShowRequest(false)
+      toast.success('Payout requested.')
       fetchPayouts(1)
       setPage(1)
     })

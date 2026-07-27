@@ -46,7 +46,7 @@ export async function loginAction(
   cookieStore.set('access_token', data.accessToken, {
     ...COOKIE_BASE,
     httpOnly: true,
-    maxAge: 60 * 60,
+    maxAge: 60 * 60 * 24,
   })
   cookieStore.set('refresh_token', data.refreshToken, {
     ...COOKIE_BASE,
@@ -56,7 +56,7 @@ export async function loginAction(
   cookieStore.set('user', JSON.stringify(data.user), {
     ...COOKIE_BASE,
     httpOnly: false,
-    maxAge: 60 * 60,
+    maxAge: 60 * 60 * 24,
   })
 
   redirect('/dashboard')

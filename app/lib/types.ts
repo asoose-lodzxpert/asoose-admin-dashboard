@@ -31,6 +31,110 @@ export interface Pagination {
   totalPages: number
 }
 
+/* ─── In-app notifications ───────────────────────────── */
+
+export interface InAppNotification {
+  id: string
+  title: string
+  body: string
+  type: string
+  isRead: boolean
+  channel?: string
+  referenceId: string | null
+  referenceType: string | null
+  data: Record<string, unknown>
+  createdAt: string
+}
+
+export interface NotificationsData {
+  notifications: InAppNotification[]
+  unreadCount: number
+  pagination: Pagination
+}
+
+/* ─── Activity timelines ──────────────────────────────── */
+
+export type TimelineEntity = 'orders' | 'parcels' | 'rides' | 'bookings'
+export type TimelineSource = 'STATUS_CHANGE' | 'WORKFLOW_UPDATE' | string
+
+export interface TimelineEvent {
+  id: string
+  source: TimelineSource
+  status: string | null
+  previousStatus: string | null
+  stage: string | null
+  message: string | null
+  note: string | null
+  actorId: string | null
+  actorRole: string | null
+  actorName: string | null
+  metadata: Record<string, unknown> | null
+  createdAt: string
+}
+
+/* ─── Disputes ───────────────────────────────────────── */
+
+export type DisputeStatus = 'OPEN' | 'IN_REVIEW' | 'ESCALATED' | 'CLOSED' | 'RESOLVED'
+export type DisputePriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+export type DisputeResolution =
+  | 'REFUND_FULL'
+  | 'REFUND_PARTIAL'
+  | 'REPLACEMENT'
+  | 'NO_ACTION'
+  | 'COMPENSATION'
+
+export interface DisputeSummary {
+  id: string
+  title: string
+  message: string
+  category: string
+  priority: DisputePriority
+  status: DisputeStatus
+  assignedToId: string | null
+  resolution: DisputeResolution | null
+  refundAmount: number | null
+  resolvedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface DisputeMessage {
+  id: string
+  senderId: string
+  senderRole: string
+  senderName: string
+  message: string
+  attachmentUrls: string[]
+  isInternal: boolean
+  createdAt: string
+}
+
+export interface DisputeDetail extends DisputeSummary {
+  customer: {
+    id: string
+    firstName: string
+    lastName: string
+    name: string
+    email: string
+    phone: string
+    phoneCountryCode: string | null
+    avatar: string | null
+    role: string
+    status: string
+    emailVerified: boolean
+    phoneVerified: boolean
+    joinedAt: string
+  }
+  assignedAdmin: {
+    id: string
+    name: string
+    email: string
+    role: string
+  } | null
+  relatedTransaction: Record<string, unknown> | null
+  messages: DisputeMessage[]
+}
+
 /* ─── Configuration entities ──────────────────────────── */
 
 export interface ConfigItem {
@@ -170,7 +274,7 @@ export interface RiderSummary {
   email: string
   phone: string
   vehicleType: string
-  status: 'ONLINE' | 'OFFLINE' | 'BUSY' | 'SUSPENDED'
+  status: 'ONLINE' | 'OFFLINE' | 'BUSY' | 'ON_DELIVERY' | 'ON_DELIVERY' | 'SUSPENDED'
   isVerified: boolean
   totalDeliveries: number
   rating: number
@@ -180,8 +284,20 @@ export interface RiderSummary {
 export interface RiderDetail {
   id: string
   userId: string
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  phoneCountryCode: string | null
+  avatar: string | null
+  emailVerified: boolean
+  phoneVerified: boolean
+  accountStatus: string
+  isActive: boolean
+  lastLoginAt: string | null
   userEmail: string | null
   userPhone: string | null
+  cityId: string | null
   vehicleType: string
   vehicleBrand: string | null
   vehicleModel: string | null
@@ -191,12 +307,15 @@ export interface RiderDetail {
   driversLicenseNumber: string | null
   driversLicenseExpiry: string | null
   driversLicenseState: string | null
-  preferredZones: string[]
+  preferredZones?: string[]
   maxDeliveryDistance: number | null
-  status: 'ONLINE' | 'OFFLINE' | 'BUSY' | 'SUSPENDED'
+  customCommissionPercent: number | null
+  status: 'ONLINE' | 'OFFLINE' | 'BUSY' | 'ON_DELIVERY' | 'SUSPENDED'
   isVerified: boolean
   currentLat: number | null
   currentLng: number | null
+  heading: number | null
+  speed: number | null
   totalDeliveries: number
   rating: number
   totalReviews: number
@@ -206,9 +325,10 @@ export interface RiderDetail {
     driversLicenseBack: string | null
     vehiclePhoto: string | null
     insuranceDocument: string | null
+    backgroundCheckConsent: boolean | null
   }
   bankDetails: {
-    bankCode: string
+    bankCode?: string
     bankName: string
     accountName: string
     accountNumber: string
@@ -231,7 +351,7 @@ export interface DriverSummary {
   vehicleBrand: string | null
   vehicleModel: string | null
   vehiclePlate: string | null
-  status: 'ONLINE' | 'OFFLINE' | 'BUSY'
+  status: 'ONLINE' | 'OFFLINE' | 'BUSY' | 'ON_DELIVERY'
   isVerified: boolean
   totalDeliveries: number
   rating: number
@@ -241,6 +361,19 @@ export interface DriverSummary {
 export interface DriverDetail {
   id: string
   userId: string
+  fullName: string
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  phoneCountryCode: string | null
+  avatar: string | null
+  emailVerified: boolean
+  phoneVerified: boolean
+  accountStatus: string
+  isActive: boolean
+  cityId: string | null
+  lastLoginAt: string | null
   userEmail: string | null
   userPhone: string | null
   licenseNumber: string | null
@@ -255,12 +388,16 @@ export interface DriverDetail {
   insuranceProvider: string | null
   insurancePolicyNumber: string | null
   insuranceExpiry: string | null
-  preferredZones: string[]
+  preferredZones?: string[]
   maxDeliveryDistance: number | null
-  status: 'ONLINE' | 'OFFLINE' | 'BUSY'
+  customCommissionPercent: number | null
+  status: 'ONLINE' | 'OFFLINE' | 'BUSY' | 'ON_DELIVERY'
   isVerified: boolean
   currentLat: number | null
   currentLng: number | null
+  heading: number | null
+  speed: number | null
+  batteryLevel: number | null
   totalDeliveries: number
   rating: number
   totalReviews: number
@@ -276,8 +413,9 @@ export interface DriverDetail {
   bankDetails: {
     bankName: string
     accountNumber: string
-    accountHolderName: string
-    bankCode: string
+    accountName: string
+    accountHolderName?: string
+    bankCode?: string
   } | null
   createdAt: string
   updatedAt: string
@@ -453,6 +591,7 @@ export interface OrderItem {
   quantity: number
   price: number
   image: string | null
+  instructions: string | null
 }
 
 export interface OrderPricing {
@@ -629,11 +768,17 @@ export interface RideAddress {
   address: string
 }
 
-export interface RideRider {
+export interface RideDriver {
   name: string
   vehicleType: string
   phone: string
   rating: number
+}
+
+export interface RideCustomer {
+  name: string
+  phone: string
+  email: string
 }
 
 export interface RideSummary {
@@ -668,7 +813,40 @@ export interface RideDetail extends Omit<RideSummary, 'driver'> {
   cancelReason: string | null
   matchingAttempts: number
   updatedAt: string
-  rider: RideRider | null
+  earning: number
+  customer: RideCustomer
+  driver: RideDriver | null
+}
+
+export interface RideConfirmationCode {
+  rideId: string
+  trackingId: string
+  confirmationCode: string
+  codeGeneratedAt: string
+  source: string
+}
+
+export interface OrderDeliveryCode {
+  orderId: string
+  orderNumber: string
+  deliveryCode: string
+  codeGeneratedAt: string
+  source: string
+}
+
+export interface ParcelConfirmationCode {
+  parcelId: string
+  trackingId: string
+  confirmationCode: string
+  codeGeneratedAt: string
+  source: string
+}
+
+export interface FulfillmentCodeData {
+  confirmationCode?: string
+  deliveryCode?: string
+  codeGeneratedAt: string
+  source: string
 }
 
 /* ─── Locations / Popular Routes ─────────────────────── */
@@ -689,6 +867,17 @@ export interface CityPricing {
   isActive: boolean
   createdAt: string
   updatedAt: string
+}
+
+export interface AccommodationPricing {
+  id?: string
+  cityId?: string
+  serviceFeePercent: number
+  serviceFeeMin: number
+  serviceFeeMax: number
+  isActive: boolean
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface PopularRoute {
@@ -810,6 +999,8 @@ export interface CatalogItem {
   name: string
   image: string | null
   price: number
+  stock?: number
+  categoryId?: string | null
   isAvailable: boolean
   isFeatured: boolean
   vendorName: string
@@ -831,4 +1022,157 @@ export interface StorefrontBranding {
   name: string
   logo: string | null
   banner: string | null
+}
+
+/* ─── Property Types ──────────────────────────────────── */
+
+export interface PropertyType extends ConfigItem {
+  icon: string | null
+}
+
+/* ─── Properties / Room Types ─────────────────────────── */
+
+export type PropertyStatus = 'DRAFT' | 'PUBLISHED' | 'SUSPENDED'
+
+export interface RoomType {
+  id: string
+  propertyId: string
+  name: string
+  description: string | null
+  pricePerNight: number
+  quantity: number
+  maxGuests: number
+  images: string[]
+  image: string | null
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface PropertyCity {
+  id: string
+  name: string
+  state: string
+  country: string
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface PropertySummary {
+  id: string
+  propertyTypeId: string
+  propertyType: string
+  name: string
+  slug: string
+  description: string | null
+  address: string
+  lat: number | null
+  lng: number | null
+  city: PropertyCity | null
+  images: string[]
+  image: string | null
+  amenities: string[]
+  checkInTime: string | null
+  checkOutTime: string | null
+  rating: number
+  totalReviews: number
+  status: PropertyStatus
+  roomTypes: RoomType[]
+  createdAt: string
+  updatedAt: string
+}
+
+export type PropertyDetail = PropertySummary
+
+/* ─── Bookings ─────────────────────────────────────────── */
+
+export type BookingStatus = 'CONFIRMED' | 'CHECKED_IN' | 'CHECKED_OUT' | 'CANCELLED'
+
+export interface BookingCustomer {
+  id: string
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+}
+
+export interface BookingPropertyRef {
+  id: string
+  name: string
+  image: string | null
+  address: string
+  city: { id: string; name: string }
+}
+
+export interface BookingSummary {
+  id: string
+  bookingNumber: string
+  customerId: string
+  propertyId: string
+  propertyName: string
+  roomTypeId: string
+  roomTypeName: string
+  checkIn: string
+  checkOut: string
+  nights: number
+  unitsBooked: number
+  guests: number
+  pricePerNight: number
+  subtotal: number
+  total: number
+  status: BookingStatus
+  paymentMethod: string
+  paymentStatus: PaymentStatus
+  specialRequests: string | null
+  cancellationReason: string | null
+  cancelledAt: string | null
+  cancelledBy: string | null
+  checkedInAt: string | null
+  checkedOutAt: string | null
+  createdAt: string
+  updatedAt: string
+  customer: BookingCustomer
+  property: BookingPropertyRef
+}
+
+export type BookingDetail = BookingSummary
+
+/* ─── Reviews ─────────────────────────────────────────── */
+
+export type ReviewSubjectType = 'VENDOR' | 'DRIVER' | 'RIDER' | 'PRODUCT' | 'ORDER' | 'PROPERTY'
+export type ReviewStatus = 'PUBLISHED' | 'PENDING' | 'HIDDEN' | 'REMOVED'
+
+export interface ReviewUser {
+  id: string
+  firstName: string
+  lastName: string
+}
+
+export interface ReviewSubject {
+  id: string
+  name: string
+  image: string | null
+  status?: string
+  rating: number
+  isVerified?: boolean
+}
+
+export interface Review {
+  id: string
+  orderId: string | null
+  userId: string
+  subjectId: string
+  subjectType: ReviewSubjectType
+  rating: number
+  comment: string | null
+  tags: string[]
+  status: ReviewStatus
+  responseText: string | null
+  respondedAt: string | null
+  reportedCount: number
+  helpfulCount: number
+  createdAt: string
+  user: ReviewUser
+  subject: ReviewSubject
 }

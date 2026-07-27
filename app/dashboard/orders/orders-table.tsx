@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { cn } from '@/app/lib/utils'
 import { formatNaira } from '@/app/lib/utils'
 import { getOrders } from '@/app/actions/orders'
@@ -193,7 +194,18 @@ export function OrdersTable({
                       <p className="text-xs text-slate-400">{order.customer.email}</p>
                     </td>
                     <td className="px-5 py-3.5">
-                      <p className="text-slate-700">{order.vendor.name}</p>
+                      <div className="flex items-center gap-2.5">
+                        {order.vendor.image ? (
+                          <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-lg border border-slate-100 bg-slate-50">
+                            <Image src={order.vendor.image} alt={order.vendor.name} fill className="object-cover" unoptimized />
+                          </div>
+                        ) : (
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-500">
+                            {order.vendor.name[0]?.toUpperCase() ?? '?'}
+                          </div>
+                        )}
+                        <p className="text-slate-700 truncate">{order.vendor.name}</p>
+                      </div>
                     </td>
                     <td className="px-5 py-3.5 text-slate-500">
                       {order.items.length} {order.items.length === 1 ? 'item' : 'items'}

@@ -62,6 +62,32 @@ export async function toggleCatalogFeatured(
   }
 }
 
+export interface AdminProductUpdate {
+  name: string
+  categoryId: string
+  price: number
+  stock: number
+}
+
+export async function updateAdminProduct(
+  productId: string,
+  payload: AdminProductUpdate
+): Promise<{ data?: Partial<CatalogItem>; error?: string }> {
+  try {
+    const data = await apiFetch<Partial<CatalogItem>>(
+      `/api/v1/vendors/admin/products/${encodeURIComponent(productId)}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+        token: await token(),
+      }
+    )
+    return { data }
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'Failed to update product.' }
+  }
+}
+
 export async function updateStorefrontBranding(
   storefrontId: string,
   data: { logo?: string | null; banner?: string | null }
