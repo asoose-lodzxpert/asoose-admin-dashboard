@@ -156,7 +156,8 @@ export function RideDetailClient({
   const isPaid = ['COMPLETED', 'PAID', 'SUCCESS', 'SUCCESSFUL'].includes(
     (ride.paymentStatus ?? '').toUpperCase()
   )
-  const canAssign = !isTerminal && isPaid
+  const isPayOnArrival = ride.paymentMethod.toUpperCase() === 'PAY_ON_ARRIVAL'
+  const canAssign = !isTerminal && (isPaid || isPayOnArrival)
   const canRequeue = !isTerminal && isPaid && !ride.driver
   const canCancel = !isTerminal
   const canRetrieveCode = !isTerminal
