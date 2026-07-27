@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
 import { DocCard } from '@/app/components/ui/doc-card'
-import { DetailCard, InfoRow, InfoGrid, formatDate } from '@/app/components/ui/detail'
+import { DetailCard, InfoRow, InfoGrid } from '@/app/components/ui/detail'
 import { cn } from '@/app/lib/utils'
 import { formatNaira } from '@/app/lib/utils'
 import { assignRiderToParcel } from '@/app/actions/parcels'
@@ -120,7 +120,9 @@ export function ParcelDetailClient({ parcel: initialParcel }: { parcel: ParcelDe
   const [isPending, startTransition] = useTransition()
 
   const isTerminal = TERMINAL.includes(parcel.status)
-  const canAssign = !isTerminal && !parcel.rider && parcel.paymentStatus !== 'PENDING'
+  const paymentAllowsAssignment =
+    parcel.paymentStatus !== 'PENDING' || parcel.paymentMethod === 'CASH'
+  const canAssign = !isTerminal && !parcel.rider && paymentAllowsAssignment
 
   /* assign rider modal */
   const [showAssign, setShowAssign] = useState(false)
