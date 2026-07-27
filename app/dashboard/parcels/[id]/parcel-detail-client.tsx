@@ -134,7 +134,12 @@ export function ParcelDetailClient({
   const [isPending, startTransition] = useTransition()
 
   const isTerminal = TERMINAL.includes(parcel.status)
-  const canAssign = !isTerminal && parcel.paymentStatus !== 'PENDING'
+  const isCashPayment = parcel.paymentMethod.trim().toUpperCase() === 'CASH'
+  const paymentAllowsAssignment =
+    parcel.paymentStatus !== 'PENDING' || isCashPayment
+  const canAssign =
+    !isTerminal &&
+    (parcel.status === 'SEARCHING_RIDER' || paymentAllowsAssignment)
 
   /* assign rider modal */
   const [showAssign, setShowAssign] = useState(false)
