@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { cn } from '@/app/lib/utils'
 import { formatNaira } from '@/app/lib/utils'
 import { getParcels } from '@/app/actions/parcels'
@@ -73,12 +74,23 @@ export function ParcelsTable({
           <h1 className="text-2xl font-bold text-slate-900">Parcels</h1>
           <p className="mt-0.5 text-sm text-slate-500">{pagination.total} parcels found.</p>
         </div>
-        {isPending && (
-          <svg className="h-4 w-4 animate-spin text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-        )}
+        <div className="flex items-center gap-3">
+          {isPending && (
+            <svg className="h-4 w-4 animate-spin text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+          )}
+          <Link
+            href="/dashboard/parcels/create"
+            className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-4 w-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            Create delivery
+          </Link>
+        </div>
       </div>
 
       {/* Status filter */}
@@ -170,7 +182,9 @@ export function ParcelsTable({
                         {parcel.dropoffAddress.address || parcel.dropoffAddress.street}
                       </p>
                     </td>
-                    <td className="px-5 py-3.5 font-medium text-slate-900 whitespace-nowrap">{formatNaira(parcel.fare)}</td>
+                    <td className="px-5 py-3.5 font-medium text-slate-900 whitespace-nowrap">
+                      {parcel.fare == null ? <span className="text-slate-400">Pending</span> : formatNaira(parcel.fare)}
+                    </td>
                     <td className="px-5 py-3.5 text-xs text-slate-700">{parcel.recipientName}</td>
                     <td className="px-5 py-3.5 text-xs">
                       {parcel.rider

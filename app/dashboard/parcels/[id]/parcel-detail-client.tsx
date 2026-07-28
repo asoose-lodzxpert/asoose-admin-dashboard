@@ -134,7 +134,7 @@ export function ParcelDetailClient({
   const [isPending, startTransition] = useTransition()
 
   const isTerminal = TERMINAL.includes(parcel.status)
-  const isCashPayment = parcel.paymentMethod.trim().toUpperCase() === 'CASH'
+  const isCashPayment = parcel.paymentMethod?.trim().toUpperCase() === 'CASH'
   const paymentAllowsAssignment =
     parcel.paymentStatus !== 'PENDING' || isCashPayment
   const canAssign =
@@ -231,10 +231,10 @@ export function ParcelDetailClient({
             {/* Parcel Details */}
             <DetailCard title="Parcel Details">
               <InfoGrid>
-                <InfoRow label="Distance" value={`${parcel.distance.toFixed(2)} km`} />
+                <InfoRow label="Distance" value={parcel.distance == null ? null : `${parcel.distance.toFixed(2)} km`} />
                 <InfoRow label="Duration" value={parcel.duration ? `${parcel.duration} min` : null} />
                 <InfoRow label="Size" value={parcel.size} />
-                <InfoRow label="Size Multiplier" value={`${parcel.sizeMultiplier}x`} />
+                <InfoRow label="Size Multiplier" value={parcel.sizeMultiplier == null ? null : `${parcel.sizeMultiplier}x`} />
                 <InfoRow label="Matching Attempts" value={parcel.matchingAttempts} />
                 <InfoRow label="Description" value={parcel.description} wide />
                 <InfoRow label="Customer ID" value={parcel.customerId} />
@@ -254,11 +254,15 @@ export function ParcelDetailClient({
             {/* Fare & Payment */}
             <DetailCard title="Fare & Payment">
               <div className="mb-4 text-center">
-                <p className="text-3xl font-bold text-slate-900">{formatNaira(parcel.fare)}</p>
-                <p className="mt-0.5 text-xs text-slate-400">{parcel.distance.toFixed(2)} km delivery</p>
+                <p className="text-3xl font-bold text-slate-900">
+                  {parcel.fare == null ? 'Pending' : formatNaira(parcel.fare)}
+                </p>
+                <p className="mt-0.5 text-xs text-slate-400">
+                  {parcel.distance == null ? 'Route pricing pending' : `${parcel.distance.toFixed(2)} km delivery`}
+                </p>
               </div>
               <InfoGrid>
-                <InfoRow label="Earning" value={formatNaira(parcel.earning)} />
+                <InfoRow label="Earning" value={parcel.earning == null ? null : formatNaira(parcel.earning)} />
                 <InfoRow label="Payment Method" value={parcel.paymentMethod} />
                 <InfoRow label="Payment Status" value={parcel.paymentStatus} />
               </InfoGrid>
@@ -275,9 +279,12 @@ export function ParcelDetailClient({
             {/* Customer */}
             <DetailCard title="Customer">
               <InfoGrid>
-                <InfoRow label="Name" value={parcel.customer.name} />
-                <InfoRow label="Phone" value={parcel.customer.phone} />
-                <InfoRow label="Email" value={parcel.customer.email} />
+                <InfoRow label="Name" value={parcel.customer?.name ?? parcel.senderName} />
+                <InfoRow label="Phone" value={parcel.customer?.phone ?? parcel.senderPhone} />
+                <InfoRow label="Email" value={parcel.customer?.email} />
+                {!parcel.customer && (
+                  <InfoRow label="Account" value="Guest customer" />
+                )}
               </InfoGrid>
             </DetailCard>
 

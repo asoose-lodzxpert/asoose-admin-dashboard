@@ -933,10 +933,27 @@ export type ParcelStatus =
 
 export type ParcelSize = 'SMALL' | 'MEDIUM' | 'LARGE'
 
+export interface ParcelLocationInput {
+  address: string
+  latitude: number
+  longitude: number
+}
+
+export interface AdminCreateParcelInput {
+  senderName: string
+  senderPhone: string
+  pickup: ParcelLocationInput
+  dropoff: ParcelLocationInput
+  recipientName: string
+  recipientPhone: string
+  size: ParcelSize
+  description: string
+}
+
 export interface ParcelCustomer {
   name: string
   phone: string
-  email: string
+  email: string | null
 }
 
 export interface ParcelSummary {
@@ -944,13 +961,15 @@ export interface ParcelSummary {
   trackingId: string
   status: ParcelStatus
   size: ParcelSize
-  fare: number
-  distance: number
-  paymentMethod: string
-  paymentStatus: string
+  fare: number | null
+  distance: number | null
+  paymentMethod: string | null
+  paymentStatus: string | null
   recipientName: string
   recipientPhone: string
-  customer: ParcelCustomer
+  senderName: string | null
+  senderPhone: string | null
+  customer: ParcelCustomer | null
   pickupAddress: RideAddress
   dropoffAddress: RideAddress
   rider: { name: string; phone: string } | null
@@ -959,11 +978,11 @@ export interface ParcelSummary {
 }
 
 export interface ParcelDetail extends Omit<ParcelSummary, 'rider'> {
-  customerId: string
+  customerId: string | null
   riderId: string | null
-  sizeMultiplier: number
+  sizeMultiplier: number | null
   description: string | null
-  earning: number
+  earning: number | null
   duration: number | null
   pickedUpAt: string | null
   deliveredAt: string | null
@@ -971,7 +990,7 @@ export interface ParcelDetail extends Omit<ParcelSummary, 'rider'> {
   cancelReason: string | null
   matchingAttempts: number
   updatedAt: string
-  customer: ParcelCustomer
+  customer: ParcelCustomer | null
   rider: { name: string; phone: string; vehicleType?: string; rating?: number } | null
 }
 

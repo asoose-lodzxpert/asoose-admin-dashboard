@@ -8,6 +8,7 @@ import type {
   ParcelDetail,
   ParcelStatus,
   ParcelConfirmationCode,
+  AdminCreateParcelInput,
   Pagination,
 } from '@/app/lib/types'
 
@@ -42,6 +43,26 @@ export async function getParcelDetail(parcelId: string): Promise<ParcelDetail | 
   try {
     return await apiFetch<ParcelDetail>(`/api/v1/parcels/admin/${parcelId}`, { token: await token() })
   } catch { return null }
+}
+
+export async function createAdminParcel(
+  input: AdminCreateParcelInput
+): Promise<{ data?: ParcelSummary; error?: string }> {
+  try {
+    const data = await apiFetch<ParcelSummary>('/api/v1/parcels/admin', {
+      method: 'POST',
+      body: JSON.stringify(input),
+      token: await token(),
+    })
+    revalidatePath('/dashboard/parcels')
+    return { data }
+  } catch (err) {
+    return {
+      error: err instanceof ApiError
+        ? err.message
+        : 'Failed to create the delivery request.',
+    }
+  }
 }
 
 export async function getParcelConfirmationCode(
