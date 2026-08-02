@@ -7,7 +7,7 @@ import type {
   RideSummary,
   RideDetail,
   RideStatus,
-  RideConfirmationCode,
+  RidePickupCode,
   Pagination,
 } from '@/app/lib/types'
 
@@ -44,12 +44,12 @@ export async function getRideDetail(rideId: string): Promise<RideDetail | null> 
   } catch { return null }
 }
 
-export async function getRideConfirmationCode(
+export async function getRidePickupCode(
   rideId: string
-): Promise<{ data?: RideConfirmationCode; error?: string }> {
+): Promise<{ data?: RidePickupCode; error?: string }> {
   try {
-    const data = await apiFetch<RideConfirmationCode>(
-      `/api/v1/rides/admin/${encodeURIComponent(rideId)}/confirmation-code`,
+    const data = await apiFetch<RidePickupCode>(
+      `/api/v1/rides/admin/${encodeURIComponent(rideId)}/pickup-code`,
       { token: await token() }
     )
     return { data }
@@ -57,7 +57,25 @@ export async function getRideConfirmationCode(
     return {
       error: err instanceof ApiError
         ? err.message
-        : 'Failed to retrieve the ride confirmation code.',
+        : 'Failed to retrieve the ride pickup code.',
+    }
+  }
+}
+
+export async function regenerateRidePickupCode(
+  rideId: string
+): Promise<{ data?: RidePickupCode; error?: string }> {
+  try {
+    const data = await apiFetch<RidePickupCode>(
+      `/api/v1/rides/admin/${encodeURIComponent(rideId)}/pickup-code/regenerate`,
+      { method: 'POST', token: await token() }
+    )
+    return { data }
+  } catch (err) {
+    return {
+      error: err instanceof ApiError
+        ? err.message
+        : 'Failed to regenerate the ride pickup code.',
     }
   }
 }

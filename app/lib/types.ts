@@ -818,12 +818,14 @@ export interface RideDetail extends Omit<RideSummary, 'driver'> {
   driver: RideDriver | null
 }
 
-export interface RideConfirmationCode {
+export type FulfillmentCodeSource = 'EXISTING' | 'GENERATED' | 'REGENERATED'
+
+export interface RidePickupCode {
   rideId: string
   trackingId: string
-  confirmationCode: string
+  pickupCode: string
   codeGeneratedAt: string
-  source: string
+  source: FulfillmentCodeSource
 }
 
 export interface OrderDeliveryCode {
@@ -845,6 +847,7 @@ export interface ParcelConfirmationCode {
 export interface FulfillmentCodeData {
   confirmationCode?: string
   deliveryCode?: string
+  pickupCode?: string
   codeGeneratedAt: string
   source: string
 }

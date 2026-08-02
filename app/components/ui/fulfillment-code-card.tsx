@@ -28,26 +28,30 @@ export function FulfillmentCodeCard({
   description,
   retrieveLabel,
   retrieveCode,
+  regenerateLabel,
+  regenerateCode,
 }: {
   title: string
   description: string
   retrieveLabel: string
   retrieveCode: () => Promise<CodeResult>
+  regenerateLabel?: string
+  regenerateCode?: () => Promise<CodeResult>
 }) {
   const toast = useToast()
   const [data, setData] = useState<FulfillmentCodeData | null>(null)
   const [error, setError] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const code = data?.confirmationCode ?? data?.deliveryCode
+  const [loadingAction, setLoadingAction] = useState<'retrieve' | 'regenerate' | null>(null)
+  const code = data?.pickupCode ?? data?.confirmationCode ?? data?.deliveryCode
 
   async function handleRetrieve() {
-    if (isLoading) return
+    if (loadingAction) return
     setError('')
-    setIsLoading(true)
+    setLoadingAction('retrieve')
 
     try {
       const result = await retrieveCode()
-      const resultCode = result.data?.confirmationCode ?? result.data?.deliveryCode
+      const resultCode = result.data?.pickupCode ?? result.data?.confirmationCode ?? result.data?.deliveryCode
       if (result.error || !result.data || !resultCode) {
         const message = result.error ?? 'The API returned no active code.'
         setError(message)
@@ -62,7 +66,29 @@ export function FulfillmentCodeCard({
           : 'Code generated.'
       )
     } finally {
-      setIsLoading(false)
+      setLoadingAction(null)
+    }
+  }
+
+  async function handleRegenerate() {
+    if (loadingAction || !regenerateCode) return
+    setError('')
+    setLoadingAction('regenerate')
+
+    try {
+      const result = await regenerateCode()
+      const resultCode = result.data?.pickupCode ?? result.data?.confirmationCode ?? result.data?.deliveryCode
+      if (result.error || !result.data || !resultCode) {
+        const message = result.error ?? 'The API returned no regenerated code.'
+        setError(message)
+        toast.error(message)
+        return
+      }
+
+      setData(result.data)
+      toast.success('Code regenerated.')
+    } finally {
+      setLoadingAction(null)
     }
   }
 
@@ -100,6 +126,18 @@ export function FulfillmentCodeCard({
               Copy
             </Button>
           </div>
+          {regenerateCode && (
+            <Button
+              className="mt-3 w-full"
+              variant="secondary"
+              size="sm"
+              loading={loadingAction === 'regenerate'}
+              disabled={loadingAction === 'retrieve'}
+              onClick={handleRegenerate}
+            >
+              {regenerateLabel ?? 'Regenerate Code'}
+            </Button>
+          )}
           <div className="mt-3 flex items-center justify-between gap-3 text-[11px] text-slate-400">
             <span>Generated {formatDateTime(data.codeGeneratedAt)}</span>
             <span className="rounded-full bg-slate-100 px-2 py-1 font-medium uppercase tracking-wide text-slate-500">
@@ -113,7 +151,7 @@ export function FulfillmentCodeCard({
           <Button
             className="mt-4 w-full"
             size="sm"
-            loading={isLoading}
+            loading={loadingAction === 'retrieve'}
             onClick={handleRetrieve}
           >
             {retrieveLabel}

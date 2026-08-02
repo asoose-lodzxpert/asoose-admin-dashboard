@@ -16,7 +16,8 @@ import {
   assignDriverToRide,
   requeueRide,
   forceCancelRide,
-  getRideConfirmationCode,
+  getRidePickupCode,
+  regenerateRidePickupCode,
 } from '@/app/actions/rides'
 import { getDrivers } from '@/app/actions/drivers'
 import type { TimelineResult } from '@/app/actions/timeline'
@@ -364,13 +365,15 @@ export function RideDetailClient({
               </DetailCard>
             )}
 
-            {/* Ride completion code */}
+            {/* Ride pickup code */}
             {canRetrieveCode && (
               <FulfillmentCodeCard
-                title="Ride Completion Code"
-                description="Retrieve and share this code with the assigned driver so they can complete the ride."
-                retrieveLabel="Retrieve Completion Code"
-                retrieveCode={() => getRideConfirmationCode(ride.id)}
+                title="Ride Pickup Code"
+                description="Retrieve and share this code with the assigned driver to verify the ride pickup."
+                retrieveLabel="Retrieve Pickup Code"
+                retrieveCode={() => getRidePickupCode(ride.id)}
+                regenerateLabel="Regenerate Pickup Code"
+                regenerateCode={() => regenerateRidePickupCode(ride.id)}
               />
             )}
 
