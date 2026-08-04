@@ -5,7 +5,15 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { cn } from '@/app/lib/utils'
 import { useToast } from '@/app/components/ui/toast'
 import { getCustomers, updateCustomerStatus } from '@/app/actions/customers'
-import type { CustomerSummary, UserStatus, Pagination } from '@/app/lib/types'
+import type { CustomerSummary, UserRole, UserStatus, Pagination } from '@/app/lib/types'
+
+type UserListRole = Extract<UserRole, 'CUSTOMER' | 'RIDER' | 'DRIVER'>
+
+const ROLE_LABELS: Record<UserListRole, { singular: string; plural: string }> = {
+  CUSTOMER: { singular: 'Customer', plural: 'Customers' },
+  RIDER: { singular: 'Rider', plural: 'Riders' },
+  DRIVER: { singular: 'Driver', plural: 'Drivers' },
+}
 
 const STATUS_STYLES: Record<UserStatus, string> = {
   ACTIVE:               'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
@@ -39,6 +47,7 @@ function timeAgo(dateStr: string): string {
 }
 
 interface InitialParams {
+  role?: string
   search?: string
   status?: string
   page?: string
@@ -58,6 +67,9 @@ export function CustomersTable({
   const toast = useToast()
   const [customers, setCustomers] = useState(initialCustomers)
   const [pagination, setPagination] = useState(initialPagination)
+  const [roleFilter, setRoleFilter] = useState<UserListRole>(
+    initialParams.role === 'RIDER' || initialParams.role === 'DRIVER' ? initialParams.role : 'CUSTOMER'
+  )
   const [search, setSearch] = useState(initialParams.search ?? '')
   const [statusFilter, setStatusFilter] = useState<UserStatus | ''>((initialParams.status as UserStatus) ?? '')
   const [isPending, startTransition] = useTransition()
@@ -69,6 +81,7 @@ export function CustomersTable({
   const [restoreError, setRestoreError] = useState('')
 
   const isDeletedView = statusFilter === 'DEACTIVATED'
+  const roleLabel = ROLE_LABELS[roleFilter]
 
   function pushURL(params: Record<string, string | undefined>) {
     const sp = new URLSearchParams(searchParams.toString())
@@ -79,15 +92,23 @@ export function CustomersTable({
     router.replace(`?${sp}`, { scroll: false })
   }
 
-  function refetch(opts: { search?: string; status?: UserStatus | ''; page?: number }) {
+  function refetch(opts: { role?: UserListRole; search?: string; status?: UserStatus | ''; page?: number }) {
+    const role = opts.role ?? roleFilter
     const s = opts.search ?? search
     const st = opts.status !== undefined ? opts.status : statusFilter
     const pg = opts.page ?? 1
     startTransition(async () => {
-      const res = await getCustomers({ search: s || undefined, status: st || undefined, page: pg, limit: 50 })
+      const res = await getCustomers({ role, search: s || undefined, status: st || undefined, page: pg, limit: 50 })
       setCustomers(res.customers)
       setPagination(res.pagination)
     })
+  }
+
+  function onRoleFilter(e: React.ChangeEvent<HTMLSelectElement>) {
+    const role = e.target.value as UserListRole
+    setRoleFilter(role)
+    pushURL({ role: role === 'CUSTOMER' ? undefined : role, page: undefined })
+    refetch({ role, page: 1 })
   }
 
   function onSearch(e: React.ChangeEvent<HTMLInputElement>) {
@@ -137,9 +158,9 @@ export function CustomersTable({
     <main className="px-8 py-8">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Customers</h1>
+        <h1 className="text-2xl font-bold text-slate-900">{roleLabel.plural}</h1>
         <p className="mt-0.5 text-sm text-slate-500">
-          {pagination.total} {isDeletedView ? 'deleted accounts' : 'customers registered'}.
+          {pagination.total} {isDeletedView ? `deleted ${roleLabel.plural.toLowerCase()}` : `${roleLabel.plural.toLowerCase()} registered`}.
         </p>
       </div>
 
@@ -152,7 +173,7 @@ export function CustomersTable({
             !isDeletedView ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
           )}
         >
-          All customers
+          All {roleLabel.plural.toLowerCase()}
         </button>
         <button
           onClick={() => !isPending && switchTab('deleted')}
@@ -168,6 +189,21 @@ export function CustomersTable({
 
       {/* Filters */}
       <div className="mb-5 flex items-center gap-2.5 flex-wrap">
+        <div className="relative">
+          <select
+            aria-label="Filter users by role"
+            value={roleFilter}
+            onChange={onRoleFilter}
+            className="h-9 appearance-none rounded-xl border-0 bg-white pl-3.5 pr-9 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer"
+          >
+            <option value="CUSTOMER">Customers</option>
+            <option value="RIDER">Riders</option>
+            <option value="DRIVER">Drivers</option>
+          </select>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400">
+            <path fillRule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+          </svg>
+        </div>
         <div className="relative">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400">
             <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clipRule="evenodd" />
@@ -211,7 +247,7 @@ export function CustomersTable({
         {customers.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16">
             <p className="text-sm font-medium text-slate-700">
-              {isDeletedView ? 'No deleted accounts found' : 'No customers found'}
+              {isDeletedView ? `No deleted ${roleLabel.plural.toLowerCase()} found` : `No ${roleLabel.plural.toLowerCase()} found`}
             </p>
             <p className="mt-0.5 text-xs text-slate-400">
               {isDeletedView ? 'All accounts are currently active.' : 'Try adjusting your search or filter.'}
@@ -222,7 +258,7 @@ export function CustomersTable({
             <table className="w-full text-sm">
               <thead className="border-b border-slate-100 bg-slate-50/60">
                 <tr>
-                  <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Customer</th>
+                  <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">{roleLabel.singular}</th>
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Phone</th>
                   {isDeletedView ? (
                     <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Deleted</th>

@@ -15,7 +15,10 @@ interface ListResponse {
   pagination: Pagination
 }
 
+type CustomerListRole = Extract<UserRole, 'CUSTOMER' | 'RIDER' | 'DRIVER'>
+
 export async function getCustomers(params?: {
+  role?: CustomerListRole
   search?: string
   status?: UserStatus | ''
   page?: number
@@ -23,7 +26,7 @@ export async function getCustomers(params?: {
 }): Promise<ListResponse> {
   try {
     const q = new URLSearchParams()
-    q.set('role', 'CUSTOMER')
+    q.set('role', params?.role ?? 'CUSTOMER')
     q.set('page', String(params?.page ?? 1))
     q.set('limit', String(params?.limit ?? 20))
     if (params?.search) q.set('search', params.search)
