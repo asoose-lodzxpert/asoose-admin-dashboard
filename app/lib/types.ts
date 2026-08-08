@@ -192,6 +192,7 @@ export interface VendorStore {
   banner: string | null
   rating: number
   isOpen: boolean
+  isOpenNow: boolean
   cityId: string | null
   city?: { id: string; name: string } | null
 }

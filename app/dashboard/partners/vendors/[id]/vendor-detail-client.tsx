@@ -111,6 +111,22 @@ export function VendorDetailClient({
 
   function patch(p: Partial<VendorDetail>) { setVendor((v) => ({ ...v, ...p })) }
 
+  const [togglingOpen, setTogglingOpen] = useState(false)
+
+  function handleToggleOpen() {
+    if (!vendor.store) return
+    const nextOpen = !vendor.store.isOpen
+    setTogglingOpen(true)
+    startTransition(async () => {
+      const res = await updateVendorStore(vendor.id, { isOpen: nextOpen })
+      if (res.error) { toast.error(res.error); setTogglingOpen(false); return }
+      patch({ store: { ...vendor.store!, ...(res.store ?? { isOpen: nextOpen }) } as VendorStoreDetail })
+      setStoreForm((f) => ({ ...f, isOpen: nextOpen }))
+      setTogglingOpen(false)
+      toast.success(nextOpen ? 'Store opened.' : 'Store closed.')
+    })
+  }
+
   const [showAssignCity, setShowAssignCity] = useState(false)
   const [citySearch, setCitySearch] = useState('')
   const [selectedCityId, setSelectedCityId] = useState(vendor.store?.city?.id ?? '')
@@ -341,12 +357,27 @@ export function VendorDetailClient({
                     : store.status === 'CLOSED_PERMANENTLY' ? 'bg-slate-100 text-slate-500 ring-slate-500/20'
                     : 'bg-amber-50 text-amber-700 ring-amber-600/20'
                   )}>{store.status}</span>
-                  {store.isOpen && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                      Open
-                    </span>
-                  )}
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={store.isOpen}
+                    disabled={togglingOpen}
+                    onClick={handleToggleOpen}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset transition-colors disabled:opacity-60',
+                      store.isOpen ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/20 hover:bg-emerald-100' : 'bg-slate-100 text-slate-500 ring-slate-500/20 hover:bg-slate-200'
+                    )}
+                  >
+                    <span className={cn('h-1.5 w-1.5 rounded-full', store.isOpen ? 'bg-emerald-500' : 'bg-slate-400')} />
+                    {togglingOpen ? 'Saving…' : store.isOpen ? 'Open' : 'Closed'}
+                  </button>
+                  <span className={cn(
+                    'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset',
+                    store.isOpenNow ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/20' : 'bg-slate-100 text-slate-500 ring-slate-500/20'
+                  )}>
+                    <span className={cn('h-1.5 w-1.5 rounded-full', store.isOpenNow ? 'bg-emerald-500' : 'bg-slate-400')} />
+                    {store.isOpenNow ? 'Open Now' : 'Closed Now'}
+                  </span>
                 </div>
               </div>
 
@@ -358,6 +389,7 @@ export function VendorDetailClient({
                   <InfoRow label="Slug" value={store.slug} />
                   <InfoRow label="Rating" value={store.rating > 0 ? store.rating.toFixed(1) : '—'} />
                   <InfoRow label="Is Open" value={store.isOpen ? 'Yes' : 'No'} />
+                  <InfoRow label="Open Now" value={store.isOpenNow ? 'Yes' : 'No'} />
                   <InfoRow label="Prep Time" value={store.preparationTime != null ? `${store.preparationTime} min` : null} />
                   <InfoRow label="Min Order" value={store.minOrder != null ? `₦${store.minOrder.toLocaleString()}` : null} />
                   <InfoRow label="Delivery Fee" value={store.deliveryFee != null ? `₦${store.deliveryFee.toLocaleString()}` : null} />
@@ -516,13 +548,18 @@ export function VendorDetailClient({
               <option value="CLOSED_PERMANENTLY">Closed Permanently</option>
             </select>
           </div>
-          <div className="flex items-center gap-3 pt-6">
-            <button type="button" role="switch" aria-checked={storeForm.isOpen}
-              onClick={() => sf('isOpen', !storeForm.isOpen)}
-              className={cn('relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2', storeForm.isOpen ? 'bg-indigo-600' : 'bg-slate-200')}>
-              <span className={cn('pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm ring-0 transition-transform', storeForm.isOpen ? 'translate-x-5' : 'translate-x-0')} />
-            </button>
-            <span className="text-sm font-medium text-slate-700">Store is Open</span>
+          <div className="flex flex-col gap-1.5 pt-6">
+            <div className="flex items-center gap-3">
+              <button type="button" role="switch" aria-checked={storeForm.isOpen}
+                onClick={() => sf('isOpen', !storeForm.isOpen)}
+                className={cn('relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2', storeForm.isOpen ? 'bg-indigo-600' : 'bg-slate-200')}>
+                <span className={cn('pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm ring-0 transition-transform', storeForm.isOpen ? 'translate-x-5' : 'translate-x-0')} />
+              </button>
+              <span className="text-sm font-medium text-slate-700">Store is Open</span>
+            </div>
+            <p className="text-xs text-slate-400">
+              Currently {store?.isOpenNow ? <span className="font-medium text-emerald-600">open now</span> : <span className="font-medium text-slate-500">closed now</span>} based on opening hours.
+            </p>
           </div>
           <div>
             <label className="mb-1.5 block text-[13px] font-medium text-slate-700">Prep Time (min)</label>
