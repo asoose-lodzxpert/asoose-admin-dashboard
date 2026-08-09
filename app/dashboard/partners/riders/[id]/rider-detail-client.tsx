@@ -296,6 +296,7 @@ export function RiderDetailClient({ rider: initial, vehicleTypes, vehicleBrands,
             <UserFinanceSection
               userId={rider.userId}
               adjustWalletAction={(payload) => adjustRiderWallet(rider.id, payload)}
+              variant="earner"
             />
           </div>
 

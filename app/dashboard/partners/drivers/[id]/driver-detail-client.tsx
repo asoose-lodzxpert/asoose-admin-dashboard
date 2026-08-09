@@ -296,6 +296,7 @@ export function DriverDetailClient({ driver: initial, vehicleTypes, vehicleBrand
             <UserFinanceSection
               userId={driver.userId}
               adjustWalletAction={(payload) => adjustDriverWallet(driver.id, payload)}
+              variant="earner"
             />
           </div>
 

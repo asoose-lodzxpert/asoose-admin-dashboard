@@ -49,9 +49,18 @@ type WalletAdjustAction = (payload: {
   reason: string
 }) => Promise<{ data?: UserWallet; error?: string }>
 
+/**
+ * Riders/drivers never top up their own wallet — the only money that lands
+ * there is ride/delivery earnings, which sit in `pendingBalance` and are
+ * withdrawable immediately via payout. `balance` stays 0 for them, so it's
+ * hidden to avoid reading as "no money" next to a nonzero pending amount.
+ * Regular users self-credit, so `balance` is the meaningful figure for them.
+ */
+type WalletVariant = 'user' | 'earner'
+
 /* ─── Wallet Tab ─────────────────────────────────────────── */
 
-function WalletTab({ userId, adjustWalletAction }: { userId: string; adjustWalletAction?: WalletAdjustAction }) {
+function WalletTab({ userId, adjustWalletAction, variant }: { userId: string; adjustWalletAction?: WalletAdjustAction; variant: WalletVariant }) {
   const toast = useToast()
   const [wallet, setWallet] = useState<UserWallet | null>(null)
   const [error, setError] = useState('')
@@ -128,21 +137,32 @@ function WalletTab({ userId, adjustWalletAction }: { userId: string; adjustWalle
         )}
       </div>
 
-      {/* Available balance — hero figure */}
+      {/* Hero figure */}
       <div className="rounded-2xl bg-indigo-600 px-5 py-4 text-white">
-        <p className="text-xs font-medium text-indigo-200 uppercase tracking-wider">Available Balance</p>
-        <p className="mt-1 text-3xl font-bold tracking-tight">{formatNaira(wallet.availableBalance)}</p>
+        <p className="text-xs font-medium text-indigo-200 uppercase tracking-wider">
+          {variant === 'earner' ? 'Available to Withdraw' : 'Available Balance'}
+        </p>
+        <p className="mt-1 text-3xl font-bold tracking-tight">
+          {formatNaira(variant === 'earner' ? wallet.pendingBalance : wallet.availableBalance)}
+        </p>
         {wallet.pinSet && (
           <p className="mt-1.5 text-[11px] text-indigo-300">PIN set</p>
         )}
       </div>
 
-      {/* Secondary balances */}
-      <div className="grid grid-cols-3 gap-2">
-        <BalanceCard label="Total" amount={wallet.balance} color="indigo" />
-        <BalanceCard label="Pending" amount={wallet.pendingBalance} color="amber" />
-        <BalanceCard label="Locked" amount={wallet.lockedBalance} color="red" />
-      </div>
+      {/* Secondary balances — riders/drivers never self-credit, so `balance` stays
+          0 and is hidden; only their earned/withdrawable and locked amounts matter. */}
+      {variant === 'earner' ? (
+        <div className="grid grid-cols-1 gap-2">
+          <BalanceCard label="Locked" amount={wallet.lockedBalance} color="red" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-3 gap-2">
+          <BalanceCard label="Total" amount={wallet.balance} color="indigo" />
+          <BalanceCard label="Pending" amount={wallet.pendingBalance} color="amber" />
+          <BalanceCard label="Locked" amount={wallet.lockedBalance} color="red" />
+        </div>
+      )}
 
       {/* Adjust Wallet Modal */}
       {adjustWalletAction && (
@@ -665,7 +685,15 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'payouts', label: 'Payouts' },
 ]
 
-export function UserFinanceSection({ userId, adjustWalletAction }: { userId: string; adjustWalletAction?: WalletAdjustAction }) {
+export function UserFinanceSection({
+  userId,
+  adjustWalletAction,
+  variant = 'user',
+}: {
+  userId: string
+  adjustWalletAction?: WalletAdjustAction
+  variant?: WalletVariant
+}) {
   const [tab, setTab] = useState<Tab>('wallet')
 
   return (
@@ -695,7 +723,7 @@ export function UserFinanceSection({ userId, adjustWalletAction }: { userId: str
 
       {/* Tab content */}
       <div className="px-6 py-5">
-        {tab === 'wallet' && <WalletTab userId={userId} adjustWalletAction={adjustWalletAction} />}
+        {tab === 'wallet' && <WalletTab userId={userId} adjustWalletAction={adjustWalletAction} variant={variant} />}
         {tab === 'bank-accounts' && <BankAccountsTab userId={userId} />}
         {tab === 'payouts' && <PayoutsTab userId={userId} />}
       </div>

@@ -712,6 +712,15 @@ export type PayoutStatus =
   | 'FAILED'
   | 'CANCELLED'
 
+export interface PayoutUser {
+  id: string
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  role: UserRole
+}
+
 export interface PayoutSummary {
   id: string
   amount: number
@@ -724,6 +733,7 @@ export interface PayoutSummary {
   processedAt: string | null
   completedAt: string | null
   createdAt: string
+  user?: PayoutUser
 }
 
 /* ─── User Finance ───────────────────────────────────── */

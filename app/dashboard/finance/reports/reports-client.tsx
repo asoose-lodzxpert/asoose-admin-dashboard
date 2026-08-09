@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { cn, formatNaira, formatNumber } from '@/app/lib/utils'
+import { ReportResultsSkeleton } from '@/app/components/ui/skeleton'
 import { fetchReport } from '@/app/actions/reports'
 import type {
   ReportType,
@@ -485,7 +486,9 @@ export function ReportsClient() {
       </div>
 
       {/* Report results */}
-      {report && (
+      {isPending && <ReportResultsSkeleton />}
+
+      {!isPending && report && (
         <div>
           {/* Period badge */}
           <div className="mb-5 inline-flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-1.5 text-xs text-slate-500 ring-1 ring-inset ring-slate-200">

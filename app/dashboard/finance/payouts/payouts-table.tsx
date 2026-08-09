@@ -6,7 +6,18 @@ import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
 import { useToast } from '@/app/components/ui/toast'
 import { getPayouts, approvePayout, confirmApproval, rejectPayout } from '@/app/actions/payouts'
-import type { PayoutSummary, PayoutStatus, Pagination } from '@/app/lib/types'
+import type { PayoutSummary, PayoutStatus, Pagination, UserRole } from '@/app/lib/types'
+
+const ROLE_STYLES: Partial<Record<UserRole, string>> = {
+  CUSTOMER: 'bg-slate-100 text-slate-600',
+  VENDOR:   'bg-amber-50 text-amber-700',
+  RIDER:    'bg-sky-50 text-sky-700',
+  DRIVER:   'bg-violet-50 text-violet-700',
+}
+
+function formatRole(role: UserRole): string {
+  return role.charAt(0) + role.slice(1).toLowerCase()
+}
 
 const STATUS_STYLES: Record<PayoutStatus, string> = {
   PENDING:    'bg-amber-50 text-amber-700 ring-amber-600/20',
@@ -205,6 +216,7 @@ export function PayoutsTable({
             <table className="w-full text-sm">
               <thead className="border-b border-slate-100 bg-slate-50/60">
                 <tr>
+                  <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">User</th>
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Payout ID</th>
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Amount</th>
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Fee</th>
@@ -217,6 +229,21 @@ export function PayoutsTable({
               <tbody className="divide-y divide-slate-50">
                 {payouts.map((p) => (
                   <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="px-5 py-3.5">
+                      {p.user ? (
+                        <div className="flex items-center gap-2">
+                          <div className="min-w-0">
+                            <p className="font-medium text-slate-900 truncate max-w-40">{p.user.firstName} {p.user.lastName}</p>
+                            <p className="text-xs text-slate-400 truncate max-w-40">{p.user.email}</p>
+                          </div>
+                          <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium', ROLE_STYLES[p.user.role] ?? 'bg-slate-100 text-slate-600')}>
+                            {formatRole(p.user.role)}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400">—</span>
+                      )}
+                    </td>
                     <td className="px-5 py-3.5">
                       <p className="font-mono text-xs font-medium text-slate-900">{p.id.slice(0, 8)}…</p>
                     </td>
