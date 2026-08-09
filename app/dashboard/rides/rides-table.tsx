@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
 import { cn } from '@/app/lib/utils'
 import { formatNaira } from '@/app/lib/utils'
+import { Spinner } from '@/app/components/ui/spinner'
+import { useRowNav } from '@/app/lib/hooks/use-row-nav'
 import { getRides } from '@/app/actions/rides'
 import type { RideSummary, RideStatus, Pagination } from '@/app/lib/types'
 
@@ -58,7 +59,7 @@ export function RidesTable({
   initialRides: RideSummary[]
   initialPagination: Pagination
 }) {
-  const router = useRouter()
+  const { navigatingId, navigate } = useRowNav()
   const [rides, setRides] = useState(initialRides)
   const [pagination, setPagination] = useState(initialPagination)
   const [status, setStatus] = useState<RideStatus | ''>('')
@@ -161,14 +162,22 @@ export function RidesTable({
                 {rides.map((ride) => (
                   <tr
                     key={ride.id}
-                    onClick={() => router.push(`/dashboard/rides/${ride.id}`)}
-                    className="cursor-pointer hover:bg-slate-50/80 transition-colors"
+                    onClick={() => navigate(ride.id, `/dashboard/rides/${ride.id}`)}
+                    className={cn(
+                      'cursor-pointer hover:bg-slate-50/80 transition-opacity',
+                      navigatingId === ride.id && 'opacity-50 pointer-events-none'
+                    )}
                   >
                     <td className="px-5 py-3.5">
-                      <p className="font-mono text-xs font-medium text-slate-900">{ride.trackingId}</p>
-                      {ride.isScheduled && (
-                        <span className="mt-0.5 inline-flex items-center rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-700">Scheduled</span>
-                      )}
+                      <div className="flex items-center gap-1">
+                        <div>
+                          <p className="font-mono text-xs font-medium text-slate-900">{ride.trackingId}</p>
+                          {ride.isScheduled && (
+                            <span className="mt-0.5 inline-flex items-center rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-700">Scheduled</span>
+                          )}
+                        </div>
+                        {navigatingId === ride.id && <Spinner className="ml-1" />}
+                      </div>
                     </td>
                     <td className="px-5 py-3.5">
                       <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset', STATUS_STYLES[ride.status])}>

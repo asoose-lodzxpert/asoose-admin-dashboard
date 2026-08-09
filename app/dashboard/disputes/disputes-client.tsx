@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
 import { getDisputes } from '@/app/actions/disputes'
+import { Spinner } from '@/app/components/ui/spinner'
+import { useRowNav } from '@/app/lib/hooks/use-row-nav'
 import { cn } from '@/app/lib/utils'
 import type {
   DisputePriority,
@@ -37,7 +38,7 @@ export function DisputesClient({
   initialPagination: Pagination
   categories: string[]
 }) {
-  const router = useRouter()
+  const { navigatingId, navigate } = useRowNav()
   const [disputes, setDisputes] = useState(initialDisputes)
   const [pagination, setPagination] = useState(initialPagination)
   const [status, setStatus] = useState<DisputeStatus | ''>('')
@@ -108,8 +109,23 @@ export function DisputesClient({
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {disputes.map(dispute => (
-                  <tr key={dispute.id} onClick={() => router.push(`/dashboard/disputes/${dispute.id}`)} className="cursor-pointer transition-colors hover:bg-slate-50">
-                    <td className="max-w-md px-5 py-4"><p className="font-semibold text-slate-900">{dispute.title}</p><p className="mt-0.5 line-clamp-1 text-xs text-slate-500">{dispute.message}</p></td>
+                  <tr
+                    key={dispute.id}
+                    onClick={() => navigate(dispute.id, `/dashboard/disputes/${dispute.id}`)}
+                    className={cn(
+                      'cursor-pointer transition-opacity hover:bg-slate-50',
+                      navigatingId === dispute.id && 'opacity-50 pointer-events-none'
+                    )}
+                  >
+                    <td className="max-w-md px-5 py-4">
+                      <div className="flex items-center gap-1">
+                        <div>
+                          <p className="font-semibold text-slate-900">{dispute.title}</p>
+                          <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">{dispute.message}</p>
+                        </div>
+                        {navigatingId === dispute.id && <Spinner className="ml-1" />}
+                      </div>
+                    </td>
                     <td className="px-5 py-4 text-slate-600">{dispute.category}</td>
                     <td className={cn('px-5 py-4 text-xs font-bold', PRIORITY_STYLE[dispute.priority])}>{label(dispute.priority)}</td>
                     <td className="px-5 py-4"><span className={cn('rounded-full px-2.5 py-1 text-xs font-semibold', STATUS_STYLE[dispute.status])}>{label(dispute.status)}</span></td>

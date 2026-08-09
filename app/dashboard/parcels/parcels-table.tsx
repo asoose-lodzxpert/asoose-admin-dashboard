@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { cn } from '@/app/lib/utils'
 import { formatNaira } from '@/app/lib/utils'
+import { Spinner } from '@/app/components/ui/spinner'
+import { useRowNav } from '@/app/lib/hooks/use-row-nav'
 import { getParcels } from '@/app/actions/parcels'
 import type { ParcelSummary, ParcelStatus, Pagination } from '@/app/lib/types'
 
@@ -45,7 +46,7 @@ export function ParcelsTable({
   initialParcels: ParcelSummary[]
   initialPagination: Pagination
 }) {
-  const router = useRouter()
+  const { navigatingId, navigate } = useRowNav()
   const [parcels, setParcels] = useState(initialParcels)
   const [pagination, setPagination] = useState(initialPagination)
   const [status, setStatus] = useState<ParcelStatus | ''>('')
@@ -151,11 +152,17 @@ export function ParcelsTable({
                 {parcels.map((parcel) => (
                   <tr
                     key={parcel.id}
-                    onClick={() => router.push(`/dashboard/parcels/${parcel.id}`)}
-                    className="cursor-pointer hover:bg-slate-50/80 transition-colors"
+                    onClick={() => navigate(parcel.id, `/dashboard/parcels/${parcel.id}`)}
+                    className={cn(
+                      'cursor-pointer hover:bg-slate-50/80 transition-opacity',
+                      navigatingId === parcel.id && 'opacity-50 pointer-events-none'
+                    )}
                   >
                     <td className="px-5 py-3.5">
-                      <p className="font-mono text-xs font-medium text-slate-900">{parcel.trackingId}</p>
+                      <div className="flex items-center gap-1">
+                        <p className="font-mono text-xs font-medium text-slate-900">{parcel.trackingId}</p>
+                        {navigatingId === parcel.id && <Spinner className="ml-1" />}
+                      </div>
                     </td>
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-1.5">

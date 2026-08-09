@@ -4,7 +4,9 @@ import Image from 'next/image'
 import { useState, useTransition, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/app/components/ui/button'
+import { Spinner } from '@/app/components/ui/spinner'
 import { useToast } from '@/app/components/ui/toast'
+import { useRowNav } from '@/app/lib/hooks/use-row-nav'
 import { cn } from '@/app/lib/utils'
 import { getVendors, approveVendor, rejectVendor, suspendVendor } from '@/app/actions/vendors'
 import type { VendorSummary, VendorStore, Pagination } from '@/app/lib/types'
@@ -65,6 +67,7 @@ export function VendorsTable({
   initialPagination: Pagination
 }) {
   const router = useRouter()
+  const { navigatingId, navigate } = useRowNav()
   const toast = useToast()
   const [vendors, setVendors] = useState(initialVendors)
   const [pagination, setPagination] = useState(initialPagination)
@@ -209,8 +212,11 @@ export function VendorsTable({
                 {vendors.map((vendor) => (
                   <tr
                     key={vendor.id}
-                    onClick={() => router.push(`/dashboard/partners/vendors/${vendor.id}`)}
-                    className="cursor-pointer hover:bg-slate-50/80 transition-colors"
+                    onClick={() => navigate(vendor.id, `/dashboard/partners/vendors/${vendor.id}`)}
+                    className={cn(
+                      'cursor-pointer hover:bg-slate-50/80 transition-opacity',
+                      navigatingId === vendor.id && 'opacity-50 pointer-events-none'
+                    )}
                   >
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
@@ -219,6 +225,7 @@ export function VendorsTable({
                           <p className="font-medium text-slate-900">{vendor.store?.name ?? vendor.businessName}</p>
                           <p className="text-xs text-slate-400">{vendor.businessName}</p>
                         </div>
+                        {navigatingId === vendor.id && <Spinner className="ml-1" />}
                       </div>
                     </td>
                     <td className="px-5 py-3.5 text-xs text-slate-500">{vendor.businessType}</td>

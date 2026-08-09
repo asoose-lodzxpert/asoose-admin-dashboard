@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useTransition, useRef } from 'react'
-import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { cn } from '@/app/lib/utils'
 import { formatNaira } from '@/app/lib/utils'
+import { Spinner } from '@/app/components/ui/spinner'
+import { useRowNav } from '@/app/lib/hooks/use-row-nav'
 import { getOrders } from '@/app/actions/orders'
 import type { OrderSummary, OrderStatus, PaymentStatus } from '@/app/lib/types'
 
@@ -76,7 +77,7 @@ export function OrdersTable({
   initialOrders: OrderSummary[]
   total: number
 }) {
-  const router = useRouter()
+  const { navigatingId, navigate } = useRowNav()
   const [orders, setOrders] = useState(initialOrders)
   const [count, setCount] = useState(total)
   const [search, setSearch] = useState('')
@@ -174,14 +175,22 @@ export function OrdersTable({
                 {orders.map((order) => (
                   <tr
                     key={order.id}
-                    onClick={() => router.push(`/dashboard/orders/${order.id}`)}
-                    className="cursor-pointer hover:bg-slate-50/80 transition-colors"
+                    onClick={() => navigate(order.id, `/dashboard/orders/${order.id}`)}
+                    className={cn(
+                      'cursor-pointer hover:bg-slate-50/80 transition-opacity',
+                      navigatingId === order.id && 'opacity-50 pointer-events-none'
+                    )}
                   >
                     <td className="px-5 py-3.5">
-                      <p className="font-mono text-xs font-medium text-slate-900">{order.orderNumber}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        {new Date(order.createdAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}
-                      </p>
+                      <div className="flex items-center gap-1">
+                        <div>
+                          <p className="font-mono text-xs font-medium text-slate-900">{order.orderNumber}</p>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            {new Date(order.createdAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </p>
+                        </div>
+                        {navigatingId === order.id && <Spinner className="ml-1" />}
+                      </div>
                     </td>
                     <td className="px-5 py-3.5">
                       <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset', ORDER_STATUS_STYLES[order.status])}>

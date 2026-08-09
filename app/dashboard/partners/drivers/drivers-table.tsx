@@ -4,7 +4,9 @@ import { useState, useTransition, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/app/components/ui/button'
 import { Stars } from '@/app/components/ui/detail'
+import { Spinner } from '@/app/components/ui/spinner'
 import { useToast } from '@/app/components/ui/toast'
+import { useRowNav } from '@/app/lib/hooks/use-row-nav'
 import { cn } from '@/app/lib/utils'
 import { getDrivers, approveDriver, suspendDriver } from '@/app/actions/drivers'
 import type { DriverSummary, Pagination } from '@/app/lib/types'
@@ -33,6 +35,7 @@ export function DriversTable({
   initialPagination: Pagination
 }) {
   const router = useRouter()
+  const { navigatingId, navigate } = useRowNav()
   const toast = useToast()
   const [drivers, setDrivers] = useState(initialDrivers)
   const [pagination, setPagination] = useState(initialPagination)
@@ -109,7 +112,7 @@ export function DriversTable({
   }
 
   function navToDetail(driver: DriverSummary) {
-    router.push(`/dashboard/partners/drivers/${driver.id}`)
+    navigate(driver.id, `/dashboard/partners/drivers/${driver.id}`)
   }
 
   return (
@@ -194,11 +197,19 @@ export function DriversTable({
                   <tr
                     key={driver.id}
                     onClick={() => navToDetail(driver)}
-                    className="cursor-pointer hover:bg-slate-50/80 transition-colors"
+                    className={cn(
+                      'cursor-pointer hover:bg-slate-50/80 transition-opacity',
+                      navigatingId === driver.id && 'opacity-50 pointer-events-none'
+                    )}
                   >
                     <td className="px-5 py-3.5">
-                      <p className="font-medium text-slate-900">{driver.fullName}</p>
-                      <p className="text-xs text-slate-400">{driver.email}</p>
+                      <div className="flex items-center gap-1">
+                        <div>
+                          <p className="font-medium text-slate-900">{driver.fullName}</p>
+                          <p className="text-xs text-slate-400">{driver.email}</p>
+                        </div>
+                        {navigatingId === driver.id && <Spinner className="ml-1" />}
+                      </div>
                     </td>
                     <td className="px-5 py-3.5 text-xs text-slate-500">
                       {[driver.vehicleBrand, driver.vehicleModel, driver.vehicleType].filter(Boolean).join(' ')}

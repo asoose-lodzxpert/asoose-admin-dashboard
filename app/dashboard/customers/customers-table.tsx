@@ -3,7 +3,9 @@
 import { useState, useTransition, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { cn } from '@/app/lib/utils'
+import { Spinner } from '@/app/components/ui/spinner'
 import { useToast } from '@/app/components/ui/toast'
+import { useRowNav } from '@/app/lib/hooks/use-row-nav'
 import { getCustomers, updateCustomerStatus } from '@/app/actions/customers'
 import type { CustomerSummary, UserRole, UserStatus, Pagination } from '@/app/lib/types'
 
@@ -63,6 +65,7 @@ export function CustomersTable({
   initialParams?: InitialParams
 }) {
   const router = useRouter()
+  const { navigatingId, navigate } = useRowNav()
   const searchParams = useSearchParams()
   const toast = useToast()
   const [customers, setCustomers] = useState(initialCustomers)
@@ -282,8 +285,11 @@ export function CustomersTable({
                   return (
                     <tr
                       key={c.id}
-                      onClick={() => router.push(`/dashboard/customers/${c.id}`)}
-                      className="cursor-pointer hover:bg-slate-50/80 transition-colors"
+                      onClick={() => navigate(c.id, `/dashboard/customers/${c.id}`)}
+                      className={cn(
+                        'cursor-pointer hover:bg-slate-50/80 transition-opacity',
+                        navigatingId === c.id && 'opacity-50 pointer-events-none'
+                      )}
                     >
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
@@ -297,6 +303,7 @@ export function CustomersTable({
                             <p className="font-medium text-slate-900">{c.firstName} {c.lastName}</p>
                             <p className="text-xs text-slate-400">{c.email}</p>
                           </div>
+                          {navigatingId === c.id && <Spinner className="ml-1" />}
                         </div>
                       </td>
                       <td className="px-5 py-3.5 text-slate-500">{c.phone}</td>

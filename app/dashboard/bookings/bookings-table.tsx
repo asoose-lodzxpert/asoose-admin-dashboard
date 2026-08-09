@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
+import { Spinner } from '@/app/components/ui/spinner'
+import { useRowNav } from '@/app/lib/hooks/use-row-nav'
 import { cn, formatNaira } from '@/app/lib/utils'
 import { getBookings } from '@/app/actions/bookings'
 import type { BookingSummary, BookingStatus } from '@/app/lib/types'
@@ -43,7 +44,7 @@ export function BookingsTable({
   initialBookings: BookingSummary[]
   total: number
 }) {
-  const router = useRouter()
+  const { navigatingId, navigate } = useRowNav()
   const [bookings, setBookings] = useState(initialBookings)
   const [count, setCount] = useState(total)
   const [status, setStatus] = useState<BookingStatus | ''>('')
@@ -105,12 +106,20 @@ export function BookingsTable({
                 {bookings.map((booking) => (
                   <tr
                     key={booking.id}
-                    onClick={() => router.push(`/dashboard/bookings/${booking.id}`)}
-                    className="cursor-pointer hover:bg-slate-50/80 transition-colors"
+                    onClick={() => navigate(booking.id, `/dashboard/bookings/${booking.id}`)}
+                    className={cn(
+                      'cursor-pointer hover:bg-slate-50/80 transition-opacity',
+                      navigatingId === booking.id && 'opacity-50 pointer-events-none'
+                    )}
                   >
                     <td className="px-5 py-3.5">
-                      <p className="font-mono text-xs font-medium text-slate-900">{booking.bookingNumber}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">{formatDateShort(booking.createdAt)}</p>
+                      <div className="flex items-center gap-1">
+                        <div>
+                          <p className="font-mono text-xs font-medium text-slate-900">{booking.bookingNumber}</p>
+                          <p className="text-xs text-slate-400 mt-0.5">{formatDateShort(booking.createdAt)}</p>
+                        </div>
+                        {navigatingId === booking.id && <Spinner className="ml-1" />}
+                      </div>
                     </td>
                     <td className="px-5 py-3.5">
                       <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset', STATUS_STYLES[booking.status])}>

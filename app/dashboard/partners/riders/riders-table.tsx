@@ -4,7 +4,9 @@ import { useState, useTransition, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/app/components/ui/button'
 import { Stars } from '@/app/components/ui/detail'
+import { Spinner } from '@/app/components/ui/spinner'
 import { useToast } from '@/app/components/ui/toast'
+import { useRowNav } from '@/app/lib/hooks/use-row-nav'
 import { cn } from '@/app/lib/utils'
 import { getRiders, approveRider, suspendRider } from '@/app/actions/riders'
 import type { RiderSummary, Pagination } from '@/app/lib/types'
@@ -35,6 +37,7 @@ export function RidersTable({
   initialPagination: Pagination
 }) {
   const router = useRouter()
+  const { navigatingId, navigate } = useRowNav()
   const toast = useToast()
   const [riders, setRiders] = useState(initialRiders)
   const [pagination, setPagination] = useState(initialPagination)
@@ -111,7 +114,7 @@ export function RidersTable({
   }
 
   function navToDetail(rider: RiderSummary) {
-    router.push(`/dashboard/partners/riders/${rider.id}`)
+    navigate(rider.id, `/dashboard/partners/riders/${rider.id}`)
   }
 
   return (
@@ -196,11 +199,19 @@ export function RidersTable({
                   <tr
                     key={rider.id}
                     onClick={() => navToDetail(rider)}
-                    className="cursor-pointer hover:bg-slate-50/80 transition-colors"
+                    className={cn(
+                      'cursor-pointer hover:bg-slate-50/80 transition-opacity',
+                      navigatingId === rider.id && 'opacity-50 pointer-events-none'
+                    )}
                   >
                     <td className="px-5 py-3.5">
-                      <p className="font-medium text-slate-900">{rider.fullName}</p>
-                      <p className="text-xs text-slate-400">{rider.email}</p>
+                      <div className="flex items-center gap-1">
+                        <div>
+                          <p className="font-medium text-slate-900">{rider.fullName}</p>
+                          <p className="text-xs text-slate-400">{rider.email}</p>
+                        </div>
+                        {navigatingId === rider.id && <Spinner className="ml-1" />}
+                      </div>
                     </td>
                     <td className="px-5 py-3.5 text-xs text-slate-500">{rider.vehicleType}</td>
                     <td className="px-5 py-3.5">
