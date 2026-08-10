@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { apiFetch, ApiError } from '@/app/lib/api'
-import type { VendorSummary, VendorDetail, VendorStoreDetail, Product, Pagination, UserWallet } from '@/app/lib/types'
+import type { VendorSummary, VendorDetail, VendorStoreDetail, VendorRestaurantDetail, VendorPickupAddress, Product, Pagination, UserWallet } from '@/app/lib/types'
 
 type StoreUpdateData = Partial<{
   name: string
@@ -14,6 +14,17 @@ type StoreUpdateData = Partial<{
   preparationTime: number | null
   minOrder: number | null
   deliveryFee: number | null
+}>
+
+type PickupAddressUpdateData = Partial<{
+  street: string
+  city: string
+  state: string
+  zipCode: string
+  country: string
+  address: string
+  latitude: number
+  longitude: number
 }>
 
 type ProductMutationData = Record<string, unknown>
@@ -134,6 +145,47 @@ export async function updateVendorStore(
     return { store }
   } catch (err) {
     return { error: err instanceof ApiError ? err.message : 'Failed to update store.' }
+  }
+}
+
+export async function toggleVendorRestaurantStatus(
+  vendorId: string,
+  isOpen: boolean
+): Promise<{ restaurant?: VendorRestaurantDetail; error?: string }> {
+  try {
+    const restaurant = await apiFetch<VendorRestaurantDetail>(
+      `/api/v1/vendors/admin/${vendorId}/restaurant/toggle-status`,
+      { method: 'PATCH', body: JSON.stringify({ isOpen }), token: await token() }
+    )
+    revalidatePath(`/dashboard/partners/vendors/${vendorId}`)
+    return { restaurant }
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'Failed to update restaurant status.' }
+  }
+}
+
+export async function getVendorPickupAddress(vendorId: string): Promise<VendorPickupAddress | null> {
+  try {
+    return await apiFetch<VendorPickupAddress>(
+      `/api/v1/vendors/admin/${vendorId}/pickup-address`,
+      { token: await token() }
+    )
+  } catch { return null }
+}
+
+export async function updateVendorPickupAddress(
+  vendorId: string,
+  data: PickupAddressUpdateData
+): Promise<{ pickupAddress?: VendorPickupAddress; error?: string }> {
+  try {
+    const pickupAddress = await apiFetch<VendorPickupAddress>(
+      `/api/v1/vendors/admin/${vendorId}/pickup-address`,
+      { method: 'PATCH', body: JSON.stringify(data), token: await token() }
+    )
+    revalidatePath(`/dashboard/partners/vendors/${vendorId}`)
+    return { pickupAddress }
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'Failed to update pickup address.' }
   }
 }
 

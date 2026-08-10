@@ -211,6 +211,19 @@ export interface VendorStoreDetail extends VendorStore {
   }[]
 }
 
+export interface VendorRestaurantDetail {
+  id: string
+  isActive: boolean
+  isOpen: boolean
+  isOpenNow: boolean
+  operatingHours: {
+    day: string
+    openTime: string
+    closeTime: string
+    isClosed: boolean
+  }[]
+}
+
 export interface VendorSummary {
   id: string
   userId: string
@@ -222,6 +235,20 @@ export interface VendorSummary {
   isVerified: boolean
   store: VendorStore | null
   createdAt: string
+}
+
+export interface VendorPickupAddress {
+  vendorType: 'RESTAURANT' | 'STORE'
+  restaurantId?: string
+  storeId?: string
+  street: string | null
+  city: string | null
+  state: string | null
+  zipCode: string | null
+  country: string | null
+  address: string | null
+  latitude: number | null
+  longitude: number | null
 }
 
 export interface VendorDetail {
@@ -238,6 +265,7 @@ export interface VendorDetail {
   verificationStatus: 'PENDING' | 'VERIFIED' | 'REJECTED' | 'SUSPENDED'
   isVerified: boolean
   store: VendorStoreDetail | null
+  restaurant: VendorRestaurantDetail | null
   street: string | null
   city: string | null
   state: string | null

@@ -10,12 +10,13 @@ import { DocumentsSection, type DocumentField } from '@/app/components/ui/docume
 import { useToast } from '@/app/components/ui/toast'
 import { VendorMenuSection } from './vendor-menu'
 import { VendorProductsSection } from './vendor-products'
+import { VendorPickupLocation } from './vendor-pickup-location'
 import { cn } from '@/app/lib/utils'
-import { approveVendor, rejectVendor, suspendVendor, updateVendorStore, updateVendorDocuments, assignVendorCity, adjustVendorWallet } from '@/app/actions/vendors'
+import { approveVendor, rejectVendor, suspendVendor, updateVendorStore, toggleVendorRestaurantStatus, updateVendorDocuments, assignVendorCity, adjustVendorWallet } from '@/app/actions/vendors'
 import { uploadImage } from '@/app/actions/uploads'
 import { updateStorefrontBranding } from '@/app/actions/catalog'
 import { UserFinanceSection } from '@/app/components/user-finance-section'
-import type { VendorDetail, VendorMenu, Product, VendorStoreDetail, City, Category } from '@/app/lib/types'
+import type { VendorDetail, VendorMenu, Product, VendorStoreDetail, City, Category, VendorPickupAddress } from '@/app/lib/types'
 
 type VStatus = VendorDetail['verificationStatus']
 
@@ -49,6 +50,8 @@ interface Props {
   productTotal: number
   cities: City[]
   categories: Category[]
+  pickupAddress: VendorPickupAddress | null
+  googleMapsApiKey: string
 }
 
 export function VendorDetailClient({
@@ -58,6 +61,8 @@ export function VendorDetailClient({
   productTotal,
   cities,
   categories,
+  pickupAddress,
+  googleMapsApiKey,
 }: Props) {
   const toast = useToast()
   const [vendor, setVendor] = useState(initial)
@@ -124,6 +129,22 @@ export function VendorDetailClient({
       setStoreForm((f) => ({ ...f, isOpen: nextOpen }))
       setTogglingOpen(false)
       toast.success(nextOpen ? 'Store opened.' : 'Store closed.')
+    })
+  }
+
+  const restaurant = vendor.restaurant
+  const [togglingRestaurantOpen, setTogglingRestaurantOpen] = useState(false)
+
+  function handleToggleRestaurantOpen() {
+    if (!vendor.restaurant) return
+    const nextOpen = !vendor.restaurant.isOpen
+    setTogglingRestaurantOpen(true)
+    startTransition(async () => {
+      const res = await toggleVendorRestaurantStatus(vendor.id, nextOpen)
+      if (res.error) { toast.error(res.error); setTogglingRestaurantOpen(false); return }
+      patch({ restaurant: { ...vendor.restaurant!, ...res.restaurant } })
+      setTogglingRestaurantOpen(false)
+      toast.success(nextOpen ? 'Restaurant opened.' : 'Restaurant closed.')
     })
   }
 
@@ -422,6 +443,74 @@ export function VendorDetailClient({
           )}
         </div>
 
+        {/* Restaurant status — food vendors only. Separate from Store above:
+            Restaurant and Store are different DB tables, so a food vendor's
+            checkout-gating isOpen flag lives here, not on the Store card. */}
+        {restaurant && (
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="border-b border-slate-100 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-slate-900">Restaurant</h2>
+              <div className="flex items-center gap-2">
+                <span className={cn(
+                  'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset',
+                  restaurant.isActive ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/20' : 'bg-slate-100 text-slate-500 ring-slate-500/20'
+                )}>{restaurant.isActive ? 'ACTIVE' : 'INACTIVE'}</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={restaurant.isOpen}
+                  disabled={togglingRestaurantOpen}
+                  onClick={handleToggleRestaurantOpen}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset transition-colors disabled:opacity-60',
+                    restaurant.isOpen ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/20 hover:bg-emerald-100' : 'bg-slate-100 text-slate-500 ring-slate-500/20 hover:bg-slate-200'
+                  )}
+                >
+                  <span className={cn('h-1.5 w-1.5 rounded-full', restaurant.isOpen ? 'bg-emerald-500' : 'bg-slate-400')} />
+                  {togglingRestaurantOpen ? 'Saving…' : restaurant.isOpen ? 'Open' : 'Closed'}
+                </button>
+                <span className={cn(
+                  'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset',
+                  restaurant.isOpenNow ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/20' : 'bg-slate-100 text-slate-500 ring-slate-500/20'
+                )}>
+                  <span className={cn('h-1.5 w-1.5 rounded-full', restaurant.isOpenNow ? 'bg-emerald-500' : 'bg-slate-400')} />
+                  {restaurant.isOpenNow ? 'Open Now' : 'Closed Now'}
+                </span>
+              </div>
+            </div>
+
+            <div className="px-6 py-5">
+              <InfoGrid className="grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+                <InfoRow label="Is Active" value={restaurant.isActive ? 'Yes' : 'No'} />
+                <InfoRow label="Is Open" value={restaurant.isOpen ? 'Yes' : 'No'} />
+                <InfoRow label="Open Now" value={restaurant.isOpenNow ? 'Yes' : 'No'} />
+              </InfoGrid>
+              {!restaurant.isOpenNow && restaurant.isOpen && (
+                <p className="mt-3 text-xs text-amber-600">
+                  Marked open, but outside configured operating hours right now — checkout will still show &quot;Restaurant is currently closed&quot; until hours match.
+                </p>
+              )}
+            </div>
+
+            {restaurant.operatingHours.length > 0 && (
+              <div className="border-t border-slate-100 px-6 py-5">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Operating Hours</p>
+                <div className="grid grid-cols-2 gap-x-8 gap-y-1.5 sm:grid-cols-3 lg:grid-cols-4">
+                  {restaurant.operatingHours.map((h) => (
+                    <div key={h.day} className="flex items-center justify-between gap-2 text-sm">
+                      <span className="font-medium text-slate-700 w-16">{h.day.slice(0, 3)}</span>
+                      {h.isClosed
+                        ? <span className="text-xs text-slate-400">Closed</span>
+                        : <span className="text-slate-500">{h.openTime} – {h.closeTime}</span>
+                      }
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* Left: main info */}
           <div className="lg:col-span-2 space-y-6">
@@ -497,6 +586,14 @@ export function VendorDetailClient({
             )}
           </div>
         </div>
+
+        <VendorPickupLocation
+          vendorId={vendor.id}
+          vendorType={vendor.businessType === 'RESTAURANT' ? 'RESTAURANT' : 'STORE'}
+          initialPickupAddress={pickupAddress}
+          googleMapsApiKey={googleMapsApiKey}
+          cities={cities}
+        />
 
         <DetailCard title="Documents">
           <DocumentsSection
