@@ -158,6 +158,7 @@ export function BookingDetailClient({
               <InfoGrid className="grid-cols-1">
                 <InfoRow label="Price / Night" value={formatNaira(booking.pricePerNight)} />
                 <InfoRow label="Subtotal" value={formatNaira(booking.subtotal)} />
+                <InfoRow label="Service Fee" value={formatNaira(booking.serviceFee)} />
                 <InfoRow label="Total" value={formatNaira(booking.total)} />
               </InfoGrid>
             </DetailCard>

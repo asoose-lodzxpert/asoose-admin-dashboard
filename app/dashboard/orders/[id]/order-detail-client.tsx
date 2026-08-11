@@ -416,6 +416,9 @@ export function OrderDetailClient({
                 <InfoRow label="Name" value={`${order.customer.firstName} ${order.customer.lastName}`} />
                 <InfoRow label="Email" value={order.customer.email} />
                 <InfoRow label="Phone" value={order.customer.phone} />
+                {order.customer.alternatePhone && (
+                  <InfoRow label="Alternate Phone" value={order.customer.alternatePhone} />
+                )}
               </InfoGrid>
               <div className="mt-4">
                 <Link

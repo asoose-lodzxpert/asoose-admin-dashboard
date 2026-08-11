@@ -607,6 +607,7 @@ export interface OrderCustomer {
   firstName: string
   lastName: string
   phone: string
+  alternatePhone?: string | null
 }
 
 export interface OrderVendor {
@@ -1181,6 +1182,7 @@ export interface BookingSummary {
   guests: number
   pricePerNight: number
   subtotal: number
+  serviceFee: number
   total: number
   status: BookingStatus
   paymentMethod: string
