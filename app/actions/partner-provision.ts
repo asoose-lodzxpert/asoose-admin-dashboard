@@ -109,6 +109,21 @@ export async function resolveBankAccount(accountNumber: string, bankCode: string
   }
 }
 
+export async function adminProvisionPropertyOwner(
+  payload: unknown
+): Promise<{ data?: AdminProvisionResult; error?: string }> {
+  try {
+    const data = await apiFetch<AdminProvisionResult>(
+      '/api/v1/onboarding/admin-provision/property-owner',
+      { method: 'POST', body: JSON.stringify(payload), token: await token() }
+    )
+    revalidatePath('/dashboard/properties')
+    return { data: data! }
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'Failed to provision property owner.' }
+  }
+}
+
 export async function adminProvisionDriver(
   payload: unknown
 ): Promise<{ data?: AdminProvisionResult; error?: string }> {
