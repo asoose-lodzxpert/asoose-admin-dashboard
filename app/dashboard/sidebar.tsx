@@ -8,6 +8,7 @@ import { logoutAction, changePassword } from '@/app/actions/auth'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
 import { cn } from '@/app/lib/utils'
+import { canAccessDashboardPath } from '@/app/lib/admin-access'
 import type { User } from '@/app/lib/types'
 
 /* ─── Icon helper ────────────────────────────────────────── */
@@ -222,6 +223,7 @@ const ADMIN_NAV = [
 
 export function Sidebar({ user }: { user: User | null }) {
   const pathname = usePathname()
+  const role = user?.role ?? 'ADMIN'
 
   const [menuOpen, setMenuOpen] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -280,7 +282,7 @@ export function Sidebar({ user }: { user: User | null }) {
     ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
     : 'A'
   const displayName = user ? `${user.firstName} ${user.lastName}` : 'Admin User'
-  const displayRole = user?.role ?? 'SUPER_ADMIN'
+  const displayRole = role === 'SUPER_ADMIN' ? 'Super Admin' : 'Admin'
 
   function isActive(href: string, exact = false) {
     return exact ? pathname === href : pathname === href || pathname.startsWith(href + '/')
@@ -349,10 +351,12 @@ export function Sidebar({ user }: { user: User | null }) {
         })}
 
         {/* Finance section */}
-        <div className="mt-4 mb-1 px-3 pt-3 border-t border-slate-100">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Finance</p>
-        </div>
-        {FINANCE_NAV.map((item) => {
+        {FINANCE_NAV.some((item) => canAccessDashboardPath(role, item.href)) && (
+          <div className="mt-4 mb-1 px-3 pt-3 border-t border-slate-100">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Finance</p>
+          </div>
+        )}
+        {FINANCE_NAV.filter((item) => canAccessDashboardPath(role, item.href)).map((item) => {
           const active = isActive(item.href)
           return (
             <Link key={item.href} href={item.href} className={navClass(active)}>
@@ -394,7 +398,7 @@ export function Sidebar({ user }: { user: User | null }) {
         <div className="mt-4 mb-1 px-3 pt-3 border-t border-slate-100">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Admin</p>
         </div>
-        {ADMIN_NAV.map((item) => {
+        {ADMIN_NAV.filter((item) => canAccessDashboardPath(role, item.href)).map((item) => {
           const active = isActive(item.href)
           return (
             <Link key={item.href} href={item.href} className={navClass(active)}>

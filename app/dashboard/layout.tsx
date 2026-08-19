@@ -1,17 +1,25 @@
 import type { Metadata } from 'next'
+import { redirect } from 'next/navigation'
 import { Sidebar } from './sidebar'
 import { NotificationCenter } from '@/app/components/notifications/notification-center'
 import { getNotifications, getUnreadNotificationCount } from '@/app/actions/notifications'
 import { getAccessToken, getCurrentUser } from '@/app/lib/auth'
+import { isPortalRole } from '@/app/lib/admin-access'
 
 export const metadata: Metadata = {
   title: { default: 'Dashboard', template: '%s — Asoose Admin' },
 }
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const [user, accessToken, notificationsResult, unreadCountResult] = await Promise.all([
+  const [user, accessToken] = await Promise.all([
     getCurrentUser(),
     getAccessToken(),
+  ])
+
+  if (!user || !accessToken) redirect('/login')
+  if (!isPortalRole(user.role)) redirect('/unauthorized')
+
+  const [notificationsResult, unreadCountResult] = await Promise.all([
     getNotifications(),
     getUnreadNotificationCount(),
   ])
@@ -21,7 +29,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <Sidebar user={user} />
       <div className="flex min-w-0 flex-1 flex-col">
         <NotificationCenter
-          accessToken={accessToken ?? ''}
+          accessToken={accessToken}
           initialData={notificationsResult.data ?? null}
           initialUnreadCount={
             unreadCountResult.data?.unreadCount ?? notificationsResult.data?.unreadCount ?? 0

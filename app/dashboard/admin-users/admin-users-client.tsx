@@ -23,7 +23,7 @@ const ROLE_COLORS: Record<AnyAdminRole, string> = {
   SUPER_ADMIN:     'bg-amber-50 text-amber-700',
 }
 
-const PROVISIONABLE: AdminRole[] = ['ADMIN', 'ADMIN_FINANCE', 'ADMIN_SUPPORT', 'ADMIN_MANAGER']
+const PROVISIONABLE: AdminRole[] = ['ADMIN', 'SUPER_ADMIN']
 
 const STATUS_STYLES: Record<UserStatus, string> = {
   ACTIVE:               'bg-emerald-50 text-emerald-700 ring-emerald-600/20',

@@ -3,6 +3,7 @@
 import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { apiFetch, ApiError } from '@/app/lib/api'
+import { getCurrentUser } from '@/app/lib/auth'
 import type { Pagination, UserStatus } from '@/app/lib/types'
 
 async function token() {
@@ -10,8 +11,8 @@ async function token() {
   return store.get('access_token')?.value ?? ''
 }
 
-export type AdminRole = 'ADMIN' | 'ADMIN_FINANCE' | 'ADMIN_SUPPORT' | 'ADMIN_MANAGER'
-export type AnyAdminRole = AdminRole | 'SUPER_ADMIN'
+export type AdminRole = 'ADMIN' | 'SUPER_ADMIN'
+export type AnyAdminRole = AdminRole | 'ADMIN_FINANCE' | 'ADMIN_SUPPORT' | 'ADMIN_MANAGER'
 
 export interface AdminUser {
   id: string
@@ -59,6 +60,10 @@ export async function getAdmins(params?: {
   page?: number
   limit?: number
 }): Promise<{ admins: AdminUser[]; pagination: Pagination }> {
+  if ((await getCurrentUser())?.role !== 'SUPER_ADMIN') {
+    return { admins: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } }
+  }
+
   try {
     const q = new URLSearchParams()
     q.set('page', String(params?.page ?? 1))
@@ -82,6 +87,13 @@ export async function provisionAdmin(payload: {
   phone?: string
   role: AdminRole
 }): Promise<{ data?: ProvisionResult; error?: string }> {
+  if ((await getCurrentUser())?.role !== 'SUPER_ADMIN') {
+    return { error: 'Unauthorized. Only super admins can provision admin users.' }
+  }
+  if (payload.role !== 'ADMIN' && payload.role !== 'SUPER_ADMIN') {
+    return { error: 'Role must be ADMIN or SUPER_ADMIN.' }
+  }
+
   try {
     const data = await apiFetch<ProvisionResult>('/api/v1/users/provision', {
       method: 'POST',
@@ -99,6 +111,10 @@ export async function deactivateAdmin(
   adminId: string,
   reason?: string
 ): Promise<{ data?: AdminUser; error?: string }> {
+  if ((await getCurrentUser())?.role !== 'SUPER_ADMIN') {
+    return { error: 'Unauthorized. Only super admins can deactivate admin users.' }
+  }
+
   try {
     const data = await apiFetch<AdminUser>(`/api/v1/users/${adminId}/status`, {
       method: 'PATCH',

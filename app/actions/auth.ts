@@ -3,6 +3,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { apiFetch, ApiError } from '@/app/lib/api'
+import { isPortalRole } from '@/app/lib/admin-access'
 import type { LoginData } from '@/app/lib/types'
 
 async function accessToken() {
@@ -43,6 +44,13 @@ export async function loginAction(
 
   const cookieStore = await cookies()
 
+  if (!isPortalRole(data.user.role)) {
+    cookieStore.delete('access_token')
+    cookieStore.delete('refresh_token')
+    cookieStore.delete('user')
+    redirect('/unauthorized')
+  }
+
   cookieStore.set('access_token', data.accessToken, {
     ...COOKIE_BASE,
     httpOnly: true,
@@ -55,7 +63,7 @@ export async function loginAction(
   })
   cookieStore.set('user', JSON.stringify(data.user), {
     ...COOKIE_BASE,
-    httpOnly: false,
+    httpOnly: true,
     maxAge: 60 * 60 * 24,
   })
 

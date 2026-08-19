@@ -1,10 +1,12 @@
+import type { PortalRole } from './admin-access'
+
 export interface User {
   id: string
-  email: string
+  email: string | null
   firstName: string
   lastName: string
-  phone: string
-  role: string
+  phone: string | null
+  role: PortalRole
   emailVerified: boolean
   phoneVerified: boolean
   avatar: string | null
