@@ -296,6 +296,43 @@ export interface VendorDetail {
   updatedAt: string
 }
 
+/* ─── Property Owners ──────────────────────────────────── */
+
+export type PropertyOwnerVerificationStatus = 'PENDING' | 'VERIFIED' | 'REJECTED' | 'SUSPENDED'
+
+export interface PropertyOwnerSummary {
+  id: string
+  userId: string
+  fullName: string
+  userEmail: string
+  userPhone: string
+  businessName: string
+  businessDescription: string | null
+  businessPhone: string
+  businessEmail: string
+  address: {
+    street: string | null
+    city: string | null
+    state: string | null
+    zipCode: string | null
+    country: string | null
+    latitude: number | null
+    longitude: number | null
+  }
+  documents: {
+    businessLicenseFile: string | null
+    idDocumentFile: string | null
+    propertyOwnershipDocFile: string | null
+  }
+  customCommissionPercent: number | null
+  verificationStatus: PropertyOwnerVerificationStatus
+  isVerified: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export type PropertyOwnerDetail = PropertyOwnerSummary
+
 /* ─── Riders ──────────────────────────────────────────── */
 
 export interface RiderSummary {
@@ -1117,10 +1154,19 @@ export interface PropertyCity {
   id: string
   name: string
   state: string
-  country: string
+  country: string | null
   isActive: boolean
   createdAt: string
   updatedAt: string
+}
+
+export interface PropertyOwnerRef {
+  id: string
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  businessName: string
 }
 
 export interface PropertySummary {
@@ -1147,7 +1193,9 @@ export interface PropertySummary {
   updatedAt: string
 }
 
-export type PropertyDetail = PropertySummary
+export interface PropertyDetail extends PropertySummary {
+  owner: PropertyOwnerRef | null
+}
 
 /* ─── Bookings ─────────────────────────────────────────── */
 

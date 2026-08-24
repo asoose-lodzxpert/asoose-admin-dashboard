@@ -12,6 +12,7 @@ import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
 import { updateProperty, publishProperty, suspendProperty } from '@/app/actions/properties'
 import { PropertyRoomTypesSection } from './property-room-types'
+import { PropertyOwnerCreateModal } from './property-owner-create-modal'
 import type { PropertyDetail, PropertyStatus, PropertyType, City } from '@/app/lib/types'
 
 const STATUS_STYLES: Record<PropertyStatus, string> = {
@@ -32,13 +33,15 @@ interface Props {
   property: PropertyDetail
   propertyTypes: PropertyType[]
   cities: City[]
+  googleMapsApiKey: string
 }
 
-export function PropertyDetailClient({ property: initial, propertyTypes, cities }: Props) {
+export function PropertyDetailClient({ property: initial, propertyTypes, cities, googleMapsApiKey }: Props) {
   const toast = useToast()
   const [property, setProperty] = useState(initial)
   const [isPending, startTransition] = useTransition()
   const [showEdit, setShowEdit] = useState(false)
+  const [showCreateOwner, setShowCreateOwner] = useState(false)
   const [actionError, setActionError] = useState('')
 
   const [editForm, setEditForm] = useState({
@@ -246,6 +249,28 @@ export function PropertyDetailClient({ property: initial, propertyTypes, cities 
               </InfoGrid>
             </DetailCard>
 
+            <DetailCard title="Property Owner">
+              {property.owner ? (
+                <InfoGrid className="grid-cols-1">
+                  <InfoRow
+                    label="Name"
+                    value={[property.owner.firstName, property.owner.lastName].filter(Boolean).join(' ')}
+                  />
+                  <InfoRow label="Business" value={property.owner.businessName} />
+                  <InfoRow label="Email" value={property.owner.email} />
+                  <InfoRow label="Phone" value={property.owner.phone} />
+                  <InfoRow label="User ID" value={property.owner.id} />
+                </InfoGrid>
+              ) : (
+                <div>
+                  <p className="text-sm text-slate-400">No property owner assigned.</p>
+                  <Button className="mt-3" size="sm" onClick={() => setShowCreateOwner(true)}>
+                    Create Property Owner
+                  </Button>
+                </div>
+              )}
+            </DetailCard>
+
             <DetailCard title="Status">
               <InfoGrid className="grid-cols-1">
                 <InfoRow label="Created" value={formatDate(property.createdAt)} />
@@ -327,6 +352,16 @@ export function PropertyDetailClient({ property: initial, propertyTypes, cities 
           </div>
         </div>
       </Modal>
+
+      {showCreateOwner && (
+        <PropertyOwnerCreateModal
+          property={property}
+          googleMapsApiKey={googleMapsApiKey}
+          open={showCreateOwner}
+          onClose={() => setShowCreateOwner(false)}
+          onCreated={setProperty}
+        />
+      )}
     </div>
   )
 }

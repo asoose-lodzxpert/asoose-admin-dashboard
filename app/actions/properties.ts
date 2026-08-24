@@ -7,6 +7,35 @@ import type { PropertySummary, PropertyDetail, RoomType, Pagination } from '@/ap
 
 type MutationData = Record<string, unknown>
 
+export interface CreatePropertyOwnerPayload {
+  user: {
+    email: string
+    firstName: string
+    lastName: string
+    phone?: string
+  }
+  propertyOwner: {
+    businessName: string
+    businessPhone: string
+    businessEmail: string
+    businessDescription?: string
+    address: {
+      street?: string
+      city: string
+      state: string
+      zipCode?: string
+      country: string
+      latitude: number
+      longitude: number
+    }
+    documents?: {
+      businessLicenseFile?: string
+      idDocumentFile?: string
+      propertyOwnershipDocFile?: string
+    }
+  }
+}
+
 async function token() {
   const store = await cookies()
   return store.get('access_token')?.value ?? ''
@@ -35,12 +64,35 @@ export async function getProperties(params?: {
 
 export async function getPropertyDetail(propertyId: string): Promise<PropertyDetail | null> {
   try {
-    const result = await apiFetch<unknown>(`/api/v1/properties/admin/${propertyId}`, { token: await token() })
-    if (!result || typeof result !== 'object') return null
-    const obj = result as Record<string, unknown>
-    if ('id' in obj) return obj as unknown as PropertyDetail
-    return (obj.property ?? obj.data) as PropertyDetail ?? null
+    return await apiFetch<PropertyDetail>(
+      `/api/v1/properties/admin/${propertyId}`,
+      { token: await token() }
+    )
   } catch { return null }
+}
+
+export async function createPropertyOwnerForProperty(
+  propertyId: string,
+  payload: CreatePropertyOwnerPayload
+): Promise<{ property?: PropertyDetail; error?: string }> {
+  try {
+    await apiFetch<unknown>(`/api/v1/properties/admin/${propertyId}/owner`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      token: await token(),
+    })
+    const property = await apiFetch<PropertyDetail>(
+      `/api/v1/properties/admin/${propertyId}`,
+      { token: await token() }
+    )
+    revalidatePath('/dashboard/properties')
+    revalidatePath(`/dashboard/properties/${propertyId}`)
+    return { property }
+  } catch (err) {
+    return {
+      error: err instanceof ApiError ? err.message : 'Failed to create property owner.',
+    }
+  }
 }
 
 export async function createProperty(

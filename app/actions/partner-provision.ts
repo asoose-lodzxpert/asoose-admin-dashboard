@@ -69,7 +69,14 @@ export async function getBanks(): Promise<{
 }> {
   try {
     const data = await apiFetch<{ name: string; code: string }[]>('/api/v1/bank-accounts/banks')
-    return { data: data! }
+    const seenCodes = new Set<string>()
+    const banks = (data ?? []).filter((bank) => {
+      if (seenCodes.has(bank.code)) return false
+      seenCodes.add(bank.code)
+      return true
+    })
+
+    return { data: banks }
   } catch (err) {
     return { error: err instanceof ApiError ? err.message : 'Failed to load banks.' }
   }

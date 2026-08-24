@@ -19,5 +19,12 @@ export default async function PropertyDetailPage({
     getActiveCities(),
   ])
   if (!property) notFound()
-  return <PropertyDetailClient property={property} propertyTypes={propertyTypes} cities={cities} />
+  return (
+    <PropertyDetailClient
+      property={property}
+      propertyTypes={propertyTypes}
+      cities={cities}
+      googleMapsApiKey={process.env.GOOGLE_MAPS_API_KEY?.trim() ?? ''}
+    />
+  )
 }
