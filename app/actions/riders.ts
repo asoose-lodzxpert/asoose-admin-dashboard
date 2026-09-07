@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { apiFetch, ApiError } from '@/app/lib/api'
-import type { RiderSummary, RiderDetail, UserWallet } from '@/app/lib/types'
+import type { RiderSummary, RiderDetail, UserWallet, WalletAdjustPayload } from '@/app/lib/types'
 
 type RiderUpdateData = Partial<{
   firstName: string
@@ -130,7 +130,7 @@ export async function suspendRider(
 
 export async function adjustRiderWallet(
   riderId: string,
-  payload: { direction: 'CREDIT' | 'DEBIT'; amount: number; reason: string }
+  payload: WalletAdjustPayload
 ): Promise<{ data?: UserWallet; error?: string }> {
   try {
     const data = await apiFetch<UserWallet>(`/api/v1/riders/admin/${riderId}/wallet`, {

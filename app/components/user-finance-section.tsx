@@ -14,7 +14,7 @@ import {
   getUserPayouts,
   requestUserPayout,
 } from '@/app/actions/user-finance'
-import type { UserBankAccount, UserWallet, PayoutSummary, PayoutStatus, Pagination } from '@/app/lib/types'
+import type { UserBankAccount, UserWallet, PayoutSummary, PayoutStatus, Pagination, WalletAdjustTarget } from '@/app/lib/types'
 
 const INPUT_CLS =
   'w-full rounded-xl border-0 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow'
@@ -47,7 +47,64 @@ type WalletAdjustAction = (payload: {
   direction: 'CREDIT' | 'DEBIT'
   amount: number
   reason: string
+  target?: WalletAdjustTarget
 }) => Promise<{ data?: UserWallet; error?: string }>
+
+/**
+ * The wallet adjust dialog collapses the (direction × target) matrix into a
+ * single list of plain-language actions so the operator picks intent, not
+ * mechanics. `EARNINGS` actions hit the withdrawable balance; `ARREARS`
+ * actions book or waive a debt that's auto-recovered from future earnings.
+ */
+type AdjustMode = 'CREDIT_EARNINGS' | 'DEBIT_EARNINGS' | 'BOOK_ARREARS' | 'FORGIVE_ARREARS'
+
+const ADJUST_MODES: Record<AdjustMode, {
+  label: string
+  hint: string
+  direction: 'CREDIT' | 'DEBIT'
+  target?: WalletAdjustTarget
+  cta: string
+  done: string
+  danger: boolean
+}> = {
+  CREDIT_EARNINGS: {
+    label: 'Credit earnings',
+    hint: 'Add to the withdrawable balance',
+    direction: 'CREDIT',
+    cta: 'Credit Earnings',
+    done: 'Earnings credited.',
+    danger: false,
+  },
+  DEBIT_EARNINGS: {
+    label: 'Debit earnings',
+    hint: 'Deduct from the balance — fails if funds are short',
+    direction: 'DEBIT',
+    cta: 'Debit Earnings',
+    done: 'Earnings debited.',
+    danger: true,
+  },
+  BOOK_ARREARS: {
+    label: 'Book arrears',
+    hint: 'Record a debt — recovered from future earnings, works on an empty wallet',
+    direction: 'DEBIT',
+    target: 'ARREARS',
+    cta: 'Book Arrears',
+    done: 'Arrears booked.',
+    danger: true,
+  },
+  FORGIVE_ARREARS: {
+    label: 'Forgive arrears',
+    hint: 'Waive an outstanding debt',
+    direction: 'CREDIT',
+    target: 'ARREARS',
+    cta: 'Forgive Arrears',
+    done: 'Arrears forgiven.',
+    danger: false,
+  },
+}
+
+const EARNER_MODES: AdjustMode[] = ['CREDIT_EARNINGS', 'DEBIT_EARNINGS', 'BOOK_ARREARS', 'FORGIVE_ARREARS']
+const USER_MODES: AdjustMode[] = ['CREDIT_EARNINGS', 'DEBIT_EARNINGS']
 
 /**
  * Riders/drivers never top up their own wallet — the only money that lands
@@ -69,7 +126,7 @@ function WalletTab({ userId, adjustWalletAction, variant }: { userId: string; ad
 
   // Adjust modal state
   const [showAdjust, setShowAdjust] = useState(false)
-  const [direction, setDirection] = useState<'CREDIT' | 'DEBIT'>('CREDIT')
+  const [mode, setMode] = useState<AdjustMode>('CREDIT_EARNINGS')
   const [amount, setAmount] = useState('')
   const [reason, setReason] = useState('')
   const [adjustError, setAdjustError] = useState('')
@@ -86,12 +143,16 @@ function WalletTab({ userId, adjustWalletAction, variant }: { userId: string; ad
   }, [userId])
 
   const openAdjust = useCallback(() => {
-    setDirection('CREDIT')
+    setMode('CREDIT_EARNINGS')
     setAmount('')
     setReason('')
     setAdjustError('')
     setShowAdjust(true)
   }, [])
+
+  const isEarner = variant === 'earner'
+  const modeList = isEarner ? EARNER_MODES : USER_MODES
+  const cfg = ADJUST_MODES[mode]
 
   function handleAdjust() {
     const num = parseFloat(amount)
@@ -100,11 +161,16 @@ function WalletTab({ userId, adjustWalletAction, variant }: { userId: string; ad
     if (!adjustWalletAction) return
     startAdjustTransition(async () => {
       setAdjustError('')
-      const res = await adjustWalletAction({ direction, amount: num, reason: reason.trim() })
+      const res = await adjustWalletAction({
+        direction: cfg.direction,
+        amount: num,
+        reason: reason.trim(),
+        target: isEarner ? cfg.target : undefined,
+      })
       if (res.error) { setAdjustError(res.error); toast.error(res.error); return }
       if (res.data) setWallet(res.data)
       setShowAdjust(false)
-      toast.success(`Wallet ${direction === 'CREDIT' ? 'credited' : 'debited'}.`)
+      toast.success(cfg.done)
     })
   }
 
@@ -153,8 +219,9 @@ function WalletTab({ userId, adjustWalletAction, variant }: { userId: string; ad
       {/* Secondary balances — riders/drivers never self-credit, so `balance` stays
           0 and is hidden; only their earned/withdrawable and locked amounts matter. */}
       {variant === 'earner' ? (
-        <div className="grid grid-cols-1 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <BalanceCard label="Locked" amount={wallet.lockedBalance} color="red" />
+          <BalanceCard label="Arrears" amount={wallet.arrearsBalance ?? 0} color="red" />
         </div>
       ) : (
         <div className="grid grid-cols-3 gap-2">
@@ -164,13 +231,26 @@ function WalletTab({ userId, adjustWalletAction, variant }: { userId: string; ad
         </div>
       )}
 
+      {/* Arrears explainer — this amount is auto-deducted on the next credit. */}
+      {variant === 'earner' && (wallet.arrearsBalance ?? 0) > 0 && (
+        <div className="flex items-start gap-2 rounded-xl bg-amber-50 px-4 py-3 ring-1 ring-inset ring-amber-200/60">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="mt-0.5 h-4 w-4 shrink-0 text-amber-500">
+            <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495ZM10 5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 5Zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clipRule="evenodd" />
+          </svg>
+          <p className="text-[13px] text-amber-800">
+            <span className="font-semibold">{formatNaira(wallet.arrearsBalance ?? 0)}</span> in arrears will be
+            automatically deducted the next time this wallet is credited.
+          </p>
+        </div>
+      )}
+
       {/* Adjust Wallet Modal */}
       {adjustWalletAction && (
         <Modal
           open={showAdjust}
           onClose={() => setShowAdjust(false)}
-          title="Adjust Wallet Balance"
-          description="Credit or debit this wallet. A reason is required for audit purposes."
+          title="Adjust Wallet"
+          description="Choose an action, enter an amount, and give a reason for the audit log."
           size="sm"
           footer={
             <>
@@ -181,35 +261,59 @@ function WalletTab({ userId, adjustWalletAction, variant }: { userId: string; ad
                 size="sm"
                 loading={adjustPending}
                 onClick={handleAdjust}
-                className={direction === 'DEBIT' ? 'bg-red-600 hover:bg-red-700' : undefined}
+                className={cfg.danger ? 'bg-red-600 hover:bg-red-700' : undefined}
               >
-                {direction === 'CREDIT' ? 'Credit Wallet' : 'Debit Wallet'}
+                {cfg.cta}
               </Button>
             </>
           }
         >
           <div className="space-y-4">
-            {/* Direction toggle */}
+            {/* Action picker — one list instead of a direction × target matrix. */}
             <div>
-              <label className="mb-1.5 block text-[13px] font-medium text-slate-700">Direction</label>
-              <div className="grid grid-cols-2 gap-2">
-                {(['CREDIT', 'DEBIT'] as const).map(d => (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => setDirection(d)}
-                    className={cn(
-                      'rounded-xl border py-2.5 text-sm font-semibold transition-all',
-                      direction === d
-                        ? d === 'CREDIT'
-                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-500'
-                          : 'border-red-500 bg-red-50 text-red-700 ring-1 ring-inset ring-red-500'
-                        : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
-                    )}
-                  >
-                    {d === 'CREDIT' ? '+ Credit' : '− Debit'}
-                  </button>
-                ))}
+              <label className="mb-1.5 block text-[13px] font-medium text-slate-700">Action</label>
+              <div className="space-y-2">
+                {modeList.map(m => {
+                  const opt = ADJUST_MODES[m]
+                  const selected = mode === m
+                  const accent = opt.danger ? 'red' : 'emerald'
+                  return (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => { setMode(m); setAdjustError('') }}
+                      className={cn(
+                        'flex w-full items-start gap-3 rounded-xl border px-3.5 py-2.5 text-left transition-all',
+                        selected
+                          ? accent === 'red'
+                            ? 'border-red-500 bg-red-50 ring-1 ring-inset ring-red-500'
+                            : 'border-emerald-500 bg-emerald-50 ring-1 ring-inset ring-emerald-500'
+                          : 'border-slate-200 bg-white hover:bg-slate-50'
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border',
+                          selected
+                            ? accent === 'red' ? 'border-red-500 bg-red-500' : 'border-emerald-500 bg-emerald-500'
+                            : 'border-slate-300'
+                        )}
+                      >
+                        {selected && (
+                          <svg viewBox="0 0 12 12" fill="none" className="h-2.5 w-2.5 text-white">
+                            <path d="M2.5 6.5 5 9l4.5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                      </span>
+                      <span className="min-w-0">
+                        <span className={cn('block text-sm font-semibold', selected ? (accent === 'red' ? 'text-red-800' : 'text-emerald-800') : 'text-slate-700')}>
+                          {opt.label}
+                        </span>
+                        <span className="mt-0.5 block text-[12px] leading-snug text-slate-500">{opt.hint}</span>
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
@@ -232,8 +336,8 @@ function WalletTab({ userId, adjustWalletAction, variant }: { userId: string; ad
             <div>
               <label className="mb-1.5 block text-[13px] font-medium text-slate-700">Reason</label>
               <textarea
-                rows={3}
-                placeholder="e.g. Promotional credit for new partner onboarding"
+                rows={2}
+                placeholder="e.g. cash commission owed"
                 value={reason}
                 onChange={(e) => { setReason(e.target.value); setAdjustError('') }}
                 className={cn(INPUT_CLS, 'resize-none')}

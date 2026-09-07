@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { apiFetch, ApiError } from '@/app/lib/api'
-import type { DriverSummary, DriverDetail, UserWallet } from '@/app/lib/types'
+import type { DriverSummary, DriverDetail, UserWallet, WalletAdjustPayload } from '@/app/lib/types'
 
 type DriverUpdateData = Partial<{
   firstName: string
@@ -156,7 +156,7 @@ export async function reactivateDriver(
 
 export async function adjustDriverWallet(
   driverId: string,
-  payload: { direction: 'CREDIT' | 'DEBIT'; amount: number; reason: string }
+  payload: WalletAdjustPayload
 ): Promise<{ data?: UserWallet; error?: string }> {
   try {
     const data = await apiFetch<UserWallet>(`/api/v1/drivers/admin/${driverId}/wallet`, {

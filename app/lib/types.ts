@@ -825,9 +825,28 @@ export interface UserWallet {
   balance: number
   pendingBalance: number
   lockedBalance: number
+  /**
+   * Outstanding penalty owed by the partner (e.g. cash commission owed,
+   * policy breach fine). Automatically deducted from the wallet the next
+   * time it is credited. Only returned for partner (rider/vendor/driver) wallets.
+   */
+  arrearsBalance?: number
+  /** Net lifetime earnings after arrears/commission. Partner wallets only. */
+  netEarningsBalance?: number
   availableBalance: number
   status: string
   pinSet: boolean
+}
+
+/** Which sub-balance a partner wallet adjustment targets. */
+export type WalletAdjustTarget = 'MAIN' | 'ARREARS'
+
+export interface WalletAdjustPayload {
+  direction: 'CREDIT' | 'DEBIT'
+  amount: number
+  reason: string
+  /** Defaults to MAIN on the server when omitted. */
+  target?: WalletAdjustTarget
 }
 
 /* ─── Rides ───────────────────────────────────────────── */
