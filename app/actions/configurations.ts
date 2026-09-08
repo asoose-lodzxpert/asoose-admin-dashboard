@@ -35,7 +35,7 @@ export async function createVehicleType(
   payload: Record<string, unknown>
 ): Promise<ActionResult<VehicleType>> {
   try {
-    const data = await apiFetch<VehicleType>('/api/v1/vehicle-types/admin', {
+    const data = await apiFetch<VehicleType>('/api/v1/vehicle-types', {
       method: 'POST', body: JSON.stringify(payload), token: await token(),
     })
     revalidatePath('/dashboard/configurations')

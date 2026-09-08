@@ -10,6 +10,7 @@ import { getParcels } from '@/app/actions/parcels'
 import type { ParcelSummary, ParcelStatus, Pagination } from '@/app/lib/types'
 
 const STATUS_STYLES: Record<ParcelStatus, string> = {
+  SCHEDULED:            'bg-violet-50 text-violet-700 ring-violet-600/20',
   PENDING:              'bg-amber-50 text-amber-700 ring-amber-600/20',
   SEARCHING_RIDER:      'bg-amber-50 text-amber-700 ring-amber-600/20',
   RIDER_ASSIGNED:       'bg-sky-50 text-sky-700 ring-sky-600/20',
@@ -23,6 +24,7 @@ const STATUS_STYLES: Record<ParcelStatus, string> = {
 }
 
 const STATUS_DOT: Record<ParcelStatus, string> = {
+  SCHEDULED:            'bg-violet-500',
   PENDING:              'bg-amber-400',
   SEARCHING_RIDER:      'bg-amber-400',
   RIDER_ASSIGNED:       'bg-sky-400',
@@ -104,6 +106,7 @@ export function ParcelsTable({
         >
           <option value="">All statuses</option>
           <optgroup label="Active">
+            <option value="SCHEDULED">Scheduled</option>
             <option value="PENDING">Pending</option>
             <option value="SEARCHING_RIDER">Searching Rider</option>
           </optgroup>
@@ -200,6 +203,14 @@ export function ParcelsTable({
                     </td>
                     <td className="px-5 py-3.5 text-xs text-slate-400 whitespace-nowrap">
                       {new Date(parcel.createdAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {parcel.scheduledAt && (
+                        <p className="mt-1 text-violet-700">
+                          Scheduled: {new Date(parcel.scheduledAt).toLocaleString('en-NG', {
+                            day: 'numeric', month: 'short', year: 'numeric',
+                            hour: '2-digit', minute: '2-digit',
+                          })}
+                        </p>
+                      )}
                     </td>
                   </tr>
                 ))}

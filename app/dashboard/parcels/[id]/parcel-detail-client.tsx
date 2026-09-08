@@ -25,6 +25,7 @@ const TERMINAL: ParcelStatus[] = [
 ]
 
 const STATUS_STYLES: Record<ParcelStatus, string> = {
+  SCHEDULED:            'bg-violet-50 text-violet-700 ring-violet-600/20',
   PENDING:              'bg-amber-50 text-amber-700 ring-amber-600/20',
   SEARCHING_RIDER:      'bg-amber-50 text-amber-700 ring-amber-600/20',
   RIDER_ASSIGNED:       'bg-sky-50 text-sky-700 ring-sky-600/20',
@@ -231,6 +232,7 @@ export function ParcelDetailClient({
             {/* Parcel Details */}
             <DetailCard title="Parcel Details">
               <InfoGrid>
+                <InfoRow label="Scheduled At" value={formatDateTime(parcel.scheduledAt)} wide />
                 <InfoRow label="Distance" value={parcel.distance == null ? null : `${parcel.distance.toFixed(2)} km`} />
                 <InfoRow label="Duration" value={parcel.duration ? `${parcel.duration} min` : null} />
                 <InfoRow label="Size" value={parcel.size} />

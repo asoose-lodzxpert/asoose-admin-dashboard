@@ -1022,6 +1022,7 @@ export interface Application {
 
 export type ParcelStatus =
   | 'PENDING'
+  | 'SCHEDULED'
   | 'SEARCHING_RIDER'
   | 'RIDER_ASSIGNED'
   | 'RIDER_ACCEPTED'
@@ -1061,6 +1062,7 @@ export interface ParcelSummary {
   id: string
   trackingId: string
   status: ParcelStatus
+  scheduledAt?: string | null
   size: ParcelSize
   fare: number | null
   distance: number | null
@@ -1079,6 +1081,7 @@ export interface ParcelSummary {
 }
 
 export interface ParcelDetail extends Omit<ParcelSummary, 'rider'> {
+  scheduledAt: string | null
   customerId: string | null
   riderId: string | null
   sizeMultiplier: number | null
