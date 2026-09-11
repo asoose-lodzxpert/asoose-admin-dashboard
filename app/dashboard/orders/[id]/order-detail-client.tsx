@@ -19,7 +19,7 @@ import {
 } from '@/app/actions/orders'
 import { getRiders } from '@/app/actions/riders'
 import type { TimelineResult } from '@/app/actions/timeline'
-import type { OrderDetail, OrderStatus, PaymentStatus, RiderSummary } from '@/app/lib/types'
+import type { OrderDetail, OrderDeliveryLocation, OrderStatus, PaymentStatus, RiderSummary } from '@/app/lib/types'
 
 /* ─── Helpers ──────────────────────────────────────────── */
 
@@ -33,6 +33,50 @@ function formatNairaFull(amount: number): string {
 }
 
 /* ─── Status constants ─────────────────────────────────── */
+
+function DeliveryAddress({ label, address }: { label: string; address?: OrderDeliveryLocation | null }) {
+  const addressText = [address?.street, address?.city, address?.state]
+    .map((part) => part?.trim()).filter(Boolean).join(', ')
+  const latitude = address?.latitude
+  const longitude = address?.longitude
+  const hasCoordinates = typeof latitude === 'number' && Number.isFinite(latitude)
+    && Math.abs(latitude) <= 90
+    && typeof longitude === 'number' && Number.isFinite(longitude)
+    && Math.abs(longitude) <= 180
+  const query = hasCoordinates ? `${latitude},${longitude}` : addressText
+
+  return (
+    <div className="min-w-0">
+      <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</dt>
+      <dd className="mt-1 space-y-3">
+        <p className="break-words text-sm text-slate-700">{addressText || (hasCoordinates ? query : 'Address unavailable')}</p>
+        {query && (
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+            <iframe
+              title={`${label} map preview`}
+              src={`https://www.google.com/maps?q=${encodeURIComponent(query)}&z=16&output=embed`}
+              className="h-56 w-full border-0"
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              allowFullScreen
+            />
+          </div>
+        )}
+        {query && (
+          <a
+            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Open ${label.toLowerCase()} in Google Maps (opens in a new tab)`}
+            className="inline-flex rounded text-xs font-medium text-indigo-600 hover:text-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+          >
+            Open in Google Maps ↗
+          </a>
+        )}
+      </dd>
+    </div>
+  )
+}
 
 const ORDER_STATUS_STYLES: Record<OrderStatus, string> = {
   PENDING:         'bg-amber-50 text-amber-700 ring-amber-600/20',
@@ -372,6 +416,13 @@ export function OrderDetailClient({
                 <InfoRow label="Delivered At" value={formatDate(order.actualDeliveryAt)} />
               )}
               <InfoRow label="Note" value={order.deliveryNote} wide />
+            </InfoGrid>
+          </DetailCard>
+
+          <DetailCard title="Delivery Locations">
+            <InfoGrid className="grid-cols-1 sm:grid-cols-2">
+              <DeliveryAddress label="Pickup Address" address={order.delivery?.pickupAddress} />
+              <DeliveryAddress label="Drop-off Address" address={order.delivery?.dropoffAddress} />
             </InfoGrid>
           </DetailCard>
 

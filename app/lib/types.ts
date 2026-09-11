@@ -719,7 +719,17 @@ export interface OrderDelivery {
   id: string
   status: string
   trackingId: string | null
+  pickupAddress?: OrderDeliveryLocation | null
+  dropoffAddress?: OrderDeliveryLocation | null
   rider: OrderDeliveryRider | null
+}
+
+export interface OrderDeliveryLocation {
+  street?: string | null
+  city?: string | null
+  state?: string | null
+  latitude?: number | null
+  longitude?: number | null
 }
 
 export interface OrderDetail {
