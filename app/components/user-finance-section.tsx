@@ -113,7 +113,7 @@ const USER_MODES: AdjustMode[] = ['CREDIT_EARNINGS', 'DEBIT_EARNINGS']
  * hidden to avoid reading as "no money" next to a nonzero pending amount.
  * Regular users self-credit, so `balance` is the meaningful figure for them.
  */
-type WalletVariant = 'user' | 'earner'
+type WalletVariant = 'user' | 'earner' | 'vendor'
 
 /* ─── Wallet Tab ─────────────────────────────────────────── */
 
@@ -151,6 +151,8 @@ function WalletTab({ userId, adjustWalletAction, variant }: { userId: string; ad
   }, [])
 
   const isEarner = variant === 'earner'
+  // Vendor order earnings also use pendingBalance for money ready to withdraw.
+  const showsWithdrawableBalance = isEarner || variant === 'vendor'
   const modeList = isEarner ? EARNER_MODES : USER_MODES
   const cfg = ADJUST_MODES[mode]
 
@@ -206,10 +208,10 @@ function WalletTab({ userId, adjustWalletAction, variant }: { userId: string; ad
       {/* Hero figure */}
       <div className="rounded-2xl bg-indigo-600 px-5 py-4 text-white">
         <p className="text-xs font-medium text-indigo-200 uppercase tracking-wider">
-          {variant === 'earner' ? 'Available to Withdraw' : 'Available Balance'}
+          {showsWithdrawableBalance ? 'Available to Withdraw' : 'Available Balance'}
         </p>
         <p className="mt-1 text-3xl font-bold tracking-tight">
-          {formatNaira(variant === 'earner' ? wallet.pendingBalance : wallet.availableBalance)}
+          {formatNaira(showsWithdrawableBalance ? wallet.pendingBalance : wallet.availableBalance)}
         </p>
         {wallet.pinSet && (
           <p className="mt-1.5 text-[11px] text-indigo-300">PIN set</p>
@@ -223,6 +225,8 @@ function WalletTab({ userId, adjustWalletAction, variant }: { userId: string; ad
           <BalanceCard label="Locked" amount={wallet.lockedBalance} color="red" />
           <BalanceCard label="Arrears" amount={wallet.arrearsBalance ?? 0} color="red" />
         </div>
+      ) : variant === 'vendor' ? (
+        <BalanceCard label="Locked" amount={wallet.lockedBalance} color="red" />
       ) : (
         <div className="grid grid-cols-3 gap-2">
           <BalanceCard label="Total" amount={wallet.balance} color="indigo" />

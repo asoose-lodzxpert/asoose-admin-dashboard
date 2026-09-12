@@ -541,6 +541,7 @@ export function VendorDetailClient({
 
             <UserFinanceSection
               userId={vendor.userId}
+              variant="vendor"
               adjustWalletAction={(payload) => adjustVendorWallet(vendor.id, payload)}
             />
           </div>
