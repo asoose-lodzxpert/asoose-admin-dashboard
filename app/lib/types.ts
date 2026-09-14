@@ -725,6 +725,7 @@ export interface OrderDelivery {
 }
 
 export interface OrderDeliveryLocation {
+  label?: string | null
   street?: string | null
   city?: string | null
   state?: string | null
@@ -746,6 +747,7 @@ export interface OrderDetail {
   total: number
   deliveryNote: string | null
   deliveryAddressId: string | null
+  deliveryAddress?: OrderDeliveryLocation | null
   restaurantId: string | null
   restaurantName: string | null
   storeId: string | null

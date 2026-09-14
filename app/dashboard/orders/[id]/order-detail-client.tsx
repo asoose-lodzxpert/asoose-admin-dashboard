@@ -49,7 +49,20 @@ function DeliveryAddress({ label, address }: { label: string; address?: OrderDel
     <div className="min-w-0">
       <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</dt>
       <dd className="mt-1 space-y-3">
-        <p className="break-words text-sm text-slate-700">{addressText || (hasCoordinates ? query : 'Address unavailable')}</p>
+        <dl className="space-y-1 text-sm text-slate-700">
+          {[
+            ['Street', address?.street?.trim()],
+            ['City', address?.city?.trim()],
+            ['State', address?.state?.trim()],
+            ['Latitude', latitude],
+            ['Longitude', longitude],
+          ].map(([field, value]) => (
+            <div key={field} className="flex gap-2">
+              <dt className="shrink-0 text-slate-500">{field}:</dt>
+              <dd className="break-words">{value === '' || value == null ? 'N/A' : value}</dd>
+            </div>
+          ))}
+        </dl>
         {query && (
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
             <iframe
@@ -422,7 +435,7 @@ export function OrderDetailClient({
           <DetailCard title="Delivery Locations">
             <InfoGrid className="grid-cols-1 sm:grid-cols-2">
               <DeliveryAddress label="Pickup Address" address={order.delivery?.pickupAddress} />
-              <DeliveryAddress label="Drop-off Address" address={order.delivery?.dropoffAddress} />
+              <DeliveryAddress label="Drop-off Address" address={order.delivery?.dropoffAddress ?? order.deliveryAddress} />
             </InfoGrid>
           </DetailCard>
 
