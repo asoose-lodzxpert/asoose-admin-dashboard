@@ -1,11 +1,27 @@
 'use server'
 
 import { cookies } from 'next/headers'
-import { apiFetch } from '@/app/lib/api'
+import { apiFetch, ApiError } from '@/app/lib/api'
+import type { FinanceTransactionFilters, FinanceTransactionsResult, FinanceTransactionsData } from '@/app/lib/finance-transactions'
 import type { PaystackTransaction, PaystackStatus } from '@/app/lib/types'
 
 async function token() {
   return (await cookies()).get('access_token')?.value ?? ''
+}
+
+export async function getFinanceTransactions(params: FinanceTransactionFilters = {}): Promise<FinanceTransactionsResult> {
+  try {
+    const q = new URLSearchParams()
+    const keys = ['userId', 'direction', 'type', 'status', 'channel', 'referenceType', 'referenceId', 'minAmount', 'maxAmount', 'from', 'to', 'search', 'page', 'limit'] as const
+    for (const key of keys) {
+      const value = params[key]
+      if (value !== undefined && value !== '') q.set(key, String(value))
+    }
+    const data = await apiFetch<FinanceTransactionsData>(`/api/v1/admin/finance/transactions?${q}`, { token: await token() })
+    return { data }
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'Unable to load transactions. Please try again.' }
+  }
 }
 
 interface PaystackPagination {

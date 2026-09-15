@@ -255,6 +255,8 @@ export interface VendorPickupAddress {
 
 export interface VendorDetail {
   id: string
+  customCommissionPercent: number | null
+  effectiveCommissionPercent: number
   userId: string
   userEmail: string | null
   businessName: string

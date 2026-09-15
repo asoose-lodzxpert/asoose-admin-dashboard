@@ -11,6 +11,7 @@ import { useToast } from '@/app/components/ui/toast'
 import { VendorMenuSection } from './vendor-menu'
 import { VendorProductsSection } from './vendor-products'
 import { VendorPickupLocation } from './vendor-pickup-location'
+import { VendorCommission } from './vendor-commission'
 import { cn } from '@/app/lib/utils'
 import { approveVendor, rejectVendor, suspendVendor, updateVendorStore, toggleVendorRestaurantStatus, updateVendorDocuments, assignVendorCity, adjustVendorWallet } from '@/app/actions/vendors'
 import { uploadImage } from '@/app/actions/uploads'
@@ -556,6 +557,8 @@ export function VendorDetailClient({
                 <InfoRow label="Last Updated" value={new Date(vendor.updatedAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' })} />
               </InfoGrid>
             </DetailCard>
+
+            <VendorCommission vendor={vendor} onUpdate={patch} />
 
             <DetailCard title="City">
               <div className="flex items-center justify-between gap-3">

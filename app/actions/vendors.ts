@@ -37,6 +37,7 @@ async function token() {
 interface ListResponse {
   vendors: VendorSummary[]
   pagination: { page: number; limit: number; total: number; totalPages: number }
+  error?: string
 }
 
 export async function getVendors(params?: {
@@ -51,9 +52,17 @@ export async function getVendors(params?: {
     q.set('limit', String(params?.limit ?? 20))
     if (params?.search) q.set('search', params.search)
     if (params?.verificationStatus) q.set('verificationStatus', params.verificationStatus)
-    return await apiFetch<ListResponse>(`/api/v1/vendors/admin?${q}`, { token: await token() })
-  } catch {
-    return { vendors: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } }
+    const result = await apiFetch<ListResponse>(`/api/v1/vendors/admin?${q}`, { token: await token() })
+    if (!result || !Array.isArray(result.vendors) || !result.pagination) {
+      throw new Error('Invalid vendor response')
+    }
+    return result
+  } catch (err) {
+    return {
+      vendors: [],
+      pagination: { page: params?.page ?? 1, limit: params?.limit ?? 20, total: 0, totalPages: 0 },
+      error: err instanceof ApiError ? err.message : 'Unable to load vendors. Please try again.',
+    }
   }
 }
 
@@ -65,6 +74,29 @@ export async function getVendorDetail(vendorId: string): Promise<VendorDetail | 
     if ('id' in obj) return obj as unknown as VendorDetail
     return (obj.vendor ?? obj.data) as VendorDetail ?? null
   } catch { return null }
+}
+
+export async function updateVendorCommission(
+  vendorId: string,
+  commissionPercent: number | null
+): Promise<{ error?: string }> {
+  if (commissionPercent !== null && (
+    typeof commissionPercent !== 'number' || !Number.isFinite(commissionPercent) ||
+    commissionPercent < 0 || commissionPercent > 100
+  )) {
+    return { error: 'Enter a commission between 0 and 100%.' }
+  }
+  try {
+    await apiFetch<unknown>(`/api/v1/vendors/admin/${encodeURIComponent(vendorId)}/commission`, {
+      method: 'PATCH',
+      body: JSON.stringify({ commissionPercent }),
+      token: await token(),
+    })
+    revalidatePath(`/dashboard/partners/vendors/${vendorId}`)
+    return {}
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'Failed to update commission.' }
+  }
 }
 
 export async function getVendorProducts(

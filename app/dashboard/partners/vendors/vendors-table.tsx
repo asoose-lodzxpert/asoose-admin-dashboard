@@ -43,7 +43,7 @@ const FILTERS: { label: string; value: VStatus | '' }[] = [
   { label: 'Suspended', value: 'SUSPENDED' },
 ]
 
-function StoreLogo({ logo, name }: { logo: string | null; name: string }) {
+function StoreLogo({ logo, name = 'Vendor' }: { logo: string | null; name?: string }) {
   const initials = name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
   if (logo) {
     return (
@@ -62,15 +62,18 @@ function StoreLogo({ logo, name }: { logo: string | null; name: string }) {
 export function VendorsTable({
   initialVendors,
   initialPagination,
+  initialError,
 }: {
   initialVendors: VendorSummary[]
   initialPagination: Pagination
+  initialError?: string
 }) {
   const router = useRouter()
   const { navigatingId, navigate } = useRowNav()
   const toast = useToast()
   const [vendors, setVendors] = useState(initialVendors)
   const [pagination, setPagination] = useState(initialPagination)
+  const [error, setError] = useState(initialError ?? '')
   const [filter, setFilter] = useState<VStatus | ''>('')
   const [search, setSearch] = useState('')
   const [isPending, startTransition] = useTransition()
@@ -82,6 +85,8 @@ export function VendorsTable({
     const pg = opts.page ?? 1
     startTransition(async () => {
       const res = await getVendors({ search: s || undefined, verificationStatus: vs || undefined, page: pg, limit: 20 })
+      setError(res.error ?? '')
+      if (res.error) return
       setVendors(res.vendors)
       setPagination(res.pagination)
     })
@@ -138,7 +143,7 @@ export function VendorsTable({
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Vendors</h1>
-          <p className="mt-0.5 text-sm text-slate-500">{pagination.total} vendors registered on the platform.</p>
+          <p className="mt-0.5 text-sm text-slate-500">{error ? 'Vendor data could not be loaded.' : `${pagination.total} vendors registered on the platform.`}</p>
         </div>
         <button
           onClick={() => router.push('/dashboard/partners/vendors/create')}
@@ -189,7 +194,14 @@ export function VendorsTable({
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      {error && (
+        <div role="alert" className="mb-5 flex items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <p>{error}</p>
+          <Button variant="secondary" size="sm" loading={isPending} onClick={() => refetch({})}>Retry</Button>
+        </div>
+      )}
+
+      {!error && <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         {vendors.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16">
             <p className="text-sm font-medium text-slate-700">No vendors found</p>
@@ -220,7 +232,7 @@ export function VendorsTable({
                   >
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
-                        <StoreLogo logo={vendor.store?.logo ?? null} name={vendor.store?.name ?? vendor.businessName} />
+                        <StoreLogo logo={vendor.store?.logo ?? null} name={vendor.store?.name ?? vendor.businessName ?? 'Vendor'} />
                         <div>
                           <p className="font-medium text-slate-900">{vendor.store?.name ?? vendor.businessName}</p>
                           <p className="text-xs text-slate-400">{vendor.businessName}</p>
@@ -267,9 +279,9 @@ export function VendorsTable({
             </table>
           </div>
         )}
-      </div>
+      </div>}
 
-      {pagination.totalPages > 1 && (
+      {!error && pagination.totalPages > 1 && (
         <div className="mt-4 flex items-center justify-between">
           <p className="text-sm text-slate-500">Page {pagination.page} of {pagination.totalPages}</p>
           <div className="flex gap-2">

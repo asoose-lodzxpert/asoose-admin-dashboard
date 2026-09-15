@@ -16,6 +16,7 @@ export function isPortalRole(role: unknown): role is PortalRole {
 
 export function canAccessDashboardPath(role: PortalRole, pathname: string): boolean {
   if (role === 'SUPER_ADMIN') return true
+  if (pathname === '/dashboard/finance/transactions') return true
 
   return !SUPER_ADMIN_PATHS.some(
     (path) => pathname === path || pathname.startsWith(`${path}/`)
