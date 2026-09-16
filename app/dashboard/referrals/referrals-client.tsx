@@ -125,7 +125,7 @@ export function ReferralsClient({ initialReferrals, initialSettings }: {
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr>{['Referrer', 'Referee', 'Status', 'Bonus amount', 'Created (Lagos)', 'Credited (Lagos)'].map((heading) => <th key={heading} scope="col" className="whitespace-nowrap px-5 py-3">{heading}</th>)}</tr></thead>
+                <thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr>{['Referrer', 'Referee', 'Status', 'Bonus amount', 'Created', 'Credited'].map((heading) => <th key={heading} scope="col" className="whitespace-nowrap px-5 py-3">{heading}</th>)}</tr></thead>
                 <tbody className="divide-y divide-slate-100">
                   {data.referrals.map((referral) => <tr key={referral.id}>
                     <td className="px-5 py-4"><Person person={referral.referrer} /></td>
