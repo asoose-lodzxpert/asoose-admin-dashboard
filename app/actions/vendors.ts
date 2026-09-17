@@ -43,6 +43,7 @@ interface ListResponse {
 export async function getVendors(params?: {
   search?: string
   verificationStatus?: string
+  isFeatured?: boolean
   page?: number
   limit?: number
 }): Promise<ListResponse> {
@@ -52,6 +53,7 @@ export async function getVendors(params?: {
     q.set('limit', String(params?.limit ?? 20))
     if (params?.search) q.set('search', params.search)
     if (params?.verificationStatus) q.set('verificationStatus', params.verificationStatus)
+    if (params?.isFeatured !== undefined) q.set('isFeatured', String(params.isFeatured))
     const result = await apiFetch<ListResponse>(`/api/v1/vendors/admin?${q}`, { token: await token() })
     if (!result || !Array.isArray(result.vendors) || !result.pagination) {
       throw new Error('Invalid vendor response')
@@ -63,6 +65,30 @@ export async function getVendors(params?: {
       pagination: { page: params?.page ?? 1, limit: params?.limit ?? 20, total: 0, totalPages: 0 },
       error: err instanceof ApiError ? err.message : 'Unable to load vendors. Please try again.',
     }
+  }
+}
+
+interface ToggleVendorFeaturedResponse {
+  vendorId: string
+  storeId: string
+  name: string
+  isFeatured: boolean
+  featuredAt: string | null
+}
+
+export async function toggleVendorFeatured(
+  vendorId: string
+): Promise<{ data?: ToggleVendorFeaturedResponse; error?: string }> {
+  try {
+    const data = await apiFetch<ToggleVendorFeaturedResponse>(
+      `/api/v1/vendors/admin/${encodeURIComponent(vendorId)}/toggle-featured`,
+      { method: 'PATCH', token: await token() }
+    )
+    revalidatePath('/dashboard/partners/vendors')
+    revalidatePath(`/dashboard/partners/vendors/${vendorId}`)
+    return { data }
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'Failed to update featured status.' }
   }
 }
 

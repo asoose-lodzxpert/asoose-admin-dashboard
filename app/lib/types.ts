@@ -195,6 +195,8 @@ export interface VendorStore {
   rating: number
   isOpen: boolean
   isOpenNow: boolean
+  isFeatured: boolean
+  featuredAt: string | null
   cityId: string | null
   city?: { id: string; name: string } | null
 }

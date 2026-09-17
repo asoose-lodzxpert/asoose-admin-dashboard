@@ -8,11 +8,12 @@ import { Spinner } from '@/app/components/ui/spinner'
 import { useToast } from '@/app/components/ui/toast'
 import { useRowNav } from '@/app/lib/hooks/use-row-nav'
 import { cn } from '@/app/lib/utils'
-import { getVendors, approveVendor, rejectVendor, suspendVendor } from '@/app/actions/vendors'
+import { getVendors, approveVendor, rejectVendor, suspendVendor, toggleVendorFeatured } from '@/app/actions/vendors'
 import type { VendorSummary, VendorStore, Pagination } from '@/app/lib/types'
 
 type VStatus = VendorSummary['verificationStatus']
 type SStatus = VendorStore['status']
+type FeaturedFilter = '' | 'true' | 'false'
 
 const STATUS_STYLES: Record<VStatus, string> = {
   PENDING:   'bg-amber-50 text-amber-700 ring-amber-600/20',
@@ -42,6 +43,27 @@ const FILTERS: { label: string; value: VStatus | '' }[] = [
   { label: 'Rejected', value: 'REJECTED' },
   { label: 'Suspended', value: 'SUSPENDED' },
 ]
+
+const FEATURED_FILTERS: { label: string; value: FeaturedFilter }[] = [
+  { label: 'All vendors', value: '' },
+  { label: 'Featured', value: 'true' },
+  { label: 'Not featured', value: 'false' },
+]
+
+function StarIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill={filled ? 'currentColor' : 'none'}
+      stroke="currentColor"
+      strokeWidth={filled ? 0 : 1.5}
+      className="h-4 w-4"
+      aria-hidden="true"
+    >
+      <path fillRule="evenodd" d="M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.381c-.833.067-1.171 1.107-.536 1.651l3.62 3.102-1.106 4.637c-.194.813.691 1.456 1.405 1.02L10 15.591l4.069 2.485c.713.436 1.598-.207 1.404-1.02l-1.106-4.637 3.62-3.102c.635-.544.297-1.584-.536-1.65l-4.752-.382-1.831-4.401Z" clipRule="evenodd" />
+    </svg>
+  )
+}
 
 function StoreLogo({ logo, name = 'Vendor' }: { logo: string | null; name?: string }) {
   const initials = name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
@@ -75,16 +97,25 @@ export function VendorsTable({
   const [pagination, setPagination] = useState(initialPagination)
   const [error, setError] = useState(initialError ?? '')
   const [filter, setFilter] = useState<VStatus | ''>('')
+  const [featuredFilter, setFeaturedFilter] = useState<FeaturedFilter>('')
   const [search, setSearch] = useState('')
+  const [togglingFeaturedId, setTogglingFeaturedId] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  function refetch(opts: { search?: string; verificationStatus?: VStatus | ''; page?: number }) {
+  function refetch(opts: { search?: string; verificationStatus?: VStatus | ''; isFeatured?: FeaturedFilter; page?: number }) {
     const s = opts.search ?? search
     const vs = opts.verificationStatus !== undefined ? opts.verificationStatus : filter
+    const featured = opts.isFeatured !== undefined ? opts.isFeatured : featuredFilter
     const pg = opts.page ?? 1
     startTransition(async () => {
-      const res = await getVendors({ search: s || undefined, verificationStatus: vs || undefined, page: pg, limit: 20 })
+      const res = await getVendors({
+        search: s || undefined,
+        verificationStatus: vs || undefined,
+        isFeatured: featured === '' ? undefined : featured === 'true',
+        page: pg,
+        limit: 20,
+      })
       setError(res.error ?? '')
       if (res.error) return
       setVendors(res.vendors)
@@ -102,6 +133,11 @@ export function VendorsTable({
   function onFilter(val: VStatus | '') {
     setFilter(val)
     refetch({ verificationStatus: val })
+  }
+
+  function onFeaturedFilter(val: FeaturedFilter) {
+    setFeaturedFilter(val)
+    refetch({ isFeatured: val })
   }
 
   function patchVendor(id: string, patch: Partial<VendorSummary>) {
@@ -138,6 +174,37 @@ export function VendorsTable({
     })
   }
 
+  async function handleToggleFeatured(e: React.MouseEvent, vendor: VendorSummary) {
+    e.stopPropagation()
+    if (!vendor.store || togglingFeaturedId) return
+
+    setTogglingFeaturedId(vendor.id)
+    const previousStore = vendor.store
+    patchVendor(vendor.id, {
+      store: {
+        ...previousStore,
+        isFeatured: !previousStore.isFeatured,
+        featuredAt: previousStore.isFeatured ? null : new Date().toISOString(),
+      },
+    })
+
+    const res = await toggleVendorFeatured(vendor.id)
+    if (res.error || !res.data) {
+      patchVendor(vendor.id, { store: previousStore })
+      toast.error(res.error ?? 'Failed to update featured status.')
+    } else {
+      patchVendor(vendor.id, {
+        store: {
+          ...previousStore,
+          isFeatured: res.data.isFeatured,
+          featuredAt: res.data.featuredAt,
+        },
+      })
+      toast.success(res.data.isFeatured ? 'Vendor marked as featured.' : 'Vendor removed from featured.')
+    }
+    setTogglingFeaturedId(null)
+  }
+
   return (
     <main className="px-8 py-8">
       <div className="mb-6 flex items-start justify-between gap-4">
@@ -157,8 +224,9 @@ export function VendorsTable({
       </div>
 
       <div className="mb-5 flex items-center gap-3 flex-wrap justify-between">
-        <div className="flex gap-2 flex-wrap">
-          {FILTERS.map((f) => (
+        <div className="flex gap-3 flex-wrap">
+          <div className="flex gap-2 flex-wrap">
+            {FILTERS.map((f) => (
             <button
               key={f.value}
               onClick={() => onFilter(f.value)}
@@ -172,7 +240,25 @@ export function VendorsTable({
             >
               {f.label}
             </button>
-          ))}
+            ))}
+          </div>
+          <div className="flex gap-2 border-l border-slate-200 pl-3">
+            {FEATURED_FILTERS.map((f) => (
+              <button
+                key={f.value}
+                onClick={() => onFeaturedFilter(f.value)}
+                disabled={isPending}
+                className={cn(
+                  'rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors disabled:opacity-60',
+                  featuredFilter === f.value
+                    ? 'bg-amber-400 text-white shadow-sm'
+                    : 'bg-white text-slate-600 ring-1 ring-inset ring-slate-200 hover:bg-slate-50'
+                )}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="relative">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400">
@@ -216,6 +302,7 @@ export function VendorsTable({
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Email</th>
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Verification</th>
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Store</th>
+                  <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Featured</th>
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Joined</th>
                   <th className="px-5 py-3.5" />
                 </tr>
@@ -256,6 +343,23 @@ export function VendorsTable({
                       ) : (
                         <span className="text-xs text-slate-400">No store</span>
                       )}
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <button
+                        type="button"
+                        onClick={(e) => handleToggleFeatured(e, vendor)}
+                        disabled={!vendor.store || togglingFeaturedId !== null}
+                        aria-label={vendor.store?.isFeatured ? `Remove ${vendor.businessName} from featured` : `Mark ${vendor.businessName} as featured`}
+                        title={!vendor.store ? 'A storefront is required before this vendor can be featured' : vendor.store.isFeatured ? 'Remove from featured' : 'Mark as featured'}
+                        className={cn(
+                          'inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-40',
+                          vendor.store?.isFeatured
+                            ? 'bg-amber-100 text-amber-600 hover:bg-amber-200'
+                            : 'bg-slate-100 text-slate-400 hover:bg-amber-50 hover:text-amber-500'
+                        )}
+                      >
+                        {togglingFeaturedId === vendor.id ? <Spinner className="h-4 w-4" /> : <StarIcon filled={vendor.store?.isFeatured ?? false} />}
+                      </button>
                     </td>
                     <td className="px-5 py-3.5 text-xs text-slate-400">
                       {new Date(vendor.createdAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}
