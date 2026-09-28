@@ -13,7 +13,8 @@ import { AssignmentIcon } from '@/app/components/ui/assignment-icon'
 import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
 import { formatNaira } from '@/app/lib/utils'
-import { assignRiderToParcel, getParcelConfirmationCode } from '@/app/actions/parcels'
+import { assignRiderToParcel, getParcelConfirmationCode, regenerateParcelPaymentLink } from '@/app/actions/parcels'
+import { PaymentLinkCard } from '../payment-link-card'
 import { getRiders } from '@/app/actions/riders'
 import type { TimelineResult } from '@/app/actions/timeline'
 import type { ParcelDetail, ParcelStatus, RiderSummary } from '@/app/lib/types'
@@ -133,6 +134,8 @@ export function ParcelDetailClient({
   const router = useRouter()
   const [parcel, setParcel] = useState(initialParcel)
   const [isPending, startTransition] = useTransition()
+  const [paymentLink, setPaymentLink] = useState<{ url: string; reference: string } | null>(null)
+  const [paymentLinkError, setPaymentLinkError] = useState('')
 
   const isTerminal = TERMINAL.includes(parcel.status)
   const isCashPayment = parcel.paymentMethod?.trim().toUpperCase() === 'CASH'
@@ -141,6 +144,21 @@ export function ParcelDetailClient({
   const canAssign =
     !isTerminal &&
     (parcel.status === 'SEARCHING_RIDER' || paymentAllowsAssignment)
+
+  function handleRegeneratePaymentLink() {
+    setPaymentLinkError('')
+    startTransition(async () => {
+      const result = await regenerateParcelPaymentLink(parcel.id)
+      if (result.error || !result.data?.authorizationUrl) {
+        const message = result.error ?? 'No payment link was returned.'
+        setPaymentLinkError(message)
+        toast.error(message)
+        return
+      }
+      setPaymentLink({ url: result.data.authorizationUrl, reference: result.data.reference })
+      toast.success('Payment link regenerated.')
+    })
+  }
 
   /* assign rider modal */
   const [showAssign, setShowAssign] = useState(false)
@@ -268,6 +286,15 @@ export function ParcelDetailClient({
                 <InfoRow label="Payment Method" value={parcel.paymentMethod} />
                 <InfoRow label="Payment Status" value={parcel.paymentStatus} />
               </InfoGrid>
+              {!isTerminal && parcel.paymentStatus === 'PENDING' && !isCashPayment && (
+                <div className="mt-4 space-y-3">
+                  {paymentLink && <PaymentLinkCard url={paymentLink.url} reference={paymentLink.reference} />}
+                  {paymentLinkError && <p role="alert" className="text-xs text-red-600">{paymentLinkError}</p>}
+                  <Button type="button" variant="secondary" size="sm" loading={isPending} onClick={handleRegeneratePaymentLink}>
+                    Regenerate payment link
+                  </Button>
+                </div>
+              )}
             </DetailCard>
 
             {/* Recipient */}

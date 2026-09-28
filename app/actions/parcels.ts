@@ -9,6 +9,8 @@ import type {
   ParcelStatus,
   ParcelConfirmationCode,
   AdminCreateParcelInput,
+  AdminCreateParcelResult,
+  ParcelPaymentLink,
   Pagination,
 } from '@/app/lib/types'
 
@@ -47,9 +49,9 @@ export async function getParcelDetail(parcelId: string): Promise<ParcelDetail | 
 
 export async function createAdminParcel(
   input: AdminCreateParcelInput
-): Promise<{ data?: ParcelSummary; error?: string }> {
+): Promise<{ data?: AdminCreateParcelResult; error?: string }> {
   try {
-    const data = await apiFetch<ParcelSummary>('/api/v1/parcels/admin', {
+    const data = await apiFetch<AdminCreateParcelResult>('/api/v1/parcels/admin', {
       method: 'POST',
       body: JSON.stringify(input),
       token: await token(),
@@ -61,6 +63,22 @@ export async function createAdminParcel(
       error: err instanceof ApiError
         ? err.message
         : 'Failed to create the delivery request.',
+    }
+  }
+}
+
+export async function regenerateParcelPaymentLink(
+  parcelId: string
+): Promise<{ data?: ParcelPaymentLink; error?: string }> {
+  try {
+    const data = await apiFetch<ParcelPaymentLink>(
+      `/api/v1/parcels/admin/${encodeURIComponent(parcelId)}/payment-link`,
+      { method: 'POST', token: await token() }
+    )
+    return { data }
+  } catch (err) {
+    return {
+      error: err instanceof ApiError ? err.message : 'Failed to regenerate the payment link.',
     }
   }
 }

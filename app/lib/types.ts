@@ -1060,12 +1060,26 @@ export interface ParcelLocationInput {
 export interface AdminCreateParcelInput {
   senderName: string
   senderPhone: string
+  payerEmail: string
+  paymentMethod: 'WEB' | 'CASH'
+  idempotencyKey: string
   pickup: ParcelLocationInput
   dropoff: ParcelLocationInput
   recipientName: string
   recipientPhone: string
   size: ParcelSize
   description: string
+}
+
+export interface AdminCreateParcelResult {
+  parcel: ParcelSummary
+  authorizationUrl?: string
+  confirmationCode?: string
+}
+
+export interface ParcelPaymentLink {
+  authorizationUrl: string
+  reference: string
 }
 
 export interface ParcelCustomer {

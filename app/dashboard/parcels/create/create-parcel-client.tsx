@@ -5,10 +5,11 @@ import Link from 'next/link'
 import Script from 'next/script'
 import { useRouter } from 'next/navigation'
 import { createAdminParcel } from '@/app/actions/parcels'
+import { PaymentLinkCard } from '../payment-link-card'
 import { Button } from '@/app/components/ui/button'
 import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
-import type { ParcelSize } from '@/app/lib/types'
+import type { AdminCreateParcelResult, ParcelSize } from '@/app/lib/types'
 
 type Endpoint = 'pickup' | 'dropoff'
 
@@ -183,6 +184,9 @@ export function CreateParcelClient({
   const [dropoff, setDropoff] = useState<LocationDraft>(EMPTY_LOCATION)
   const [size, setSize] = useState<ParcelSize>('SMALL')
   const [description, setDescription] = useState('')
+  const [payerEmail, setPayerEmail] = useState('asoosedev@gmail.com')
+  const [paymentMethod, setPaymentMethod] = useState<'WEB' | 'CASH'>('WEB')
+  const [created, setCreated] = useState<AdminCreateParcelResult | null>(null)
   const [activeEndpoint, setActiveEndpoint] = useState<Endpoint>('pickup')
   const [mapsReady, setMapsReady] = useState(false)
   const [mapError, setMapError] = useState('')
@@ -200,6 +204,7 @@ export function CreateParcelClient({
   const dropoffMarkerRef = useRef<GoogleMarker | null>(null)
   const routeLineRef = useRef<GooglePolyline | null>(null)
   const activeEndpointRef = useRef<Endpoint>('pickup')
+  const requestIdentityRef = useRef<{ fingerprint: string; key: string } | null>(null)
 
   useEffect(() => {
     activeEndpointRef.current = activeEndpoint
@@ -414,6 +419,9 @@ export function CreateParcelClient({
       nextErrors.dropoff = 'Select a valid drop-off location.'
     }
     if (!description.trim()) nextErrors.description = 'Describe the item being delivered.'
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payerEmail.trim())) {
+      nextErrors.payerEmail = 'Enter a valid payer email address.'
+    }
     setErrors(nextErrors)
     return Object.keys(nextErrors).length === 0
   }
@@ -437,36 +445,40 @@ export function CreateParcelClient({
     }
 
     setServerError('')
+    const input = {
+      senderName: sender.name.trim(),
+      senderPhone: sender.phone.trim(),
+      payerEmail: payerEmail.trim(),
+      paymentMethod,
+      pickup: { address: pickup.address.trim(), ...pickupCoordinates },
+      dropoff: { address: dropoff.address.trim(), ...dropoffCoordinates },
+      recipientName: recipient.name.trim(),
+      recipientPhone: recipient.phone.trim(),
+      size,
+      description: description.trim(),
+    }
+    const fingerprint = JSON.stringify(input)
+    if (requestIdentityRef.current?.fingerprint !== fingerprint) {
+      requestIdentityRef.current = { fingerprint, key: `admin-${crypto.randomUUID()}` }
+    }
     startTransition(async () => {
       const result = await createAdminParcel({
-        senderName: sender.name.trim(),
-        senderPhone: sender.phone.trim(),
-        pickup: {
-          address: pickup.address.trim(),
-          latitude: pickupCoordinates.latitude,
-          longitude: pickupCoordinates.longitude,
-        },
-        dropoff: {
-          address: dropoff.address.trim(),
-          latitude: dropoffCoordinates.latitude,
-          longitude: dropoffCoordinates.longitude,
-        },
-        recipientName: recipient.name.trim(),
-        recipientPhone: recipient.phone.trim(),
-        size,
-        description: description.trim(),
+        ...input,
+        idempotencyKey: requestIdentityRef.current!.key,
       })
       if (result.error) {
         setServerError(result.error)
         toast.error(result.error)
         return
       }
+      if (!result.data?.parcel?.id) {
+        setServerError('The parcel was created, but its details were missing from the response. Check the parcel list before retrying.')
+        return
+      }
+      requestIdentityRef.current = null
       toast.success('Delivery request created successfully.')
-      router.push(
-        result.data?.id
-          ? `/dashboard/parcels/${result.data.id}`
-          : '/dashboard/parcels'
-      )
+      if (paymentMethod === 'WEB') setCreated(result.data)
+      else router.push(`/dashboard/parcels/${result.data.parcel.id}`)
     })
   }
 
@@ -494,6 +506,23 @@ export function CreateParcelClient({
       )}
 
       <div className="mx-auto max-w-6xl">
+        {created ? (
+          <div className="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h1 className="text-xl font-bold text-slate-900">Delivery request created</h1>
+            <p className="mt-2 text-sm text-slate-600">Tracking ID: <span className="font-mono font-semibold">{created.parcel.trackingId}</span></p>
+            <div className="mt-5">
+              {created.authorizationUrl ? (
+                <PaymentLinkCard url={created.authorizationUrl} />
+              ) : (
+                <p className="text-sm text-amber-700">No payment link was returned. Open the parcel to generate one.</p>
+              )}
+            </div>
+            <Link href={`/dashboard/parcels/${created.parcel.id}`} className="mt-5 inline-flex text-sm font-semibold text-indigo-600 hover:text-indigo-700">
+              View parcel details →
+            </Link>
+          </div>
+        ) : (
+          <>
         <div className="mb-7 flex items-center gap-4">
           <Link
             href="/dashboard/parcels"
@@ -673,6 +702,24 @@ export function CreateParcelClient({
                 </div>
               </div>
             </section>
+
+            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <SectionHeading number="4" title="Payment" description="Choose how the sender will pay for this delivery." />
+              <fieldset>
+                <legend className="mb-2 block text-xs font-semibold text-slate-700">Payment method</legend>
+                <div className="flex gap-3">
+                  {(['WEB', 'CASH'] as const).map((method) => (
+                    <label key={method} className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+                      <input type="radio" name="paymentMethod" checked={paymentMethod === method} onChange={() => setPaymentMethod(method)} />
+                      {method === 'WEB' ? 'Web payment link' : 'Cash'}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              <div className="mt-5">
+                <TextField label="Payer email" type="email" placeholder="aisha@example.com" value={payerEmail} onChange={(event) => setPayerEmail(event.target.value)} error={errors.payerEmail} />
+              </div>
+            </section>
           </div>
 
           <div className="space-y-4 lg:sticky lg:top-8">
@@ -745,6 +792,8 @@ export function CreateParcelClient({
             </div>
           </div>
         </form>
+          </>
+        )}
       </div>
     </main>
   )
