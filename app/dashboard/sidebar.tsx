@@ -183,6 +183,11 @@ const STAYS_NAV = [
 
 const ADMIN_NAV = [
   {
+    label: 'Careers',
+    href: '/dashboard/careers',
+    icon: <Icon d="M8 6V4h8v2M3 7h18v14H3V7Zm0 6h18M10 11v4h4v-4" />,
+  },
+  {
     label: 'Live Tracking',
     href: '/dashboard/tracking',
     icon: <Icon d="M12 21s7-4.2 7-11a7 7 0 1 0-14 0c0 6.8 7 11 7 11Z" d2="M14.25 10a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />,
