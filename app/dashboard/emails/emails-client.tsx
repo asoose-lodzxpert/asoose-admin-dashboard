@@ -55,6 +55,26 @@ const STATUSES: { value: UserStatus | ''; label: string }[] = [
   { value: 'DEACTIVATED',         label: 'Deactivated'          },
 ]
 
+/** null = no filter (any) */
+type VerificationFilter = boolean | null
+
+const VERIFICATION_OPTIONS: { value: '' | 'true' | 'false'; label: string }[] = [
+  { value: '',      label: 'Any'          },
+  { value: 'false', label: 'Not verified' },
+  { value: 'true',  label: 'Verified'     },
+]
+
+function toVerificationValue(value: VerificationFilter): '' | 'true' | 'false' {
+  return value === null ? '' : value ? 'true' : 'false'
+}
+
+function fromVerificationValue(value: string): VerificationFilter {
+  return value === '' ? null : value === 'true'
+}
+
+const FILTER_SELECT_CLASS =
+  'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400'
+
 function buildPreviewHtml(heading: string, body: string, subject: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -113,6 +133,8 @@ export function EmailBroadcastClient() {
   const toast = useToast()
   const [audience, setAudience] = useState<NotificationAudience>('ALL')
   const [status, setStatus] = useState<UserStatus | ''>('')
+  const [emailVerified, setEmailVerified] = useState<VerificationFilter>(null)
+  const [phoneVerified, setPhoneVerified] = useState<VerificationFilter>(null)
   const [customerQuery, setCustomerQuery] = useState('')
   const [customerResults, setCustomerResults] = useState<CustomerSummary[]>([])
   const [customerResultTotal, setCustomerResultTotal] = useState(0)
@@ -140,6 +162,7 @@ export function EmailBroadcastClient() {
   function reset() {
     setSubject(''); setHeading(''); setBody('')
     setAudience('ALL'); setStatus('')
+    setEmailVerified(null); setPhoneVerified(null)
     setCustomerQuery(''); setCustomerResults([]); setCustomerResultTotal(0)
     setIsCustomerSearchQueued(false)
     setSelectedCustomer(null)
@@ -167,6 +190,9 @@ export function EmailBroadcastClient() {
         audience,
         ...(status ? { status } : {}),
         ...(selectedCustomer ? { search: selectedCustomer.email } : {}),
+        // a single selected customer ignores the verification filters
+        ...(!selectedCustomer && emailVerified !== null ? { emailVerified } : {}),
+        ...(!selectedCustomer && phoneVerified !== null ? { phoneVerified } : {}),
         subject: subject.trim(),
         heading: heading.trim(),
         body: body.trim(),
@@ -178,12 +204,33 @@ export function EmailBroadcastClient() {
   }
 
   const audienceLabel = AUDIENCES.find(a => a.value === audience)?.label ?? 'Everyone'
+  const verificationLabels = [
+    emailVerified === true ? 'email verified' : emailVerified === false ? 'email not verified' : null,
+    phoneVerified === true ? 'phone verified' : phoneVerified === false ? 'phone not verified' : null,
+  ].filter((label): label is string => label !== null)
   const recipientLabel = selectedCustomer
     ? selectedCustomer.email
     : status
       ? `${STATUSES.find((option) => option.value === status)?.label ?? status} ${audienceLabel}`
       : audienceLabel
+  const recipientSummary = verificationLabels.length
+    ? `${recipientLabel} · ${verificationLabels.join(' · ')}`
+    : recipientLabel
   const isCustomerSearchBusy = isCustomerSearchQueued || isSearchingCustomers
+  const hasFilters = status !== '' || emailVerified !== null || phoneVerified !== null
+
+  function changeStatus(nextStatus: UserStatus | '') {
+    setStatus(nextStatus)
+    if (audience === 'CUSTOMER' && customerQuery.trim() && !selectedCustomer) {
+      searchCustomersByEmail(customerQuery, nextStatus)
+    }
+  }
+
+  function clearFilters() {
+    changeStatus('')
+    setEmailVerified(null)
+    setPhoneVerified(null)
+  }
 
   function changeAudience(nextAudience: NotificationAudience) {
     setAudience(nextAudience)
@@ -259,210 +306,202 @@ export function EmailBroadcastClient() {
         {/* ── Form ─────────────────────────────────────────────── */}
         <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6 space-y-5">
 
-          {/* Audience */}
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Target Audience</p>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+          {/* Recipients */}
+          <section aria-labelledby="recipients-heading" className="space-y-4">
+            <div className="flex items-baseline justify-between gap-3">
+              <h2 id="recipients-heading" className="text-xs font-semibold uppercase tracking-wider text-slate-400">Recipients</h2>
+              {hasFilters && !selectedCustomer && (
+                <button type="button" onClick={clearFilters} className="text-xs font-medium text-indigo-600 hover:text-indigo-800">
+                  Clear filters
+                </button>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Audience">
               {AUDIENCES.map(a => {
                 const active = audience === a.value
                 return (
                   <button
                     key={a.value}
                     type="button"
+                    role="radio"
+                    aria-checked={active}
+                    title={a.desc}
                     onClick={() => changeAudience(a.value)}
                     className={cn(
-                      'group flex flex-col gap-2.5 rounded-2xl border p-3.5 text-left transition-all',
+                      'inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-medium transition-colors',
                       active
-                        ? 'border-indigo-500 bg-indigo-50 ring-1 ring-inset ring-indigo-500 shadow-sm'
-                        : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                        ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
                     )}
                   >
-                    <div className={cn(
-                      'flex h-8 w-8 items-center justify-center rounded-lg transition-colors',
-                      active ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'
-                    )}>
-                      <AudienceIcon value={a.value} />
-                    </div>
-                    <div>
-                      <p className={cn('text-sm font-semibold leading-tight', active ? 'text-indigo-700' : 'text-slate-700')}>{a.label}</p>
-                      <p className="text-[11px] text-slate-400 leading-tight mt-0.5">{a.desc}</p>
-                    </div>
+                    <AudienceIcon value={a.value} />
+                    {a.label}
                   </button>
                 )
               })}
             </div>
-          </div>
 
-          {/* Refine audience */}
-          <div className="overflow-visible rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/70 to-white">
-            <div className="flex items-start justify-between gap-4 border-b border-indigo-100/70 px-4 py-3.5">
-              <div className="flex items-start gap-3">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-xs font-bold text-white shadow-sm">
-                  1
-                </span>
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">Choose recipients</p>
-                  <p className="mt-0.5 text-xs text-slate-500">
-                    Refine the audience or select one customer by email.
-                  </p>
-                </div>
-              </div>
-              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-100">
-                <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
-                {selectedCustomer ? '1 recipient' : audienceLabel}
-              </span>
-            </div>
-
-            <div className="space-y-4 p-4">
-              <div className={cn('grid gap-3', audience === 'CUSTOMER' ? 'sm:grid-cols-2' : 'grid-cols-1')}>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1.5">Account status</label>
+                <label htmlFor="filter-status" className="mb-1.5 block text-xs font-medium text-slate-600">Account status</label>
                 <select
+                  id="filter-status"
                   value={status}
-                  onChange={(event) => {
-                    const nextStatus = event.target.value as UserStatus | ''
-                    setStatus(nextStatus)
-                    if (audience === 'CUSTOMER' && customerQuery.trim() && !selectedCustomer) {
-                      searchCustomersByEmail(customerQuery, nextStatus)
-                    }
-                  }}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  onChange={(event) => changeStatus(event.target.value as UserStatus | '')}
+                  className={FILTER_SELECT_CLASS}
                 >
                   {STATUSES.map(s => (
                     <option key={s.value} value={s.value}>{s.label}</option>
                   ))}
                 </select>
               </div>
-              {audience === 'CUSTOMER' && (
-                <div className="relative">
-                  <label htmlFor="customer-email-search" className="mb-1.5 block text-xs font-medium text-slate-600">
-                    Find customer by email
-                  </label>
-                  <div className="relative">
-                    <svg viewBox="0 0 20 20" fill="currentColor" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true">
-                      <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clipRule="evenodd" />
-                    </svg>
-                    <input
-                      id="customer-email-search"
-                      value={customerQuery}
-                      onChange={(event) => changeCustomerQuery(event.target.value)}
-                      disabled={!!selectedCustomer}
-                      placeholder="Start typing an email address…"
-                      autoComplete="off"
-                      className={cn(
-                        'w-full rounded-xl border bg-white py-2.5 pl-9 pr-9 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20',
-                        errors.recipient ? 'border-red-300' : 'border-slate-200 focus:border-indigo-500',
-                        selectedCustomer && 'bg-slate-50 text-slate-500'
-                      )}
-                    />
-                    {isCustomerSearchBusy ? (
-                      <svg className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-indigo-500" viewBox="0 0 24 24" fill="none" aria-label="Searching">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4Z" />
-                      </svg>
-                    ) : customerQuery && !selectedCustomer ? (
-                      <button
-                        type="button"
-                        onClick={clearSelectedCustomer}
-                        aria-label="Clear customer search"
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-                      >
-                        <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5" aria-hidden="true">
-                          <path d="M5.22 5.22a.75.75 0 0 1 1.06 0L10 8.94l3.72-3.72a.75.75 0 1 1 1.06 1.06L11.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06L10 11.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06L8.94 10 5.22 6.28a.75.75 0 0 1 0-1.06Z" />
-                        </svg>
-                      </button>
-                    ) : null}
-                  </div>
-
-                  {!selectedCustomer && customerQuery.trim().length >= 2 && !isCustomerSearchBusy && (
-                    <div className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-900/10">
-                      {customerResults.length ? (
-                        <>
-                          <div className="max-h-64 overflow-y-auto py-1.5">
-                            {customerResults.map((customer) => {
-                              const initials = `${customer.firstName[0] ?? ''}${customer.lastName[0] ?? ''}`.toUpperCase()
-                              return (
-                                <button
-                                  key={customer.id}
-                                  type="button"
-                                  onClick={() => selectCustomer(customer)}
-                                  className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors hover:bg-indigo-50"
-                                >
-                                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-[11px] font-bold text-indigo-700">
-                                    {initials || 'C'}
-                                  </span>
-                                  <span className="min-w-0 flex-1">
-                                    <span className="block truncate text-sm font-medium text-slate-900">
-                                      {customer.firstName} {customer.lastName}
-                                    </span>
-                                    <span className="block truncate text-xs text-slate-500">{customer.email}</span>
-                                  </span>
-                                  <span className={cn(
-                                    'rounded-full px-2 py-0.5 text-[10px] font-semibold',
-                                    customer.status === 'ACTIVE'
-                                      ? 'bg-emerald-50 text-emerald-700'
-                                      : 'bg-slate-100 text-slate-500'
-                                  )}>
-                                    {customer.status.replace(/_/g, ' ')}
-                                  </span>
-                                </button>
-                              )
-                            })}
-                          </div>
-                          {customerResultTotal > customerResults.length && (
-                            <p className="border-t border-slate-100 px-3.5 py-2 text-[11px] text-slate-400">
-                              Showing {customerResults.length} of {customerResultTotal} matches. Refine the email to narrow results.
-                            </p>
-                          )}
-                        </>
-                      ) : (
-                        <div className="px-4 py-5 text-center">
-                          <p className="text-sm font-medium text-slate-700">No customers found</p>
-                          <p className="mt-0.5 text-xs text-slate-400">Check the email and try again.</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-              </div>
-
-              {errors.recipient && <p className="text-xs font-medium text-red-600">{errors.recipient}</p>}
-
-              {selectedCustomer ? (
-                <div className="flex items-center gap-3 rounded-xl border border-indigo-200 bg-white p-3 shadow-sm">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">
-                    {`${selectedCustomer.firstName[0] ?? ''}${selectedCustomer.lastName[0] ?? ''}`.toUpperCase() || 'C'}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-slate-900">
-                      {selectedCustomer.firstName} {selectedCustomer.lastName}
-                    </p>
-                    <p className="truncate text-xs text-slate-500">{selectedCustomer.email}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={clearSelectedCustomer}
-                    className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
+              {([
+                { id: 'filter-email-verified', label: 'Email', value: emailVerified, setValue: setEmailVerified },
+                { id: 'filter-phone-verified', label: 'Phone', value: phoneVerified, setValue: setPhoneVerified },
+              ] as const).map((filter) => (
+                <div key={filter.id}>
+                  <label htmlFor={filter.id} className="mb-1.5 block text-xs font-medium text-slate-600">{filter.label}</label>
+                  <select
+                    id={filter.id}
+                    value={toVerificationValue(filter.value)}
+                    onChange={(event) => filter.setValue(fromVerificationValue(event.target.value))}
+                    disabled={!!selectedCustomer}
+                    className={FILTER_SELECT_CLASS}
                   >
-                    Change
-                  </button>
+                    {VERIFICATION_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
                 </div>
-              ) : (
-                <div className="flex items-center justify-between gap-4 rounded-xl bg-white/80 px-3.5 py-3 ring-1 ring-inset ring-indigo-100">
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Current target</p>
-                    <p className="mt-0.5 text-sm font-semibold text-slate-700">{recipientLabel}</p>
-                  </div>
-                  {audience === 'CUSTOMER' && (
-                    <p className="max-w-48 text-right text-[11px] leading-4 text-slate-400">
-                      Leave email search empty to send to all matching customers.
-                    </p>
-                  )}
-                </div>
-              )}
+              ))}
             </div>
-          </div>
+
+            {audience === 'CUSTOMER' && (
+              <div className="relative">
+                <label htmlFor="customer-email-search" className="mb-1.5 block text-xs font-medium text-slate-600">
+                  Find customer by email
+                </label>
+                <div className="relative">
+                  <svg viewBox="0 0 20 20" fill="currentColor" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true">
+                    <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clipRule="evenodd" />
+                  </svg>
+                  <input
+                    id="customer-email-search"
+                    value={customerQuery}
+                    onChange={(event) => changeCustomerQuery(event.target.value)}
+                    disabled={!!selectedCustomer}
+                    placeholder="Start typing an email address…"
+                    autoComplete="off"
+                    className={cn(
+                      'w-full rounded-xl border bg-white py-2.5 pl-9 pr-9 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20',
+                      errors.recipient ? 'border-red-300' : 'border-slate-200 focus:border-indigo-500',
+                      selectedCustomer && 'bg-slate-50 text-slate-500'
+                    )}
+                  />
+                  {isCustomerSearchBusy ? (
+                    <svg className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-indigo-500" viewBox="0 0 24 24" fill="none" aria-label="Searching">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4Z" />
+                    </svg>
+                  ) : customerQuery && !selectedCustomer ? (
+                    <button
+                      type="button"
+                      onClick={clearSelectedCustomer}
+                      aria-label="Clear customer search"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                    >
+                      <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5" aria-hidden="true">
+                        <path d="M5.22 5.22a.75.75 0 0 1 1.06 0L10 8.94l3.72-3.72a.75.75 0 1 1 1.06 1.06L11.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06L10 11.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06L8.94 10 5.22 6.28a.75.75 0 0 1 0-1.06Z" />
+                      </svg>
+                    </button>
+                  ) : null}
+                </div>
+
+                {!selectedCustomer && customerQuery.trim().length >= 2 && !isCustomerSearchBusy && (
+                  <div className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-900/10">
+                    {customerResults.length ? (
+                      <>
+                        <div className="max-h-64 overflow-y-auto py-1.5">
+                          {customerResults.map((customer) => {
+                            const initials = `${customer.firstName[0] ?? ''}${customer.lastName[0] ?? ''}`.toUpperCase()
+                            return (
+                              <button
+                                key={customer.id}
+                                type="button"
+                                onClick={() => selectCustomer(customer)}
+                                className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors hover:bg-indigo-50"
+                              >
+                                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-[11px] font-bold text-indigo-700">
+                                  {initials || 'C'}
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                  <span className="block truncate text-sm font-medium text-slate-900">
+                                    {customer.firstName} {customer.lastName}
+                                  </span>
+                                  <span className="block truncate text-xs text-slate-500">{customer.email}</span>
+                                </span>
+                                <span className={cn(
+                                  'rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                                  customer.status === 'ACTIVE'
+                                    ? 'bg-emerald-50 text-emerald-700'
+                                    : 'bg-slate-100 text-slate-500'
+                                )}>
+                                  {customer.status.replace(/_/g, ' ')}
+                                </span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                        {customerResultTotal > customerResults.length && (
+                          <p className="border-t border-slate-100 px-3.5 py-2 text-[11px] text-slate-400">
+                            Showing {customerResults.length} of {customerResultTotal} matches. Refine the email to narrow results.
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <div className="px-4 py-5 text-center">
+                        <p className="text-sm font-medium text-slate-700">No customers found</p>
+                        <p className="mt-0.5 text-xs text-slate-400">Check the email and try again.</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {errors.recipient && <p className="text-xs font-medium text-red-600">{errors.recipient}</p>}
+
+            {selectedCustomer ? (
+              <div className="flex items-center gap-3 rounded-xl border border-indigo-200 bg-white p-3 shadow-sm">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">
+                  {`${selectedCustomer.firstName[0] ?? ''}${selectedCustomer.lastName[0] ?? ''}`.toUpperCase() || 'C'}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-slate-900">
+                    {selectedCustomer.firstName} {selectedCustomer.lastName}
+                  </p>
+                  <p className="truncate text-xs text-slate-500">{selectedCustomer.email}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={clearSelectedCustomer}
+                  className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
+                >
+                  Change
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-xl bg-slate-50 px-3.5 py-3">
+                <p className="text-sm text-slate-600">
+                  Sending to <span className="font-semibold text-slate-900">{recipientSummary}</span>
+                </p>
+                {audience === 'CUSTOMER' && (
+                  <p className="text-[11px] text-slate-400">Leave email search empty to send to all matching customers.</p>
+                )}
+              </div>
+            )}
+          </section>
 
           {/* Subject */}
           <div>

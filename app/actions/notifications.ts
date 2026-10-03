@@ -97,6 +97,8 @@ export async function sendBroadcastEmail(payload: {
   audience: NotificationAudience
   status?: UserStatus
   search?: string
+  emailVerified?: boolean | null
+  phoneVerified?: boolean | null
   subject: string
   heading: string
   body: string
@@ -110,6 +112,8 @@ export async function sendBroadcastEmail(payload: {
     }
     if (payload.status) body.status = payload.status
     if (payload.search?.trim()) body.search = payload.search.trim()
+    if (typeof payload.emailVerified === 'boolean') body.emailVerified = payload.emailVerified
+    if (typeof payload.phoneVerified === 'boolean') body.phoneVerified = payload.phoneVerified
 
     const raw = await apiFetch<Partial<EmailBroadcastResult> | null>(
       '/api/v1/admin/emails/broadcast',
