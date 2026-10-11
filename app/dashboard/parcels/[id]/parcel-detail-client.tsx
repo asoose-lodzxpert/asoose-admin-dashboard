@@ -253,6 +253,7 @@ export function ParcelDetailClient({
                 <InfoRow label="Scheduled At" value={formatDateTime(parcel.scheduledAt)} wide />
                 <InfoRow label="Distance" value={parcel.distance == null ? null : `${parcel.distance.toFixed(2)} km`} />
                 <InfoRow label="Duration" value={parcel.duration ? `${parcel.duration} min` : null} />
+                <InfoRow label="City" value={parcel.city?.name} />
                 <InfoRow label="Size" value={parcel.size} />
                 <InfoRow label="Size Multiplier" value={parcel.sizeMultiplier == null ? null : `${parcel.sizeMultiplier}x`} />
                 <InfoRow label="Matching Attempts" value={parcel.matchingAttempts} />

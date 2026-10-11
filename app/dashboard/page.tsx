@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { getCurrentUser } from '@/app/lib/auth'
-import { getDashboardStats, getRecentOrders } from '@/app/actions/admin'
+import { getDashboardStats, getRecentOrders, getUserCityStats } from '@/app/actions/admin'
 import { formatNaira, formatNumber, cn } from '@/app/lib/utils'
 import { DashboardCharts } from './dashboard-charts'
 
@@ -73,10 +73,11 @@ const STATUS_STYLES: Record<DisplayStatus, string> = {
 /* ─── Page ───────────────────────────────────────────────── */
 
 export default async function DashboardPage() {
-  const [user, stats, recentOrders] = await Promise.all([
+  const [user, stats, recentOrders, userCityStats] = await Promise.all([
     getCurrentUser(),
     getDashboardStats(),
     getRecentOrders(8),
+    getUserCityStats(),
   ])
 
   const firstName = user?.firstName ?? 'Admin'
@@ -152,6 +153,37 @@ export default async function DashboardPage() {
         dailySignups={stats.charts.dailySignups}
       />
 
+      {/* User distribution */}
+      <section className="mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">Users by City</h2>
+            <p className="mt-0.5 text-xs text-slate-400">{formatNumber(userCityStats.total)} registered users</p>
+          </div>
+          <Link href="/dashboard/customers" className="text-xs font-medium text-indigo-600 hover:text-indigo-700 transition-colors">
+            View users →
+          </Link>
+        </div>
+        {userCityStats.cities.length === 0 && userCityStats.unassigned === 0 ? (
+          <div className="px-6 py-10 text-center text-sm text-slate-400">No city distribution data yet</div>
+        ) : (
+          <div className="grid divide-y divide-slate-100 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
+            {userCityStats.cities.map((city) => (
+              <div key={city.cityId} className="px-6 py-4">
+                <p className="truncate text-sm font-medium text-slate-700">{city.name}</p>
+                <p className="mt-0.5 text-xs text-slate-400">{city.state}</p>
+                <p className="mt-3 text-2xl font-bold tabular-nums text-slate-900">{formatNumber(city.count)}</p>
+              </div>
+            ))}
+            <div className="px-6 py-4">
+              <p className="text-sm font-medium text-slate-700">Unassigned</p>
+              <p className="mt-0.5 text-xs text-slate-400">No city selected</p>
+              <p className="mt-3 text-2xl font-bold tabular-nums text-slate-900">{formatNumber(userCityStats.unassigned)}</p>
+            </div>
+          </div>
+        )}
+      </section>
+
       {/* Content grid */}
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Recent Orders */}
@@ -177,6 +209,7 @@ export default async function DashboardPage() {
                     <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Order</th>
                     <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Customer</th>
                     <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Vendor</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">City</th>
                     <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wide text-slate-400">Amount</th>
                     <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Status</th>
                   </tr>
@@ -192,6 +225,7 @@ export default async function DashboardPage() {
                         <td className="px-6 py-3.5 font-mono text-xs text-slate-400">{order.orderNumber}</td>
                         <td className="px-6 py-3.5 font-medium text-slate-900">{customerName}</td>
                         <td className="px-6 py-3.5 text-slate-500 max-w-[140px] truncate">{order.restaurantName ?? '—'}</td>
+                        <td className="px-6 py-3.5 text-slate-500">{order.city?.name ?? '—'}</td>
                         <td className="px-6 py-3.5 text-right font-medium text-slate-900">{formatNaira(order.total)}</td>
                         <td className="px-6 py-3.5">
                           <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset', STATUS_STYLES[display])}>

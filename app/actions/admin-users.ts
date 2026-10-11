@@ -26,6 +26,10 @@ export interface AdminUser {
   emailVerified: boolean
   phoneVerified: boolean
   authProvider: string
+  city: { id: string; name: string } | null
+  cityUpdatedAt: string | null
+  activeCityId: string | null
+  assignedCities: Array<{ id: string; name: string; state: string }>
   lastLoginAt: string | null
   createdAt: string
   updatedAt: string
@@ -37,7 +41,7 @@ export interface ProvisionedAdmin {
   firstName: string
   lastName: string
   phone: string | null
-  role: AdminRole
+  role: AnyAdminRole
   status: string
   emailVerified: boolean
   isActive: boolean
@@ -51,6 +55,11 @@ export interface ProvisionedAdmin {
 export interface ProvisionResult {
   user: ProvisionedAdmin
   temporaryPassword: string
+}
+
+export interface UpdateAdminCitiesResult {
+  adminId: string
+  assignedCities: Array<{ id: string; name: string; state: string }>
 }
 
 export async function getAdmins(params?: {
@@ -86,18 +95,29 @@ export async function provisionAdmin(payload: {
   lastName: string
   phone?: string
   role: AdminRole
+  cityIds?: string[]
 }): Promise<{ data?: ProvisionResult; error?: string }> {
   if ((await getCurrentUser())?.role !== 'SUPER_ADMIN') {
     return { error: 'Unauthorized. Only super admins can provision admin users.' }
   }
-  if (payload.role !== 'ADMIN' && payload.role !== 'SUPER_ADMIN') {
-    return { error: 'Role must be ADMIN or SUPER_ADMIN.' }
+  if (!payload || (payload.role !== 'ADMIN' && payload.role !== 'SUPER_ADMIN')) {
+    return { error: 'Role must be Admin or Super Admin.' }
+  }
+  if (payload.cityIds !== undefined && (!Array.isArray(payload.cityIds) || payload.cityIds.some((cityId) => !cityId || typeof cityId !== 'string'))) {
+    return { error: 'Select valid cities.' }
   }
 
   try {
     const data = await apiFetch<ProvisionResult>('/api/v1/users/provision', {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        email: payload.email,
+        firstName: payload.firstName,
+        lastName: payload.lastName,
+        ...(payload.phone ? { phone: payload.phone } : {}),
+        role: payload.role,
+        ...(payload.cityIds !== undefined ? { cityIds: [...new Set(payload.cityIds)] } : {}),
+      }),
       token: await token(),
     })
     revalidatePath('/dashboard/admin-users')
@@ -125,5 +145,38 @@ export async function deactivateAdmin(
     return { data: data! }
   } catch (err) {
     return { error: err instanceof ApiError ? err.message : 'Failed to deactivate admin.' }
+  }
+}
+
+export async function updateAdminCities(
+  adminId: string,
+  cityIds: string[]
+): Promise<{ data?: UpdateAdminCitiesResult; error?: string }> {
+  if ((await getCurrentUser())?.role !== 'SUPER_ADMIN') {
+    return { error: 'Unauthorized. Only super admins can update admin cities.' }
+  }
+
+  if (
+    typeof adminId !== 'string' ||
+    !adminId ||
+    !Array.isArray(cityIds) ||
+    cityIds.some((cityId) => !cityId || typeof cityId !== 'string')
+  ) {
+    return { error: 'Select valid cities.' }
+  }
+
+  try {
+    const data = await apiFetch<UpdateAdminCitiesResult>(
+      `/api/v1/users/admins/${encodeURIComponent(adminId)}/cities`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ cityIds: [...new Set(cityIds)] }),
+        token: await token(),
+      }
+    )
+    revalidatePath('/dashboard/admin-users')
+    return { data }
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'Failed to update admin cities.' }
   }
 }

@@ -424,6 +424,7 @@ export function OrderDetailClient({
             <InfoGrid className="grid-cols-2">
               <InfoRow label="Tracking ID" value={order.delivery?.trackingId} wide />
               <InfoRow label="Status" value={order.delivery?.status} />
+              <InfoRow label="City" value={order.city?.name} />
               <InfoRow label="Est. Delivery" value={formatDate(order.estimatedDeliveryAt)} />
               {order.actualDeliveryAt && (
                 <InfoRow label="Delivered At" value={formatDate(order.actualDeliveryAt)} />

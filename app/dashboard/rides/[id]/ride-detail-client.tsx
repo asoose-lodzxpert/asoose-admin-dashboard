@@ -304,6 +304,7 @@ export function RideDetailClient({
               <InfoGrid>
                 <InfoRow label="Distance" value={`${ride.distance.toFixed(2)} km`} />
                 <InfoRow label="Duration" value={ride.duration ? `${ride.duration} min` : null} />
+                <InfoRow label="City" value={ride.city?.name} />
                 <InfoRow label="Vehicle Type" value={ride.vehicleType} />
                 <InfoRow label="Matching Attempts" value={ride.matchingAttempts} />
                 <InfoRow label="Driver ID" value={ride.driverId} />

@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { io } from 'socket.io-client'
 import {
@@ -8,15 +9,19 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from '@/app/actions/notifications'
+import { setActiveAdminCity } from '@/app/actions/admin-city-scope'
 import { useToast } from '@/app/components/ui/toast'
 import { cn } from '@/app/lib/utils'
 import type { InAppNotification, NotificationsData } from '@/app/lib/types'
+import type { AdminCityScope } from '@/app/actions/admin-city-scope'
 
 interface NotificationCenterProps {
   accessToken: string
   initialData: NotificationsData | null
   initialUnreadCount: number
   socketUrl: string
+  cityScope: AdminCityScope
+  canSwitchCity: boolean
 }
 
 function BellIcon({ className = 'h-5 w-5' }: { className?: string }) {
@@ -190,7 +195,10 @@ export function NotificationCenter({
   initialData,
   initialUnreadCount,
   socketUrl,
+  cityScope: initialCityScope,
+  canSwitchCity,
 }: NotificationCenterProps) {
+  const router = useRouter()
   const toast = useToast()
   const panelRef = useRef<HTMLDivElement>(null)
   const knownIds = useRef(new Set(initialData?.notifications.map((item) => item.id) ?? []))
@@ -201,9 +209,11 @@ export function NotificationCenter({
   const [unreadOnly, setUnreadOnly] = useState(false)
   const [notifications, setNotifications] = useState(initialData?.notifications ?? [])
   const [unreadCount, setUnreadCount] = useState(initialUnreadCount)
+  const [cityScope, setCityScope] = useState(initialCityScope)
   const [liveNotification, setLiveNotification] = useState<InAppNotification | null>(null)
   const [isLoading, startLoading] = useTransition()
   const [isMarkingRead, startMarkingRead] = useTransition()
+  const [isSwitchingCity, startSwitchingCity] = useTransition()
 
   useEffect(() => {
     let audioContext: AudioContext | null = null
@@ -400,15 +410,69 @@ export function NotificationCenter({
     })
   }
 
+  function changeActiveCity(cityId: string) {
+    startSwitchingCity(async () => {
+      const result = await setActiveAdminCity(cityId || null)
+      if (result.error) {
+        toast.error(result.error)
+        return
+      }
+
+      if (result.data) setCityScope(result.data)
+      router.refresh()
+      toast.success(cityId ? 'Active city updated.' : 'Now viewing all cities.')
+    })
+  }
+
+  const cityLabel = cityScope.activeCity
+    ? `${cityScope.activeCity.name}, ${cityScope.activeCity.state}`
+    : cityScope.all
+      ? 'All cities'
+      : 'All assigned cities'
+
   return (
     <>
       <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur sm:px-6">
-        <div>
-          <p className="text-sm font-semibold text-slate-900">Operations workspace</p>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-slate-900">Operations workspace</p>
           <p className="hidden text-xs text-slate-500 sm:block">Monitor and manage Asoose activity</p>
         </div>
 
-        <div ref={panelRef} className="relative">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex h-10 min-w-0 max-w-36 items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 shadow-sm transition-colors focus-within:border-indigo-300 focus-within:ring-4 focus-within:ring-indigo-500/10 sm:max-w-56">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+              <path fillRule="evenodd" d="m9.69 18.933.01.005.008.004a.75.75 0 0 0 .584 0l.008-.004.01-.005.027-.014.082-.045a14.09 14.09 0 0 0 1.392-.889c.807-.58 1.726-1.408 2.423-2.508.698-1.103 1.185-2.48 1.185-4.17A5.419 5.419 0 0 0 10 5.875a5.419 5.419 0 0 0-5.419 5.432c0 1.69.487 3.067 1.185 4.17.697 1.1 1.616 1.928 2.423 2.508a14.09 14.09 0 0 0 1.392.89l.082.044.027.014ZM10 12.25a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" clipRule="evenodd" />
+              </svg>
+            </span>
+            <span className="hidden shrink-0 text-xs font-medium text-slate-400 lg:inline">Viewing</span>
+            <div className="relative min-w-0 flex-1">
+              {canSwitchCity ? (
+                <select
+                  aria-label="Active city"
+                  value={cityScope.activeCity?.id ?? ''}
+                  onChange={(event) => changeActiveCity(event.target.value)}
+                  disabled={isSwitchingCity}
+                  title={cityLabel}
+                  className="block w-full min-w-0 appearance-none truncate bg-transparent py-1 pr-5 text-xs font-semibold text-slate-700 outline-none sm:text-sm disabled:cursor-wait disabled:text-slate-400"
+                >
+                  <option value="">All cities</option>
+                  {cityScope.cities.map((city) => (
+                    <option key={city.id} value={city.id}>{city.name}, {city.state}</option>
+                  ))}
+                </select>
+              ) : (
+                <p className="truncate py-1 text-xs font-semibold text-slate-700 sm:text-sm" title={cityLabel}>{cityLabel}</p>
+              )}
+              {canSwitchCity && (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="pointer-events-none absolute right-0 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true">
+                  <path fillRule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                </svg>
+              )}
+            </div>
+          </div>
+
+          <div ref={panelRef} className="relative">
           <button
             type="button"
             onClick={() => setOpen((current) => !current)}
@@ -510,6 +574,7 @@ export function NotificationCenter({
               </div>
             </div>
           )}
+          </div>
         </div>
       </header>
 

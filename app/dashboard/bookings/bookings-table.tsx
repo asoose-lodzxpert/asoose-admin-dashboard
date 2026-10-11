@@ -98,6 +98,7 @@ export function BookingsTable({
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Status</th>
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Customer</th>
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Property / Room</th>
+                  <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">City</th>
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Stay</th>
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Total</th>
                 </tr>
@@ -135,6 +136,7 @@ export function BookingsTable({
                       <p className="text-slate-700">{booking.propertyName}</p>
                       <p className="text-xs text-slate-400">{booking.roomTypeName}</p>
                     </td>
+                    <td className="px-5 py-3.5 text-slate-500">{booking.city?.name ?? booking.property.city?.name ?? '—'}</td>
                     <td className="px-5 py-3.5 text-slate-500">
                       {formatDateShort(booking.checkIn)} → {formatDateShort(booking.checkOut)}
                       <span className="ml-1 text-xs text-slate-400">({booking.nights}n)</span>

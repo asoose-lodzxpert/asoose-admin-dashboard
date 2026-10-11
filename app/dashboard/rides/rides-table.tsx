@@ -152,6 +152,7 @@ export function RidesTable({
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Tracking ID</th>
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Status</th>
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Route</th>
+                  <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">City</th>
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Fare</th>
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Vehicle</th>
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Driver</th>
@@ -195,6 +196,7 @@ export function RidesTable({
                         {ride.dropoffAddress.address || ride.dropoffAddress.street}
                       </p>
                     </td>
+                    <td className="px-5 py-3.5 text-xs text-slate-500">{ride.city?.name ?? '—'}</td>
                     <td className="px-5 py-3.5 font-medium text-slate-900 whitespace-nowrap">{formatNaira(ride.fare)}</td>
                     <td className="px-5 py-3.5 text-xs text-slate-500">{ride.vehicleType}</td>
                     <td className="px-5 py-3.5 text-xs">

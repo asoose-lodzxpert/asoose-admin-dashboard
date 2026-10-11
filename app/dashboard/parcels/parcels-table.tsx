@@ -145,6 +145,7 @@ export function ParcelsTable({
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Status</th>
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Size</th>
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Route</th>
+                  <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">City</th>
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Fare</th>
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Recipient</th>
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Rider</th>
@@ -192,6 +193,7 @@ export function ParcelsTable({
                         {parcel.dropoffAddress.address || parcel.dropoffAddress.street}
                       </p>
                     </td>
+                    <td className="px-5 py-3.5 text-xs text-slate-500">{parcel.city?.name ?? '—'}</td>
                     <td className="px-5 py-3.5 font-medium text-slate-900 whitespace-nowrap">
                       {parcel.fare == null ? <span className="text-slate-400">Pending</span> : formatNaira(parcel.fare)}
                     </td>

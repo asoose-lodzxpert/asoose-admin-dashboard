@@ -7,7 +7,7 @@ import { Spinner } from '@/app/components/ui/spinner'
 import { useToast } from '@/app/components/ui/toast'
 import { useRowNav } from '@/app/lib/hooks/use-row-nav'
 import { getCustomers, updateCustomerStatus } from '@/app/actions/customers'
-import type { CustomerSummary, UserRole, UserStatus, Pagination } from '@/app/lib/types'
+import type { City, CustomerSummary, UserRole, UserStatus, Pagination } from '@/app/lib/types'
 
 type UserListRole = Extract<UserRole, 'CUSTOMER' | 'RIDER' | 'DRIVER'>
 
@@ -50,6 +50,7 @@ function timeAgo(dateStr: string): string {
 
 interface InitialParams {
   role?: string
+  cityId?: string
   search?: string
   status?: string
   page?: string
@@ -59,10 +60,12 @@ export function CustomersTable({
   initialCustomers,
   initialPagination,
   initialParams = {},
+  cities,
 }: {
   initialCustomers: CustomerSummary[]
   initialPagination: Pagination
   initialParams?: InitialParams
+  cities: City[]
 }) {
   const router = useRouter()
   const { navigatingId, navigate } = useRowNav()
@@ -74,6 +77,7 @@ export function CustomersTable({
     initialParams.role === 'RIDER' || initialParams.role === 'DRIVER' ? initialParams.role : 'CUSTOMER'
   )
   const [search, setSearch] = useState(initialParams.search ?? '')
+  const [cityId, setCityId] = useState(initialParams.cityId ?? '')
   const [statusFilter, setStatusFilter] = useState<UserStatus | ''>((initialParams.status as UserStatus) ?? '')
   const [isPending, startTransition] = useTransition()
   const [isRestoring, startRestore] = useTransition()
@@ -95,13 +99,14 @@ export function CustomersTable({
     router.replace(`?${sp}`, { scroll: false })
   }
 
-  function refetch(opts: { role?: UserListRole; search?: string; status?: UserStatus | ''; page?: number }) {
+  function refetch(opts: { role?: UserListRole; cityId?: string; search?: string; status?: UserStatus | ''; page?: number }) {
     const role = opts.role ?? roleFilter
+    const city = opts.cityId ?? cityId
     const s = opts.search ?? search
     const st = opts.status !== undefined ? opts.status : statusFilter
     const pg = opts.page ?? 1
     startTransition(async () => {
-      const res = await getCustomers({ role, search: s || undefined, status: st || undefined, page: pg, limit: 50 })
+      const res = await getCustomers({ role, cityId: city || undefined, search: s || undefined, status: st || undefined, page: pg, limit: 50 })
       setCustomers(res.customers)
       setPagination(res.pagination)
     })
@@ -112,6 +117,13 @@ export function CustomersTable({
     setRoleFilter(role)
     pushURL({ role: role === 'CUSTOMER' ? undefined : role, page: undefined })
     refetch({ role, page: 1 })
+  }
+
+  function onCityFilter(e: React.ChangeEvent<HTMLSelectElement>) {
+    const value = e.target.value
+    setCityId(value)
+    pushURL({ cityId: value || undefined, page: undefined })
+    refetch({ cityId: value, page: 1 })
   }
 
   function onSearch(e: React.ChangeEvent<HTMLInputElement>) {
@@ -208,6 +220,22 @@ export function CustomersTable({
           </svg>
         </div>
         <div className="relative">
+          <select
+            aria-label="Filter users by city"
+            value={cityId}
+            onChange={onCityFilter}
+            className="h-9 appearance-none rounded-xl border-0 bg-white pl-3.5 pr-9 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer"
+          >
+            <option value="">All cities</option>
+            {cities.map((city) => (
+              <option key={city.id} value={city.id}>{city.name}{city.state ? `, ${city.state}` : ''}</option>
+            ))}
+          </select>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400">
+            <path fillRule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+          </svg>
+        </div>
+        <div className="relative">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400">
             <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clipRule="evenodd" />
           </svg>
@@ -263,6 +291,7 @@ export function CustomersTable({
                 <tr>
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">{roleLabel.singular}</th>
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Phone</th>
+                  <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">City</th>
                   {isDeletedView ? (
                     <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Deleted</th>
                   ) : (
@@ -307,6 +336,7 @@ export function CustomersTable({
                         </div>
                       </td>
                       <td className="px-5 py-3.5 text-slate-500">{c.phone}</td>
+                      <td className="px-5 py-3.5 text-slate-500">{c.city?.name ?? '—'}</td>
                       {isDeletedView ? (
                         <td className="px-5 py-3.5">
                           <div className="flex flex-col gap-1">

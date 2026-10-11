@@ -3,9 +3,9 @@
 import { useState, useTransition, useRef } from 'react'
 import { cn } from '@/app/lib/utils'
 import { useToast } from '@/app/components/ui/toast'
-import { provisionAdmin, getAdmins, deactivateAdmin } from '@/app/actions/admin-users'
+import { provisionAdmin, getAdmins, deactivateAdmin, updateAdminCities } from '@/app/actions/admin-users'
 import type { AdminRole, AnyAdminRole, AdminUser, ProvisionResult } from '@/app/actions/admin-users'
-import type { UserStatus } from '@/app/lib/types'
+import type { City, UserStatus } from '@/app/lib/types'
 
 const ROLE_LABELS: Record<AnyAdminRole, string> = {
   ADMIN:           'Admin',
@@ -45,7 +45,7 @@ function formatStatus(s: UserStatus) {
 
 const INITIAL = { email: '', firstName: '', lastName: '', phone: '', role: '' as AdminRole | '' }
 
-export function AdminUsersClient({ initialAdmins, total }: { initialAdmins: AdminUser[]; total: number }) {
+export function AdminUsersClient({ initialAdmins, total, cities }: { initialAdmins: AdminUser[]; total: number; cities: City[] }) {
   const toast = useToast()
   const [admins, setAdmins] = useState(initialAdmins)
   const [count, setCount] = useState(total)
@@ -62,12 +62,19 @@ export function AdminUsersClient({ initialAdmins, total }: { initialAdmins: Admi
   const [serverError, setServerError] = useState('')
   const [success, setSuccess] = useState<ProvisionResult | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [provisionCityIds, setProvisionCityIds] = useState<string[]>([])
 
   // Deactivate modal
   const [deactivateTarget, setDeactivateTarget] = useState<AdminUser | null>(null)
   const [deactivateReason, setDeactivateReason] = useState('')
   const [deactivateError, setDeactivateError] = useState('')
   const [deactivatePending, startDeactivateTransition] = useTransition()
+
+  // City assignment modal
+  const [cityAssignmentTarget, setCityAssignmentTarget] = useState<AdminUser | null>(null)
+  const [selectedCityIds, setSelectedCityIds] = useState<string[]>([])
+  const [cityAssignmentError, setCityAssignmentError] = useState('')
+  const [cityAssignmentPending, startCityAssignmentTransition] = useTransition()
 
   function refetch(opts: { search?: string; role?: AnyAdminRole | ''; status?: UserStatus | '' }) {
     const s = opts.search ?? search
@@ -92,6 +99,7 @@ export function AdminUsersClient({ initialAdmins, total }: { initialAdmins: Admi
     setFieldErrors({})
     setServerError('')
     setSuccess(null)
+    setProvisionCityIds([])
     setShowModal(true)
   }
 
@@ -122,6 +130,7 @@ export function AdminUsersClient({ initialAdmins, total }: { initialAdmins: Admi
         lastName: form.lastName.trim(),
         phone: form.phone.trim() || undefined,
         role: form.role as AdminRole,
+        cityIds: form.role === 'ADMIN' ? provisionCityIds : undefined,
       })
       if (res.error) { setServerError(res.error); toast.error(res.error); return }
       setSuccess(res.data!)
@@ -135,6 +144,14 @@ export function AdminUsersClient({ initialAdmins, total }: { initialAdmins: Admi
     setDeactivateError('')
   }
 
+  function toggleProvisionCity(cityId: string) {
+    setProvisionCityIds((current) => (
+      current.includes(cityId)
+        ? current.filter((id) => id !== cityId)
+        : [...current, cityId]
+    ))
+  }
+
   function handleDeactivate() {
     if (!deactivateTarget) return
     startDeactivateTransition(async () => {
@@ -143,6 +160,42 @@ export function AdminUsersClient({ initialAdmins, total }: { initialAdmins: Admi
       if (res.data) setAdmins(prev => prev.map(a => a.id === res.data!.id ? res.data! : a))
       setDeactivateTarget(null)
       toast.success('Admin deactivated.')
+    })
+  }
+
+  function openCityAssignment(admin: AdminUser) {
+    setCityAssignmentTarget(admin)
+    setSelectedCityIds(admin.assignedCities.map((city) => city.id))
+    setCityAssignmentError('')
+  }
+
+  function toggleCity(cityId: string) {
+    setSelectedCityIds((current) => (
+      current.includes(cityId)
+        ? current.filter((id) => id !== cityId)
+        : [...current, cityId]
+    ))
+  }
+
+  function saveCityAssignment() {
+    if (!cityAssignmentTarget) return
+    startCityAssignmentTransition(async () => {
+      const result = await updateAdminCities(cityAssignmentTarget.id, selectedCityIds)
+      if (result.error) {
+        setCityAssignmentError(result.error)
+        toast.error(result.error)
+        return
+      }
+
+      if (result.data) {
+        setAdmins((current) => current.map((admin) => (
+          admin.id === result.data!.adminId
+            ? { ...admin, assignedCities: result.data!.assignedCities }
+            : admin
+        )))
+      }
+      setCityAssignmentTarget(null)
+      toast.success('Admin city assignments updated.')
     })
   }
 
@@ -234,6 +287,7 @@ export function AdminUsersClient({ initialAdmins, total }: { initialAdmins: Admi
                 <tr>
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Admin</th>
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Role</th>
+                  <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Assigned Cities</th>
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Status</th>
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Phone</th>
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Last Login</th>
@@ -259,6 +313,23 @@ export function AdminUsersClient({ initialAdmins, total }: { initialAdmins: Admi
                         <span className={cn('rounded-full px-2.5 py-1 text-xs font-semibold', ROLE_COLORS[a.role])}>{ROLE_LABELS[a.role]}</span>
                       </td>
                       <td className="px-5 py-3.5">
+                        {a.assignedCities.length ? (
+                          <div className="flex min-w-44 flex-wrap gap-1.5">
+                            {a.assignedCities.map((city) => (
+                              <span
+                                key={city.id}
+                                title={`${city.name}, ${city.state}`}
+                                className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600"
+                              >
+                                {city.name}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-400">{a.role === 'SUPER_ADMIN' ? 'All cities' : '—'}</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3.5">
                         <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset', STATUS_STYLES[a.status])}>
                           <span className={cn('h-1.5 w-1.5 rounded-full', STATUS_DOT[a.status])} />
                           {formatStatus(a.status)}
@@ -271,16 +342,22 @@ export function AdminUsersClient({ initialAdmins, total }: { initialAdmins: Admi
                           : 'Never'}
                       </td>
                       <td className="px-5 py-3.5 text-right">
-                        {canDeactivate ? (
+                        <div className="flex justify-end gap-2">
                           <button
-                            onClick={() => openDeactivate(a)}
-                            className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 transition-colors"
+                            onClick={() => openCityAssignment(a)}
+                            className="rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition-colors"
                           >
-                            Deactivate
+                            Manage cities
                           </button>
-                        ) : (
-                          <span className="text-xs text-slate-300">—</span>
-                        )}
+                          {canDeactivate && (
+                            <button
+                              onClick={() => openDeactivate(a)}
+                              className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 transition-colors"
+                            >
+                              Deactivate
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   )
@@ -380,13 +457,17 @@ export function AdminUsersClient({ initialAdmins, total }: { initialAdmins: Admi
                     <div className="relative">
                       <select
                         value={form.role}
-                        onChange={(e) => setForm(f => ({ ...f, role: e.target.value as AdminRole }))}
+                        onChange={(e) => {
+                          const role = e.target.value as AdminRole
+                          setForm((current) => ({ ...current, role }))
+                          if (role === 'SUPER_ADMIN') setProvisionCityIds([])
+                        }}
                         className={cn('w-full appearance-none rounded-xl border px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer',
                           !form.role ? 'text-slate-400' : 'text-slate-900',
                           fieldErrors.role ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-slate-50')}
                       >
                         <option value="" disabled>Select a role…</option>
-                        {PROVISIONABLE.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+                        {PROVISIONABLE.map((role) => <option key={role} value={role}>{ROLE_LABELS[role]}</option>)}
                       </select>
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400">
                         <path fillRule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
@@ -394,6 +475,34 @@ export function AdminUsersClient({ initialAdmins, total }: { initialAdmins: Admi
                     </div>
                     {fieldErrors.role && <p className="mt-1 text-xs text-red-500">{fieldErrors.role}</p>}
                   </div>
+                  {form.role === 'ADMIN' ? (
+                  <div>
+                    <div className="flex items-center justify-between gap-3">
+                      <label className="block text-xs font-semibold text-slate-700">Assigned cities</label>
+                      <span className="text-xs text-slate-400">{provisionCityIds.length} selected</span>
+                    </div>
+                    <p className="mt-1 text-xs text-slate-500">Select the cities this admin can access.</p>
+                    <div className="mt-2 max-h-44 space-y-1 overflow-y-auto rounded-xl border border-slate-200 p-2">
+                      {cities.length === 0 ? (
+                        <p className="px-3 py-3 text-center text-xs text-slate-400">No active cities are available.</p>
+                      ) : cities.map((city) => (
+                        <label key={city.id} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 hover:bg-slate-50">
+                          <input
+                            type="checkbox"
+                            checked={provisionCityIds.includes(city.id)}
+                            onChange={() => toggleProvisionCity(city.id)}
+                            disabled={isPending}
+                            className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                          />
+                          <span className="text-sm font-medium text-slate-700">{city.name}</span>
+                          <span className="text-xs text-slate-400">{city.state}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  ) : form.role === 'SUPER_ADMIN' ? (
+                    <p className="rounded-xl bg-amber-50 px-3.5 py-3 text-xs text-amber-700">Super admins can access all cities and do not need city assignments.</p>
+                  ) : null}
                 </div>
                 {serverError && <p className="mt-4 rounded-xl bg-red-50 px-3 py-2.5 text-xs text-red-600">{serverError}</p>}
                 <div className="mt-6 flex justify-end gap-2">
@@ -414,6 +523,56 @@ export function AdminUsersClient({ initialAdmins, total }: { initialAdmins: Admi
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* City assignment modal */}
+      {cityAssignmentTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-base font-bold text-slate-900">Manage assigned cities</h3>
+            <p className="mt-1 text-sm text-slate-500">
+              Choose the cities <strong>{cityAssignmentTarget.firstName} {cityAssignmentTarget.lastName}</strong> can access. Saving replaces their full assignment list.
+            </p>
+            <div className="mt-5 max-h-72 space-y-2 overflow-y-auto rounded-xl border border-slate-200 p-2">
+              {cities.length === 0 ? (
+                <p className="px-3 py-5 text-center text-sm text-slate-400">No active cities are available.</p>
+              ) : cities.map((city) => {
+                const selected = selectedCityIds.includes(city.id)
+                return (
+                  <label key={city.id} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-slate-50">
+                    <input
+                      type="checkbox"
+                      checked={selected}
+                      onChange={() => toggleCity(city.id)}
+                      disabled={cityAssignmentPending}
+                      className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="text-sm font-medium text-slate-700">{city.name}</span>
+                    <span className="text-xs text-slate-400">{city.state}</span>
+                  </label>
+                )
+              })}
+            </div>
+            <p className="mt-3 text-xs text-slate-400">{selectedCityIds.length} {selectedCityIds.length === 1 ? 'city' : 'cities'} selected</p>
+            {cityAssignmentError && <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">{cityAssignmentError}</p>}
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setCityAssignmentTarget(null)}
+                disabled={cityAssignmentPending}
+                className="rounded-xl px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveCityAssignment}
+                disabled={cityAssignmentPending}
+                className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+              >
+                {cityAssignmentPending ? 'Saving…' : 'Save cities'}
+              </button>
+            </div>
           </div>
         </div>
       )}

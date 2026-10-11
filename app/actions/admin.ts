@@ -42,9 +42,18 @@ export interface RecentOrder {
   status: string
   total: number
   restaurantName: string | null
+  city: { id: string; name: string; state: string } | null
   createdAt: string
   customer: { id: string; firstName: string; lastName: string; email: string } | null
 }
+
+export interface UserCityStats {
+  cities: Array<{ cityId: string; name: string; state: string; count: number }>
+  unassigned: number
+  total: number
+}
+
+const ZERO_USER_CITY_STATS: UserCityStats = { cities: [], unassigned: 0, total: 0 }
 
 const ZERO_STATS: DashboardStats = {
   users: { total: 0, active: 0, newToday: 0, customers: 0, vendors: 0, riders: 0, drivers: 0 },
@@ -66,6 +75,14 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   }
 }
 
+export async function getUserCityStats(): Promise<UserCityStats> {
+  try {
+    return await apiFetch<UserCityStats>('/api/v1/users/stats/by-city', { token: await token() })
+  } catch {
+    return ZERO_USER_CITY_STATS
+  }
+}
+
 export async function getRecentOrders(limit = 8): Promise<RecentOrder[]> {
   try {
     const result = await apiFetch<{ orders: Record<string, unknown>[] }>(
@@ -80,6 +97,7 @@ export async function getRecentOrders(limit = 8): Promise<RecentOrder[]> {
         (o.pricing as { total?: number })?.total ?? o.total ?? 0
       ),
       restaurantName: (o.restaurantName ?? (o.vendor as { name?: string })?.name ?? null) as string | null,
+      city: (o.city as RecentOrder['city']) ?? null,
       createdAt: String(o.createdAt ?? ''),
       customer: o.customer as RecentOrder['customer'],
     }))

@@ -510,6 +510,8 @@ export interface CustomerSummary {
   emailVerified: boolean
   phoneVerified: boolean
   authProvider: string
+  city: Pick<City, 'id' | 'name'> | null
+  cityUpdatedAt: string | null
   createdAt: string
   lastLoginAt: string | null
   deletedAt: string | null
@@ -696,6 +698,7 @@ export interface OrderSummary {
   orderNumber: string
   status: OrderStatus
   paymentMethod: PaymentMethod
+  city: Pick<City, 'id' | 'name' | 'state'> | null
   customer: OrderCustomer
   vendor: OrderVendor
   items: OrderItem[]
@@ -743,6 +746,7 @@ export interface OrderDetail {
   status: OrderStatus
   paymentMethod: PaymentMethod
   paymentStatus: PaymentStatus
+  city: Pick<City, 'id' | 'name' | 'state'> | null
   subtotal: number
   deliveryFee: number
   serviceFee: number
@@ -899,6 +903,7 @@ export interface RideSummary {
   id: string
   trackingId: string
   status: RideStatus
+  city: Pick<City, 'id' | 'name' | 'state'> | null
   fare: number
   distance: number
   paymentMethod: string
@@ -1092,6 +1097,7 @@ export interface ParcelSummary {
   id: string
   trackingId: string
   status: ParcelStatus
+  city: Pick<City, 'id' | 'name' | 'state'> | null
   scheduledAt?: string | null
   size: ParcelSize
   fare: number | null
@@ -1266,7 +1272,7 @@ export interface BookingPropertyRef {
   name: string
   image: string | null
   address: string
-  city: { id: string; name: string }
+  city: Pick<City, 'id' | 'name' | 'state'>
 }
 
 export interface BookingSummary {
@@ -1287,6 +1293,7 @@ export interface BookingSummary {
   serviceFee: number
   total: number
   status: BookingStatus
+  city: Pick<City, 'id' | 'name' | 'state'> | null
   paymentMethod: string
   paymentStatus: PaymentStatus
   specialRequests: string | null

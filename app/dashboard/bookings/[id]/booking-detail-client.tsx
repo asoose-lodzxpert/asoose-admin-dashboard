@@ -117,6 +117,7 @@ export function BookingDetailClient({
             <DetailCard title="Booking Info">
               <InfoGrid>
                 <InfoRow label="Property" value={booking.property.name} />
+                <InfoRow label="City" value={booking.city?.name ?? booking.property.city?.name} />
                 <InfoRow label="Room Type" value={booking.roomTypeName} />
                 <InfoRow label="Check-in" value={formatDateOnly(booking.checkIn)} />
                 <InfoRow label="Check-out" value={formatDateOnly(booking.checkOut)} />

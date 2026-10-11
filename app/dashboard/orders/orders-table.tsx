@@ -166,6 +166,7 @@ export function OrdersTable({
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Status</th>
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Customer</th>
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Vendor</th>
+                  <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">City</th>
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Items</th>
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Total</th>
                   <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Payment</th>
@@ -216,6 +217,7 @@ export function OrdersTable({
                         <p className="text-slate-700 truncate">{order.vendor.name}</p>
                       </div>
                     </td>
+                    <td className="px-5 py-3.5 text-slate-500">{order.city?.name ?? '—'}</td>
                     <td className="px-5 py-3.5 text-slate-500">
                       {order.items.length} {order.items.length === 1 ? 'item' : 'items'}
                     </td>

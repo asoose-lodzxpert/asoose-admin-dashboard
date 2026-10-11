@@ -19,6 +19,7 @@ type CustomerListRole = Extract<UserRole, 'CUSTOMER' | 'RIDER' | 'DRIVER'>
 
 export async function getCustomers(params?: {
   role?: CustomerListRole
+  cityId?: string
   search?: string
   status?: UserStatus | ''
   page?: number
@@ -29,6 +30,7 @@ export async function getCustomers(params?: {
     q.set('role', params?.role ?? 'CUSTOMER')
     q.set('page', String(params?.page ?? 1))
     q.set('limit', String(params?.limit ?? 20))
+    if (params?.cityId) q.set('cityId', params.cityId)
     if (params?.search) q.set('search', params.search)
     if (params?.status) q.set('status', params.status)
     const result = await apiFetch<{ users: CustomerSummary[]; pagination: Pagination }>(
