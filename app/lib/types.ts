@@ -1002,6 +1002,23 @@ export interface AccommodationPricing {
   updatedAt?: string
 }
 
+export interface CitySurcharge {
+  cityId: string
+  cityName: string
+  timezone: string
+  nightEnabled: boolean
+  nightStart: string
+  nightEnd: string
+  nightMultiplier: number
+  rainMultiplier: number
+  rainActiveUntil: string | null
+  current: {
+    active: boolean
+    multiplier: number
+    reason: 'NIGHT' | 'RAIN' | null
+  }
+}
+
 export interface PopularRoute {
   id: string
   cityId: string

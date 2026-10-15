@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useTransition, useRef } from 'react'
+import { useState, useEffect, useTransition, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/app/lib/utils'
 import { ImageUploader } from '@/app/components/ui/image-uploader'
@@ -9,10 +9,11 @@ import {
   adminProvisionVendor,
   getPublicStoreTypes,
   getBanks,
-  resolveCity,
   resolveBankAccount,
 } from '@/app/actions/partner-provision'
 import type { AdminProvisionResult } from '@/app/actions/partner-provision'
+import { GoogleLocationPicker, type SelectedPropertyOwnerLocation } from '../../../properties/[id]/google-location-picker'
+import type { City } from '@/app/lib/types'
 
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'] as const
 const DAY_LABELS: Record<string, string> = {
@@ -41,6 +42,12 @@ const INIT_VENDOR: VendorForm = {
   businessName: '', businessType: '', businessPhone: '', businessEmail: '',
   businessDescription: '', addressLine: '', latitude: '', longitude: '',
   accountNumber: '', accountName: '', operatingHours: DEFAULT_HOURS,
+}
+
+const PHONE_PATTERN = /^0\d{10}$/
+
+function normalizePhone(value: string) {
+  return value.replace(/\D/g, '').slice(0, 11)
 }
 
 function FieldError({ msg }: { msg?: string }) {
@@ -133,7 +140,13 @@ function BankCombobox({
   )
 }
 
-export function VendorCreateClient() {
+export function VendorCreateClient({
+  cities,
+  googleMapsApiKey,
+}: {
+  cities: City[]
+  googleMapsApiKey: string
+}) {
   const router = useRouter()
   const toast = useToast()
   const [step, setStep] = useState<1 | 2 | 3>(1)
@@ -148,9 +161,7 @@ export function VendorCreateClient() {
   const [storeTypes, setStoreTypes] = useState<{ id: string; name: string; code: string }[]>([])
   const [banks, setBanks] = useState<{ name: string; code: string }[]>([])
   const [selectedBank, setSelectedBank] = useState<{ name: string; code: string } | null>(null)
-  const [resolvedCity, setResolvedCity] = useState<{ name: string; state: string; country: string | null } | null>(null)
-  const [resolvingCity, setResolvingCity] = useState(false)
-  const [cityError, setCityError] = useState('')
+  const [selectedCityId, setSelectedCityId] = useState('')
   const [verifyingAccount, setVerifyingAccount] = useState(false)
   const [accountVerifyError, setAccountVerifyError] = useState('')
   const [logoUrls, setLogoUrls] = useState<string[]>([])
@@ -175,23 +186,23 @@ export function VendorCreateClient() {
   function setA(k: keyof AccountForm, v: string) { setAccount((p) => ({ ...p, [k]: v })) }
   function setV(k: keyof VendorForm, v: unknown) { setVendor((p) => ({ ...p, [k]: v })) }
 
-  async function handleResolveCity() {
-    const lat = Number(vendor.latitude)
-    const lon = Number(vendor.longitude)
-    if (!vendor.latitude || !vendor.longitude || isNaN(lat) || isNaN(lon)) {
-      setCityError('Enter valid lat/lon first')
-      return
-    }
-    setResolvingCity(true)
-    setCityError('')
-    const r = await resolveCity(lat, lon)
-    setResolvingCity(false)
-    if (r.data?.city) {
-      setResolvedCity(r.data.city)
-    } else {
-      setCityError(r.error ?? (r.data?.serviceAvailable === false ? 'No service area at these coordinates' : 'Could not resolve city'))
-    }
-  }
+  const selectedCity = cities.find((city) => city.id === selectedCityId) ?? null
+
+  const handleLocationSelect = useCallback((location: SelectedPropertyOwnerLocation) => {
+    setVendor((previous) => ({
+      ...previous,
+      addressLine: location.street || location.address,
+      latitude: String(location.latitude),
+      longitude: String(location.longitude),
+    }))
+    setVendorErrors((previous) => ({
+      ...previous,
+      addressLine: undefined,
+      latitude: undefined,
+      longitude: undefined,
+      city: undefined,
+    }))
+  }, [])
 
   function validateAccount(): boolean {
     const errs: Partial<AccountForm> = {}
@@ -199,6 +210,7 @@ export function VendorCreateClient() {
     if (!account.lastName.trim()) errs.lastName = 'Required'
     if (!account.email.trim()) errs.email = 'Required'
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(account.email)) errs.email = 'Invalid email'
+    if (account.phone.trim() && !PHONE_PATTERN.test(account.phone)) errs.phone = 'Enter a valid phone number'
     setAccountErrors(errs)
     return Object.keys(errs).length === 0
   }
@@ -208,11 +220,12 @@ export function VendorCreateClient() {
     if (!vendor.businessName.trim()) errs.businessName = 'Required'
     if (!vendor.businessType) errs.businessType = 'Required'
     if (!vendor.businessPhone.trim()) errs.businessPhone = 'Required'
+    else if (!PHONE_PATTERN.test(vendor.businessPhone)) errs.businessPhone = 'Enter a valid phone number'
     if (!vendor.businessEmail.trim()) errs.businessEmail = 'Required'
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(vendor.businessEmail)) errs.businessEmail = 'Invalid email'
     if (!vendor.latitude || isNaN(Number(vendor.latitude))) errs.latitude = 'Valid number required'
     if (!vendor.longitude || isNaN(Number(vendor.longitude))) errs.longitude = 'Valid number required'
-    if (!resolvedCity) errs.city = 'Resolve city from coordinates first'
+    if (!selectedCity) errs.city = 'Select a city'
     if (!selectedBank) errs.bank = 'Select a bank'
     if (!/^\d{10}$/.test(vendor.accountNumber)) errs.accountNumber = 'Must be 10 digits'
     if (!vendor.accountName.trim()) errs.accountName = verifyingAccount ? 'Verifying…' : 'Required — verify account number'
@@ -241,9 +254,9 @@ export function VendorCreateClient() {
           ...(vendor.businessDescription.trim() ? { businessDescription: vendor.businessDescription.trim() } : {}),
           address: {
             ...(vendor.addressLine.trim() ? { street: vendor.addressLine.trim() } : {}),
-            city: resolvedCity!.name,
-            state: resolvedCity!.state,
-            country: resolvedCity!.country ?? 'Nigeria',
+            city: selectedCity!.name,
+            state: selectedCity!.state,
+            country: selectedCity!.country || 'Nigeria',
             latitude: Number(vendor.latitude),
             longitude: Number(vendor.longitude),
           },
@@ -290,7 +303,16 @@ export function VendorCreateClient() {
             <Input label="Last name" required placeholder="Obi" value={account.lastName} onChange={(e) => setA('lastName', e.target.value)} error={accountErrors.lastName} />
           </div>
           <Input label="Email" required type="email" placeholder="vendor@example.com" value={account.email} onChange={(e) => setA('email', e.target.value)} error={accountErrors.email} />
-          <Input label="Phone" placeholder="+2348012345678" value={account.phone} onChange={(e) => setA('phone', e.target.value)} />
+          <Input
+            label="Phone"
+            type="tel"
+            inputMode="tel"
+            maxLength={11}
+            placeholder="08012345678"
+            value={account.phone}
+            onChange={(e) => setA('phone', normalizePhone(e.target.value))}
+            error={accountErrors.phone}
+          />
           <div className="pt-2 flex justify-end">
             <button onClick={handleNext} className="rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors">
               Continue →
@@ -327,7 +349,17 @@ export function VendorCreateClient() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <Input label="Business phone" required placeholder="+2348012345678" value={vendor.businessPhone} onChange={(e) => setV('businessPhone', e.target.value)} error={vendorErrors.businessPhone} />
+              <Input
+                label="Business phone"
+                required
+                type="tel"
+                inputMode="tel"
+                maxLength={11}
+                placeholder="08012345678"
+                value={vendor.businessPhone}
+                onChange={(e) => setV('businessPhone', normalizePhone(e.target.value))}
+                error={vendorErrors.businessPhone}
+              />
               <Input label="Business email" required type="email" placeholder="hello@kitchen.com" value={vendor.businessEmail} onChange={(e) => setV('businessEmail', e.target.value)} error={vendorErrors.businessEmail} />
             </div>
             <div>
@@ -345,39 +377,30 @@ export function VendorCreateClient() {
           {/* Location */}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
             <SectionLabel>Location</SectionLabel>
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                label="Latitude" required type="number" step="any" placeholder="6.5244"
-                value={vendor.latitude}
-                onChange={(e) => { setV('latitude', e.target.value); setResolvedCity(null); setCityError('') }}
-                error={vendorErrors.latitude}
-              />
-              <Input
-                label="Longitude" required type="number" step="any" placeholder="3.3792"
-                value={vendor.longitude}
-                onChange={(e) => { setV('longitude', e.target.value); setResolvedCity(null); setCityError('') }}
-                error={vendorErrors.longitude}
-              />
-            </div>
-            <div className="flex items-start gap-3">
-              <button
-                type="button"
-                onClick={handleResolveCity}
-                disabled={resolvingCity}
-                className="shrink-0 rounded-xl bg-slate-700 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 transition-colors disabled:opacity-50"
+            <p className="text-xs text-slate-500">Search for an address, click the map, or drag the pin to set the business location.</p>
+            <GoogleLocationPicker
+              apiKey={googleMapsApiKey}
+              latitude={vendor.latitude ? Number(vendor.latitude) : null}
+              longitude={vendor.longitude ? Number(vendor.longitude) : null}
+              onSelect={handleLocationSelect}
+              error={vendorErrors.latitude || vendorErrors.longitude}
+            />
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">City <span className="text-red-500">*</span></label>
+              <select
+                value={selectedCityId}
+                onChange={(e) => { setSelectedCityId(e.target.value); setVendorErrors((previous) => ({ ...previous, city: undefined })) }}
+                className={cn(
+                  'w-full rounded-xl border px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500',
+                  vendorErrors.city ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-slate-50'
+                )}
               >
-                {resolvingCity ? 'Resolving…' : 'Resolve City'}
-              </button>
-              {resolvedCity && (
-                <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-3.5 py-2 text-sm">
-                  <p className="font-semibold text-emerald-800">{resolvedCity.name}</p>
-                  <p className="text-xs text-emerald-600">{resolvedCity.state}{resolvedCity.country ? `, ${resolvedCity.country}` : ''}</p>
-                </div>
-              )}
-              {cityError && <p className="text-sm text-red-500 pt-2">{cityError}</p>}
+                <option value="">{cities.length === 0 ? 'No active cities available' : 'Select city…'}</option>
+                {cities.map((city) => <option key={city.id} value={city.id}>{city.name}, {city.state}</option>)}
+              </select>
+              <FieldError msg={vendorErrors.city} />
             </div>
-            {vendorErrors.city && <FieldError msg={vendorErrors.city} />}
-            <Input label="Address line (optional)" placeholder="12 Allen Avenue" value={vendor.addressLine} onChange={(e) => setV('addressLine', e.target.value)} />
+            <Input label="Address line" placeholder="Set from the map or enter a street address" value={vendor.addressLine} onChange={(e) => setV('addressLine', e.target.value)} />
           </div>
 
           {/* Operating Hours */}

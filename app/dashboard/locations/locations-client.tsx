@@ -12,6 +12,7 @@ import type {
   CityPricing,
   ParcelPricing,
   AccommodationPricing,
+  CitySurcharge,
 } from '@/app/lib/types'
 import {
   getPopularRoutes,
@@ -23,12 +24,16 @@ import {
   updateParcelPricing,
   getAccommodationPricing,
   updateAccommodationPricing,
+  getCitySurcharge,
+  updateCitySurcharge,
+  startRainSurcharge,
+  endRainSurcharge,
 } from '@/app/actions/cities'
 
 const INPUT_CLS =
   'w-full rounded-xl border-0 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow'
 
-type Tab = 'routes' | 'pricing' | 'parcel-pricing' | 'accommodation-pricing'
+type Tab = 'routes' | 'pricing' | 'parcel-pricing' | 'accommodation-pricing' | 'surcharges'
 
 /* ─── Route form ──────────────────────────────────────── */
 
@@ -136,6 +141,34 @@ const EMPTY_ACCOMMODATION_PRICING_FORM: AccommodationPricingForm = {
   isActive: true,
 }
 
+/* ─── Surcharge form ─────────────────────────────────── */
+
+interface SurchargeForm {
+  nightEnabled: boolean
+  nightStart: string
+  nightEnd: string
+  nightMultiplier: string
+  rainMultiplier: string
+}
+
+function surchargeToForm(surcharge: CitySurcharge): SurchargeForm {
+  return {
+    nightEnabled: surcharge.nightEnabled,
+    nightStart: surcharge.nightStart,
+    nightEnd: surcharge.nightEnd,
+    nightMultiplier: String(surcharge.nightMultiplier),
+    rainMultiplier: String(surcharge.rainMultiplier),
+  }
+}
+
+const EMPTY_SURCHARGE_FORM: SurchargeForm = {
+  nightEnabled: false,
+  nightStart: '22:00',
+  nightEnd: '05:00',
+  nightMultiplier: '1',
+  rainMultiplier: '1',
+}
+
 /* ─── Component ───────────────────────────────────────── */
 
 export function LocationsClient({ initialCities }: { initialCities: City[] }) {
@@ -171,6 +204,14 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
   const [accommodationPricingError, setAccommodationPricingError] = useState('')
   const [accommodationPricingSuccess, setAccommodationPricingSuccess] = useState(false)
 
+  /* surcharge state */
+  const [surchargeLoaded, setSurchargeLoaded] = useState(false)
+  const [surcharge, setSurcharge] = useState<CitySurcharge | null>(null)
+  const [surchargeForm, setSurchargeForm] = useState<SurchargeForm>(EMPTY_SURCHARGE_FORM)
+  const [surchargeError, setSurchargeError] = useState('')
+  const [surchargeSuccess, setSurchargeSuccess] = useState(false)
+  const [rainDuration, setRainDuration] = useState('120')
+
   const [isPending, startTransition] = useTransition()
 
   /* ── city selection ────────────────────────────────── */
@@ -192,6 +233,12 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
     setAccommodationPricingForm(EMPTY_ACCOMMODATION_PRICING_FORM)
     setAccommodationPricingError('')
     setAccommodationPricingSuccess(false)
+    setSurchargeLoaded(false)
+    setSurcharge(null)
+    setSurchargeForm(EMPTY_SURCHARGE_FORM)
+    setSurchargeError('')
+    setSurchargeSuccess(false)
+    setRainDuration('120')
     // Load the active tab's data
     loadTabData(city, activeTab)
   }
@@ -225,6 +272,13 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
         )
         setAccommodationPricingLoaded(true)
       })
+    } else if (tab === 'surcharges' && !surchargeLoaded) {
+      startTransition(async () => {
+        const data = await getCitySurcharge(selectedCity.id)
+        setSurcharge(data)
+        setSurchargeForm(data ? surchargeToForm(data) : EMPTY_SURCHARGE_FORM)
+        setSurchargeLoaded(true)
+      })
     }
   }
 
@@ -254,6 +308,13 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
           data ? accommodationPricingToForm(data) : EMPTY_ACCOMMODATION_PRICING_FORM
         )
         setAccommodationPricingLoaded(true)
+      })
+    } else if (tab === 'surcharges') {
+      startTransition(async () => {
+        const data = await getCitySurcharge(city.id)
+        setSurcharge(data)
+        setSurchargeForm(data ? surchargeToForm(data) : EMPTY_SURCHARGE_FORM)
+        setSurchargeLoaded(true)
       })
     }
   }
@@ -470,6 +531,75 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
     })
   }
 
+  /* ── surcharge actions ─────────────────────────────── */
+
+  function setSurchargeField(key: keyof SurchargeForm, value: string | boolean) {
+    setSurchargeForm((prev) => ({ ...prev, [key]: value }))
+    setSurchargeError('')
+    setSurchargeSuccess(false)
+  }
+
+  function handleSaveSurcharge() {
+    if (!selectedCity || !surcharge) return
+    const nightMultiplier = parseFloat(surchargeForm.nightMultiplier)
+    const rainMultiplier = parseFloat(surchargeForm.rainMultiplier)
+    if (!Number.isFinite(nightMultiplier) || nightMultiplier < 1) {
+      setSurchargeError('Night multiplier must be at least 1.')
+      return
+    }
+    if (!Number.isFinite(rainMultiplier) || rainMultiplier < 1) {
+      setSurchargeError('Rain multiplier must be at least 1.')
+      return
+    }
+    if (!/^\d{2}:\d{2}$/.test(surchargeForm.nightStart) || !/^\d{2}:\d{2}$/.test(surchargeForm.nightEnd)) {
+      setSurchargeError('Enter valid night start and end times.')
+      return
+    }
+    startTransition(async () => {
+      const res = await updateCitySurcharge(selectedCity.id, {
+        timezone: surcharge.timezone,
+        nightEnabled: surchargeForm.nightEnabled,
+        nightStart: surchargeForm.nightStart,
+        nightEnd: surchargeForm.nightEnd,
+        nightMultiplier,
+        rainMultiplier,
+      })
+      if (res.error) { setSurchargeError(res.error); toast.error(res.error); return }
+      const data = res.data as CitySurcharge
+      setSurcharge(data)
+      setSurchargeForm(surchargeToForm(data))
+      setSurchargeSuccess(true)
+      toast.success('City surcharge settings saved.')
+    })
+  }
+
+  function handleStartRainSurcharge() {
+    if (!selectedCity) return
+    const durationMinutes = Number(rainDuration)
+    if (!Number.isInteger(durationMinutes) || durationMinutes <= 0) {
+      setSurchargeError('Rain surcharge duration must be a whole number of minutes.')
+      return
+    }
+    startTransition(async () => {
+      const res = await startRainSurcharge(selectedCity.id, durationMinutes)
+      if (res.error) { setSurchargeError(res.error); toast.error(res.error); return }
+      setSurcharge(res.data as CitySurcharge)
+      setSurchargeSuccess(false)
+      toast.success('Rain surcharge started.')
+    })
+  }
+
+  function handleEndRainSurcharge() {
+    if (!selectedCity) return
+    startTransition(async () => {
+      const res = await endRainSurcharge(selectedCity.id)
+      if (res.error) { setSurchargeError(res.error); toast.error(res.error); return }
+      setSurcharge(res.data as CitySurcharge)
+      setSurchargeSuccess(false)
+      toast.success('Rain surcharge ended.')
+    })
+  }
+
   /* ── render ────────────────────────────────────────── */
 
   return (
@@ -566,6 +696,11 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
                       Save Accommodation Pricing
                     </Button>
                   )}
+                  {activeTab === 'surcharges' && (
+                    <Button size="sm" loading={isPending} onClick={handleSaveSurcharge}>
+                      Save Surcharges
+                    </Button>
+                  )}
                 </div>
                 <div className="flex gap-1">
                   {([
@@ -573,6 +708,7 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
                     ['pricing', 'Ride Pricing'],
                     ['parcel-pricing', 'Parcel Pricing'],
                     ['accommodation-pricing', 'Accommodation Pricing'],
+                    ['surcharges', 'Surcharges'],
                   ] as [Tab, string][]).map(([tab, label]) => (
                     <button
                       key={tab}
@@ -628,6 +764,21 @@ export function LocationsClient({ initialCities }: { initialCities: City[] }) {
                       setAccommodationPricingError('')
                       setAccommodationPricingSuccess(false)
                     }}
+                  />
+                )}
+                {activeTab === 'surcharges' && (
+                  <SurchargesTab
+                    form={surchargeForm}
+                    surcharge={surcharge}
+                    loaded={surchargeLoaded}
+                    isPending={isPending}
+                    error={surchargeError}
+                    success={surchargeSuccess}
+                    rainDuration={rainDuration}
+                    onChange={setSurchargeField}
+                    onRainDurationChange={(value) => { setRainDuration(value); setSurchargeError('') }}
+                    onStartRain={handleStartRainSurcharge}
+                    onEndRain={handleEndRainSurcharge}
                   />
                 )}
               </div>
@@ -1058,6 +1209,74 @@ function AccommodationPricingTab({
       </div>
     </div>
   )
+}
+
+/* ─── Surcharges tab ─────────────────────────────────── */
+
+function SurchargesTab({
+  form, surcharge, loaded, isPending, error, success, rainDuration,
+  onChange, onRainDurationChange, onStartRain, onEndRain,
+}: {
+  form: SurchargeForm
+  surcharge: CitySurcharge | null
+  loaded: boolean
+  isPending: boolean
+  error: string
+  success: boolean
+  rainDuration: string
+  onChange: (key: keyof SurchargeForm, value: string | boolean) => void
+  onRainDurationChange: (value: string) => void
+  onStartRain: () => void
+  onEndRain: () => void
+}) {
+  if (isPending && !loaded) return <Spinner />
+  if (!loaded) return <div className="flex items-center justify-center py-16"><p className="text-sm text-slate-400">Loading surcharge settings…</p></div>
+  if (!surcharge) return <div className="px-6 py-6"><div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">Surcharge settings could not be loaded for this city.</div></div>
+
+  const rainIsActive = surcharge.rainActiveUntil !== null
+  const statusLabel = surcharge.current.active ? `${surcharge.current.reason === 'RAIN' ? 'Rain' : 'Night'} surcharge active` : 'No surcharge active'
+
+  return (
+    <div className="space-y-6 px-6 py-6">
+      {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
+      {success && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">Surcharge settings saved successfully.</div>}
+      <div className={cn('flex flex-wrap items-center justify-between gap-4 rounded-xl border px-4 py-3', surcharge.current.active ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-slate-50')}>
+        <div>
+          <p className="text-sm font-semibold text-slate-800">{statusLabel}</p>
+          <p className="mt-0.5 text-xs text-slate-500">Current multiplier: <span className="font-semibold text-slate-700">{surcharge.current.multiplier}×</span>{surcharge.rainActiveUntil && ` · Rain ends ${new Date(surcharge.rainActiveUntil).toLocaleString(undefined, { timeZone: surcharge.timezone })}`}</p>
+        </div>
+        <span className={cn('inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset', surcharge.current.active ? 'bg-amber-100 text-amber-800 ring-amber-600/20' : 'bg-slate-100 text-slate-600 ring-slate-500/20')}>{surcharge.current.active ? 'Active' : 'Inactive'}</span>
+      </div>
+      <section>
+        <div className="mb-3"><h3 className="text-sm font-semibold text-slate-900">Night surcharge</h3><p className="mt-0.5 text-xs text-slate-500">Timezone: {surcharge.timezone} (fixed for this city).</p></div>
+        <div className="rounded-xl border border-slate-200 p-4">
+          <div className="mb-5 flex items-center justify-between gap-4">
+            <div><p className="text-sm font-medium text-slate-800">Enable night surcharge</p><p className="mt-0.5 text-xs text-slate-500">Automatically apply the multiplier during the configured hours.</p></div>
+            <button type="button" role="switch" aria-checked={form.nightEnabled} disabled={isPending} onClick={() => onChange('nightEnabled', !form.nightEnabled)} className={cn('relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-60', form.nightEnabled ? 'bg-indigo-600' : 'bg-slate-300')}><span className={cn('mt-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform', form.nightEnabled ? 'translate-x-5' : 'translate-x-0.5')} /><span className="sr-only">{form.nightEnabled ? 'Disable' : 'Enable'} night surcharge</span></button>
+          </div>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+            <SurchargeInput label="Starts at" type="time" value={form.nightStart} disabled={isPending} onChange={(value) => onChange('nightStart', value)} />
+            <SurchargeInput label="Ends at" type="time" value={form.nightEnd} disabled={isPending} onChange={(value) => onChange('nightEnd', value)} />
+            <SurchargeInput label="Night multiplier" value={form.nightMultiplier} suffix="×" disabled={isPending} onChange={(value) => onChange('nightMultiplier', value)} />
+          </div>
+        </div>
+      </section>
+      <section>
+        <div className="mb-3"><h3 className="text-sm font-semibold text-slate-900">Rain surcharge</h3><p className="mt-0.5 text-xs text-slate-500">Start a temporary surcharge when weather conditions require it.</p></div>
+        <div className="rounded-xl border border-slate-200 p-4">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <SurchargeInput label="Rain multiplier" value={form.rainMultiplier} suffix="×" disabled={isPending} onChange={(value) => onChange('rainMultiplier', value)} />
+            <SurchargeInput label="Duration" type="number" min="1" value={rainDuration} suffix="minutes" disabled={isPending || rainIsActive} onChange={onRainDurationChange} />
+          </div>
+          <div className="mt-5 flex justify-end">{rainIsActive ? <Button variant="danger" size="sm" loading={isPending} onClick={onEndRain}>End Rain Surcharge</Button> : <Button size="sm" loading={isPending} onClick={onStartRain}>Start Rain Surcharge</Button>}</div>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function SurchargeInput({ label, value, onChange, suffix, type = 'number', min, disabled }: { label: string; value: string; onChange: (value: string) => void; suffix?: string; type?: 'number' | 'time'; min?: string; disabled: boolean }) {
+  return <div><label className="mb-1.5 flex items-center gap-1 text-[13px] font-medium text-slate-700">{label}{suffix && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">{suffix}</span>}</label><input type={type} step={type === 'number' ? 'any' : undefined} min={min} value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)} className={INPUT_CLS} /></div>
 }
 
 /* ─── Shared ──────────────────────────────────────────── */

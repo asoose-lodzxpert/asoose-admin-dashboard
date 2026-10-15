@@ -9,6 +9,7 @@ import type {
   CityPricing,
   ParcelPricing,
   AccommodationPricing,
+  CitySurcharge,
 } from '@/app/lib/types'
 
 type ActionResult<T> = { data: T; error?: never } | { error: string; data?: never }
@@ -222,6 +223,77 @@ export async function updateAccommodationPricing(
         ? err.message
         : 'Failed to update accommodation pricing.',
     }
+  }
+}
+
+export async function getCitySurcharge(cityId: string): Promise<CitySurcharge | null> {
+  try {
+    return await apiFetch<CitySurcharge>(
+      `/api/v1/locations/${encodeURIComponent(cityId)}/surcharge`,
+      { token: await token() }
+    )
+  } catch {
+    return null
+  }
+}
+
+export async function updateCitySurcharge(
+  cityId: string,
+  payload: {
+    timezone: string
+    nightEnabled: boolean
+    nightStart: string
+    nightEnd: string
+    nightMultiplier: number
+    rainMultiplier: number
+  }
+): Promise<ActionResult<CitySurcharge>> {
+  try {
+    const data = await apiFetch<CitySurcharge>(
+      `/api/v1/locations/${encodeURIComponent(cityId)}/surcharge`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+        token: await token(),
+      }
+    )
+    revalidatePath('/dashboard/locations')
+    return { data }
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'Failed to update city surcharge.' }
+  }
+}
+
+export async function startRainSurcharge(
+  cityId: string,
+  durationMinutes: number
+): Promise<ActionResult<CitySurcharge>> {
+  try {
+    const data = await apiFetch<CitySurcharge>(
+      `/api/v1/locations/${encodeURIComponent(cityId)}/surcharge/rain`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ durationMinutes }),
+        token: await token(),
+      }
+    )
+    revalidatePath('/dashboard/locations')
+    return { data }
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'Failed to start rain surcharge.' }
+  }
+}
+
+export async function endRainSurcharge(cityId: string): Promise<ActionResult<CitySurcharge>> {
+  try {
+    const data = await apiFetch<CitySurcharge>(
+      `/api/v1/locations/${encodeURIComponent(cityId)}/surcharge/rain`,
+      { method: 'DELETE', token: await token() }
+    )
+    revalidatePath('/dashboard/locations')
+    return { data }
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'Failed to end rain surcharge.' }
   }
 }
 
