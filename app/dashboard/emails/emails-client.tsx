@@ -5,7 +5,7 @@ import { cn } from '@/app/lib/utils'
 import { sendBroadcastEmail } from '@/app/actions/notifications'
 import { getCustomers } from '@/app/actions/customers'
 import type { NotificationAudience, EmailBroadcastResult } from '@/app/actions/notifications'
-import type { CustomerSummary, UserStatus } from '@/app/lib/types'
+import type { City, CustomerSummary, UserStatus } from '@/app/lib/types'
 import { RichTextEditor } from '@/app/components/ui/rich-text-editor'
 import { useToast } from '@/app/components/ui/toast'
 
@@ -129,9 +129,10 @@ function buildPreviewHtml(heading: string, body: string, subject: string): strin
 </html>`
 }
 
-export function EmailBroadcastClient() {
+export function EmailBroadcastClient({ cities }: { cities: City[] }) {
   const toast = useToast()
   const [audience, setAudience] = useState<NotificationAudience>('ALL')
+  const [cityId, setCityId] = useState<string | null>(null)
   const [status, setStatus] = useState<UserStatus | ''>('')
   const [emailVerified, setEmailVerified] = useState<VerificationFilter>(null)
   const [phoneVerified, setPhoneVerified] = useState<VerificationFilter>(null)
@@ -161,7 +162,7 @@ export function EmailBroadcastClient() {
 
   function reset() {
     setSubject(''); setHeading(''); setBody('')
-    setAudience('ALL'); setStatus('')
+    setAudience('ALL'); setCityId(null); setStatus('')
     setEmailVerified(null); setPhoneVerified(null)
     setCustomerQuery(''); setCustomerResults([]); setCustomerResultTotal(0)
     setIsCustomerSearchQueued(false)
@@ -188,6 +189,7 @@ export function EmailBroadcastClient() {
     startTransition(async () => {
       const res = await sendBroadcastEmail({
         audience,
+        cityId,
         ...(status ? { status } : {}),
         ...(selectedCustomer ? { search: selectedCustomer.email } : {}),
         // a single selected customer ignores the verification filters
@@ -204,6 +206,9 @@ export function EmailBroadcastClient() {
   }
 
   const audienceLabel = AUDIENCES.find(a => a.value === audience)?.label ?? 'Everyone'
+  const cityLabel = cityId
+    ? cities.find((city) => city.id === cityId)?.name ?? 'Selected city'
+    : 'All allowed cities'
   const verificationLabels = [
     emailVerified === true ? 'email verified' : emailVerified === false ? 'email not verified' : null,
     phoneVerified === true ? 'phone verified' : phoneVerified === false ? 'phone not verified' : null,
@@ -214,10 +219,10 @@ export function EmailBroadcastClient() {
       ? `${STATUSES.find((option) => option.value === status)?.label ?? status} ${audienceLabel}`
       : audienceLabel
   const recipientSummary = verificationLabels.length
-    ? `${recipientLabel} · ${verificationLabels.join(' · ')}`
-    : recipientLabel
+    ? `${recipientLabel} · ${cityLabel} · ${verificationLabels.join(' · ')}`
+    : `${recipientLabel} · ${cityLabel}`
   const isCustomerSearchBusy = isCustomerSearchQueued || isSearchingCustomers
-  const hasFilters = status !== '' || emailVerified !== null || phoneVerified !== null
+  const hasFilters = cityId !== null || status !== '' || emailVerified !== null || phoneVerified !== null
 
   function changeStatus(nextStatus: UserStatus | '') {
     setStatus(nextStatus)
@@ -227,6 +232,7 @@ export function EmailBroadcastClient() {
   }
 
   function clearFilters() {
+    setCityId(null)
     changeStatus('')
     setEmailVerified(null)
     setPhoneVerified(null)
@@ -342,7 +348,24 @@ export function EmailBroadcastClient() {
               })}
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label htmlFor="filter-city" className="mb-1.5 block text-xs font-medium text-slate-600">City</label>
+                <select
+                  id="filter-city"
+                  value={cityId ?? ''}
+                  onChange={(event) => setCityId(event.target.value || null)}
+                  className={FILTER_SELECT_CLASS}
+                >
+                  <option value="">All allowed cities</option>
+                  {cities.map((city) => (
+                    <option key={city.id} value={city.id}>
+                      {city.name}{city.state ? `, ${city.state}` : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-[11px] text-slate-400">Choose a city or leave this set to all allowed cities.</p>
+              </div>
               <div>
                 <label htmlFor="filter-status" className="mb-1.5 block text-xs font-medium text-slate-600">Account status</label>
                 <select

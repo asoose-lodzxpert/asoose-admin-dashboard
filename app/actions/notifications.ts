@@ -95,6 +95,7 @@ export interface EmailBroadcastResult {
 
 export async function sendBroadcastEmail(payload: {
   audience: NotificationAudience
+  cityId?: string | null
   status?: UserStatus
   search?: string
   emailVerified?: boolean | null
@@ -106,6 +107,7 @@ export async function sendBroadcastEmail(payload: {
   try {
     const body: Record<string, unknown> = {
       audience: payload.audience,
+      cityId: payload.cityId ?? null,
       subject: payload.subject,
       heading: payload.heading,
       body: payload.body,
