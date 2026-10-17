@@ -307,7 +307,7 @@ export function DriverDetailClient({ driver: initial, vehicleTypes, vehicleBrand
                 <InfoRow label="Active" value={driver.isActive ? 'Yes' : 'No'} />
                 <InfoRow label="Email Verified" value={driver.emailVerified ? 'Yes' : 'No'} />
                 <InfoRow label="Phone Verified" value={driver.phoneVerified ? 'Yes' : 'No'} />
-                <InfoRow label="City ID" value={driver.cityId} />
+                <InfoRow label="City" value={driver.cityName} />
                 <InfoRow
                   label="Last Login"
                   value={driver.lastLoginAt

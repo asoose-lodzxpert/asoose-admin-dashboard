@@ -3,8 +3,8 @@
 import { useState, useTransition, useRef } from 'react'
 import { cn } from '@/app/lib/utils'
 import { useToast } from '@/app/components/ui/toast'
-import { provisionAdmin, getAdmins, deactivateAdmin, updateAdminCities } from '@/app/actions/admin-users'
-import type { AdminRole, AnyAdminRole, AdminUser, ProvisionResult } from '@/app/actions/admin-users'
+import { provisionAdmin, getAdmins, deactivateAdmin, resetAdminPassword, updateAdminCities } from '@/app/actions/admin-users'
+import type { AdminRole, AnyAdminRole, AdminUser, ProvisionResult, AdminPasswordResetResult } from '@/app/actions/admin-users'
 import type { City, UserStatus } from '@/app/lib/types'
 
 const ROLE_LABELS: Record<AnyAdminRole, string> = {
@@ -69,6 +69,12 @@ export function AdminUsersClient({ initialAdmins, total, cities }: { initialAdmi
   const [deactivateReason, setDeactivateReason] = useState('')
   const [deactivateError, setDeactivateError] = useState('')
   const [deactivatePending, startDeactivateTransition] = useTransition()
+
+  // Password reset modal
+  const [passwordResetTarget, setPasswordResetTarget] = useState<AdminUser | null>(null)
+  const [passwordResetResult, setPasswordResetResult] = useState<AdminPasswordResetResult | null>(null)
+  const [passwordResetError, setPasswordResetError] = useState('')
+  const [passwordResetPending, startPasswordResetTransition] = useTransition()
 
   // City assignment modal
   const [cityAssignmentTarget, setCityAssignmentTarget] = useState<AdminUser | null>(null)
@@ -160,6 +166,40 @@ export function AdminUsersClient({ initialAdmins, total, cities }: { initialAdmi
       if (res.data) setAdmins(prev => prev.map(a => a.id === res.data!.id ? res.data! : a))
       setDeactivateTarget(null)
       toast.success('Admin deactivated.')
+    })
+  }
+
+  function openPasswordReset(admin: AdminUser) {
+    setPasswordResetTarget(admin)
+    setPasswordResetResult(null)
+    setPasswordResetError('')
+  }
+
+  function closePasswordReset() {
+    if (passwordResetPending) return
+    setPasswordResetTarget(null)
+    setPasswordResetResult(null)
+    setPasswordResetError('')
+  }
+
+  function handlePasswordReset() {
+    if (!passwordResetTarget) return
+    startPasswordResetTransition(async () => {
+      setPasswordResetError('')
+      const result = await resetAdminPassword(passwordResetTarget.id)
+      if (result.error) {
+        setPasswordResetError(result.error)
+        toast.error(result.error)
+        return
+      }
+      if (!result.data) {
+        const error = 'The password was reset, but no temporary password was returned.'
+        setPasswordResetError(error)
+        toast.error(error)
+        return
+      }
+      setPasswordResetResult(result.data)
+      toast.success('Admin password reset successfully.')
     })
   }
 
@@ -344,6 +384,12 @@ export function AdminUsersClient({ initialAdmins, total, cities }: { initialAdmi
                       <td className="px-5 py-3.5 text-right">
                         <div className="flex justify-end gap-2">
                           <button
+                            onClick={() => openPasswordReset(a)}
+                            className="rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition-colors"
+                          >
+                            Reset password
+                          </button>
+                          <button
                             onClick={() => openCityAssignment(a)}
                             className="rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition-colors"
                           >
@@ -519,6 +565,54 @@ export function AdminUsersClient({ initialAdmins, total, cities }: { initialAdmi
                     className="rounded-xl bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
                   >
                     {isPending ? 'Provisioning…' : 'Provision Admin'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Password reset modal */}
+      {passwordResetTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            {passwordResetResult ? (
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Password Reset Successful</h3>
+                <p className="mt-1 text-sm text-slate-500">Save or share this credential securely before closing.</p>
+                <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                  <p className="mb-1.5 text-xs font-semibold text-amber-800">Temporary Password</p>
+                  <p className="break-all font-mono text-lg font-bold tracking-wider text-amber-900">{passwordResetResult.temporaryPassword}</p>
+                  <p className="mt-2 text-xs text-amber-700">This password will not be shown again after this dialog closes.</p>
+                </div>
+                <p className={cn('mt-4 text-sm', passwordResetResult.emailSent ? 'text-emerald-700' : 'text-amber-700')}>
+                  {passwordResetResult.emailSent
+                    ? `The temporary password was emailed to ${passwordResetTarget.email}.`
+                    : 'The email could not be sent. Share the temporary password securely with the admin.'}
+                </p>
+                <div className="mt-5 flex justify-end">
+                  <button onClick={closePasswordReset} className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700">
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Reset Admin Password</h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  This will replace the current password for <strong>{passwordResetTarget.firstName} {passwordResetTarget.lastName}</strong>.
+                </p>
+                <p className="mt-4 text-sm leading-6 text-slate-600">
+                  The admin&apos;s current password will stop working immediately. A new temporary password will be generated and emailed where possible.
+                </p>
+                {passwordResetError && <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">{passwordResetError}</p>}
+                <div className="mt-5 flex justify-end gap-2">
+                  <button onClick={closePasswordReset} disabled={passwordResetPending} className="rounded-xl px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 disabled:opacity-50">
+                    Cancel
+                  </button>
+                  <button onClick={handlePasswordReset} disabled={passwordResetPending} className="rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-amber-700 disabled:opacity-50">
+                    {passwordResetPending ? 'Resetting…' : 'Reset Password'}
                   </button>
                 </div>
               </div>

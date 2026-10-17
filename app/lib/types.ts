@@ -445,6 +445,7 @@ export interface DriverDetail {
   accountStatus: string
   isActive: boolean
   cityId: string | null
+  cityName: string | null
   lastLoginAt: string | null
   userEmail: string | null
   userPhone: string | null

@@ -57,6 +57,11 @@ export interface ProvisionResult {
   temporaryPassword: string
 }
 
+export interface AdminPasswordResetResult {
+  temporaryPassword: string
+  emailSent: boolean
+}
+
 export interface UpdateAdminCitiesResult {
   adminId: string
   assignedCities: Array<{ id: string; name: string; state: string }>
@@ -145,6 +150,29 @@ export async function deactivateAdmin(
     return { data: data! }
   } catch (err) {
     return { error: err instanceof ApiError ? err.message : 'Failed to deactivate admin.' }
+  }
+}
+
+export async function resetAdminPassword(
+  adminId: string
+): Promise<{ data?: AdminPasswordResetResult; error?: string }> {
+  if ((await getCurrentUser())?.role !== 'SUPER_ADMIN') {
+    return { error: 'Unauthorized. Only super admins can reset admin passwords.' }
+  }
+
+  if (typeof adminId !== 'string' || !adminId) {
+    return { error: 'Select a valid admin.' }
+  }
+
+  try {
+    const data = await apiFetch<AdminPasswordResetResult>(
+      `/api/v1/users/admins/${encodeURIComponent(adminId)}/reset-password`,
+      { method: 'POST', token: await token() }
+    )
+    revalidatePath('/dashboard/admin-users')
+    return { data }
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'Failed to reset admin password.' }
   }
 }
 
