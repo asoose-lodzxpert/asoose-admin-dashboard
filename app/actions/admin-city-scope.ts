@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { apiFetch, ApiError } from '@/app/lib/api'
 import { getCurrentUser } from '@/app/lib/auth'
+import { isPortalRole } from '@/app/lib/admin-access'
 
 export interface AdminCityOption {
   id: string
@@ -53,8 +54,13 @@ export async function getAdminCityScope(): Promise<AdminCityScope> {
 export async function setActiveAdminCity(
   cityId: string | null
 ): Promise<{ data?: AdminCityScope; error?: string }> {
-  if ((await getCurrentUser())?.role !== 'SUPER_ADMIN') {
-    return { error: 'Unauthorized. Only super admins can change the active city.' }
+  const user = await getCurrentUser()
+  if (!isPortalRole(user?.role)) {
+    return { error: 'Unauthorized. Only portal admins can change the active city.' }
+  }
+
+  if (cityId === null && user.role !== 'SUPER_ADMIN') {
+    return { error: 'Unauthorized. Only super admins can view all cities.' }
   }
 
   if (cityId !== null && (!cityId || typeof cityId !== 'string')) {

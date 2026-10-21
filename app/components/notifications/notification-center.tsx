@@ -22,6 +22,7 @@ interface NotificationCenterProps {
   socketUrl: string
   cityScope: AdminCityScope
   canSwitchCity: boolean
+  canViewAllCities: boolean
 }
 
 function BellIcon({ className = 'h-5 w-5' }: { className?: string }) {
@@ -197,6 +198,7 @@ export function NotificationCenter({
   socketUrl,
   cityScope: initialCityScope,
   canSwitchCity,
+  canViewAllCities,
 }: NotificationCenterProps) {
   const router = useRouter()
   const toast = useToast()
@@ -456,7 +458,7 @@ export function NotificationCenter({
                   title={cityLabel}
                   className="block w-full min-w-0 appearance-none truncate bg-transparent py-1 pr-5 text-xs font-semibold text-slate-700 outline-none sm:text-sm disabled:cursor-wait disabled:text-slate-400"
                 >
-                  <option value="">All cities</option>
+                  {canViewAllCities && <option value="">All cities</option>}
                   {cityScope.cities.map((city) => (
                     <option key={city.id} value={city.id}>{city.name}, {city.state}</option>
                   ))}

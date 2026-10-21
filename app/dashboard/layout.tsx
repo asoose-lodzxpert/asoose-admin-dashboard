@@ -38,7 +38,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
           }
           socketUrl={process.env.API_BASE_URL?.trim() ?? ''}
           cityScope={cityScope}
-          canSwitchCity={user.role === 'SUPER_ADMIN'}
+          canSwitchCity={user.role === 'SUPER_ADMIN' || cityScope.cities.length > 1}
+          canViewAllCities={user.role === 'SUPER_ADMIN'}
         />
         <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
       </div>
