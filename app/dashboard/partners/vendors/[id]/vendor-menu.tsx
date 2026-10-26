@@ -735,6 +735,7 @@ export function VendorMenuSection({
 }) {
   const toast = useToast()
   const [menu, setMenu] = useState<VendorMenu>(initialMenu)
+  const [search, setSearch] = useState('')
   const [isRefreshing, startRefresh] = useTransition()
   const [isToggling, startToggle] = useTransition()
   const [isDeleting, startDelete] = useTransition()
@@ -795,10 +796,22 @@ export function VendorMenuSection({
     })
   }
 
-  const categories = Object.entries(menu.menu)
+  const normalizedSearch = search.trim().toLowerCase()
+  const allCategories = Object.entries(menu.menu)
+  const categories = allCategories
+    .map(([category, items]) => [
+      category,
+      items.filter((item) =>
+        !normalizedSearch ||
+        `${item.name} ${item.description ?? ''} ${item.category}`
+          .toLowerCase()
+          .includes(normalizedSearch)
+      ),
+    ] as const)
+    .filter(([, items]) => items.length > 0)
   const isPending = isRefreshing || isToggling
 
-  if (categories.length === 0 && !isRefreshing) {
+  if (allCategories.length === 0 && !isRefreshing) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-100 px-6 py-4 flex items-center justify-between">
@@ -835,46 +848,69 @@ export function VendorMenuSection({
   return (
     <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
       {/* Header */}
-      <div className="border-b border-slate-100 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h2 className="text-sm font-semibold text-slate-900">Menu</h2>
-          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">{menu.totalItems} items</span>
-          {isPending && (
-            <svg className="h-3.5 w-3.5 animate-spin text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+      <div className="border-b border-slate-100 px-6 py-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-semibold text-slate-900">Menu</h2>
+            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">{menu.totalItems} items</span>
+            {isPending && (
+              <svg className="h-3.5 w-3.5 animate-spin text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            )}
+          </div>
+          <Button size="sm" onClick={openCreate}>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+              <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
             </svg>
-          )}
+            Add Dish
+          </Button>
         </div>
-        <Button size="sm" onClick={openCreate}>
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-            <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
+        <div className="relative mt-3 max-w-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400">
+            <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clipRule="evenodd" />
           </svg>
-          Add Dish
-        </Button>
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search menu items…"
+            className="h-9 w-full rounded-xl border-0 bg-slate-50 pl-9 pr-3 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
       </div>
 
       {/* Categories */}
-      <div className="divide-y divide-slate-100">
-        {categories.map(([cat, items]) => (
-          <div key={cat} className="px-6 py-5">
-            <h3 className="mb-4 text-xs font-semibold uppercase tracking-widest text-slate-400">{formatCategory(cat)}</h3>
-            <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-              {items.map(item => (
-                <MenuItemCard
-                  key={item.id}
-                  item={item}
-                  onView={setViewingItem}
-                  onEdit={openEdit}
-                  onDelete={openDelete}
-                  onToggle={handleToggle}
-                  isToggling={isToggling}
-                />
-              ))}
+      {categories.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-2 py-16">
+          <p className="text-sm text-slate-400">No menu items match your search</p>
+          <button type="button" onClick={() => setSearch('')} className="text-sm font-medium text-indigo-600 hover:text-indigo-700">
+            Clear search
+          </button>
+        </div>
+      ) : (
+        <div className="divide-y divide-slate-100">
+          {categories.map(([cat, items]) => (
+            <div key={cat} className="px-6 py-5">
+              <h3 className="mb-4 text-xs font-semibold uppercase tracking-widest text-slate-400">{formatCategory(cat)}</h3>
+              <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+                {items.map(item => (
+                  <MenuItemCard
+                    key={item.id}
+                    item={item}
+                    onView={setViewingItem}
+                    onEdit={openEdit}
+                    onDelete={openDelete}
+                    onToggle={handleToggle}
+                    isToggling={isToggling}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Detail modal */}
       {viewingItem && (
