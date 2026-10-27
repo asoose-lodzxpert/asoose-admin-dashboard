@@ -71,6 +71,15 @@ function formatDateTime(d: string | null) {
 
 function RouteMap({ ride }: { ride: RideDetail }) {
   const { pickupAddress: pickup, dropoffAddress: dropoff } = ride
+  if (!pickup || !dropoff) {
+    return (
+      <DetailCard title="Route Map">
+        <div className="flex h-52 items-center justify-center rounded-xl border border-slate-100 bg-slate-50 px-6 text-center text-sm text-slate-500">
+          Route information is unavailable for this ride.
+        </div>
+      </DetailCard>
+    )
+  }
   const mapsDirectionsUrl = `https://www.google.com/maps/dir/${pickup.latitude},${pickup.longitude}/${dropoff.latitude},${dropoff.longitude}`
 
   return (

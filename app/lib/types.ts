@@ -916,8 +916,8 @@ export interface RideSummary {
   passengerName: string | null
   passengerPhone: string | null
   passengerEmail: string | null
-  pickupAddress: RideAddress
-  dropoffAddress: RideAddress
+  pickupAddress: RideAddress | null
+  dropoffAddress: RideAddress | null
   driver: { name: string; phone: string } | null
   createdAt: string
 }

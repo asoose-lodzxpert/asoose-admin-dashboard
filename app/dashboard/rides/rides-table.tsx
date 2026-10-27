@@ -6,7 +6,7 @@ import { formatNaira } from '@/app/lib/utils'
 import { Spinner } from '@/app/components/ui/spinner'
 import { useRowNav } from '@/app/lib/hooks/use-row-nav'
 import { getRides } from '@/app/actions/rides'
-import type { RideSummary, RideStatus, Pagination } from '@/app/lib/types'
+import type { RideAddress, RideSummary, RideStatus, Pagination } from '@/app/lib/types'
 
 const STATUS_STYLES: Record<RideStatus, string> = {
   REQUESTED:             'bg-amber-50 text-amber-700 ring-amber-600/20',
@@ -50,6 +50,10 @@ const STATUS_DOT: Record<RideStatus, string> = {
 
 function formatStatus(s: string) {
   return s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+function formatAddress(address: RideAddress | null) {
+  return address?.address || address?.street || 'Address unavailable'
 }
 
 export function RidesTable({
@@ -189,11 +193,11 @@ export function RidesTable({
                     <td className="px-5 py-3.5 max-w-[220px]">
                       <p className="truncate text-xs text-slate-700">
                         <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-[9px] font-bold text-indigo-700 mr-1">A</span>
-                        {ride.pickupAddress.address || ride.pickupAddress.street}
+                        {formatAddress(ride.pickupAddress)}
                       </p>
                       <p className="truncate text-xs text-slate-400 mt-0.5">
                         <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-100 text-[9px] font-bold text-red-600 mr-1">B</span>
-                        {ride.dropoffAddress.address || ride.dropoffAddress.street}
+                        {formatAddress(ride.dropoffAddress)}
                       </p>
                     </td>
                     <td className="px-5 py-3.5 text-xs text-slate-500">{ride.city?.name ?? '—'}</td>
