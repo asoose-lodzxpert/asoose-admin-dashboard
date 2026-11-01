@@ -3,7 +3,14 @@
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { apiFetch, ApiError } from '@/app/lib/api'
-import type { Pagination, PropertyOwnerDetail, PropertyOwnerSummary } from '@/app/lib/types'
+import type {
+  Pagination,
+  PropertyOwnerDetail,
+  PropertyOwnerSummary,
+  PropertyOwnerWalletSummary,
+  UserWallet,
+  WalletAdjustPayload,
+} from '@/app/lib/types'
 
 async function token() {
   const store = await cookies()
@@ -97,5 +104,41 @@ export async function resetPropertyOwnerPassword(
     return {
       error: err instanceof ApiError ? err.message : 'Failed to reset property owner password.',
     }
+  }
+}
+
+export async function getPropertyOwnerWallet(
+  propertyOwnerId: string
+): Promise<PropertyOwnerWalletSummary | null> {
+  try {
+    return await apiFetch<PropertyOwnerWalletSummary>(
+      `/api/v1/property-owners/admin/${propertyOwnerId}/wallet`,
+      { token: await token() }
+    )
+  } catch {
+    return null
+  }
+}
+
+export async function adjustPropertyOwnerWallet(
+  propertyOwnerId: string,
+  payload: WalletAdjustPayload
+): Promise<{ data?: UserWallet; error?: string }> {
+  try {
+    // The property owner endpoint names the main balance EARNINGS and treats an
+    // omitted target as EARNINGS, so only ARREARS needs to be sent explicitly.
+    const { target, ...rest } = payload
+    const data = await apiFetch<UserWallet>(
+      `/api/v1/property-owners/admin/${propertyOwnerId}/wallet`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(target === 'ARREARS' ? { ...rest, target } : rest),
+        token: await token(),
+      }
+    )
+    revalidatePath(`/dashboard/partners/property-owners/${propertyOwnerId}`)
+    return { data }
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'Failed to adjust wallet.' }
   }
 }

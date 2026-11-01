@@ -337,6 +337,18 @@ export interface PropertyOwnerSummary {
 
 export type PropertyOwnerDetail = PropertyOwnerSummary
 
+export interface PropertyOwnerWalletSummary {
+  profileId: string
+  userId: string
+  businessName: string
+  wallet: UserWallet
+  earnings: {
+    lifetime: number
+    thisMonth: number
+    settledBookings: number
+  }
+}
+
 /* ─── Riders ──────────────────────────────────────────── */
 
 export interface RiderSummary {

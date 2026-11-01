@@ -4,16 +4,18 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import {
   adjustPropertyOwnerCommission,
+  adjustPropertyOwnerWallet,
   resetPropertyOwnerPassword,
   type PropertyOwnerPasswordResetResult,
 } from '@/app/actions/property-owners'
 import { CommissionSection } from '@/app/components/commission-section'
+import { UserFinanceSection } from '@/app/components/user-finance-section'
 import { Button } from '@/app/components/ui/button'
 import { DetailCard, InfoGrid, InfoRow, formatDate } from '@/app/components/ui/detail'
 import { Modal } from '@/app/components/ui/modal'
 import { useToast } from '@/app/components/ui/toast'
-import { cn } from '@/app/lib/utils'
-import type { PropertyOwnerDetail } from '@/app/lib/types'
+import { cn, formatNaira, formatNumber } from '@/app/lib/utils'
+import type { PropertyOwnerDetail, PropertyOwnerWalletSummary } from '@/app/lib/types'
 
 const STATUS_STYLES: Record<PropertyOwnerDetail['verificationStatus'], string> = {
   PENDING: 'bg-amber-50 text-amber-700 ring-amber-600/20',
@@ -30,11 +32,15 @@ const DOCUMENTS: { key: keyof PropertyOwnerDetail['documents']; label: string }[
 
 export function PropertyOwnerDetailClient({
   propertyOwner: initialPropertyOwner,
+  walletSummary,
 }: {
   propertyOwner: PropertyOwnerDetail
+  walletSummary: PropertyOwnerWalletSummary | null
 }) {
   const toast = useToast()
   const [propertyOwner, setPropertyOwner] = useState(initialPropertyOwner)
+  // Kept here so the wallet tab shows the adjusted figures after switching tabs and back.
+  const [wallet, setWallet] = useState(walletSummary?.wallet)
   const [showPasswordReset, setShowPasswordReset] = useState(false)
   const [passwordResetResult, setPasswordResetResult] = useState<PropertyOwnerPasswordResetResult | null>(null)
   const [passwordResetError, setPasswordResetError] = useState('')
@@ -166,9 +172,27 @@ export function PropertyOwnerDetailClient({
                 })}
               </div>
             </DetailCard>
+
+            <UserFinanceSection
+              userId={propertyOwner.userId}
+              adjustWalletAction={(payload) => adjustPropertyOwnerWallet(propertyOwner.id, payload)}
+              variant="earner"
+              initialWallet={wallet}
+              onWalletChange={setWallet}
+            />
           </div>
 
           <div className="space-y-6">
+            {walletSummary && (
+              <DetailCard title="Earnings">
+                <InfoGrid className="grid-cols-1">
+                  <InfoRow label="Lifetime" value={formatNaira(walletSummary.earnings.lifetime)} />
+                  <InfoRow label="This Month" value={formatNaira(walletSummary.earnings.thisMonth)} />
+                  <InfoRow label="Settled Bookings" value={formatNumber(walletSummary.earnings.settledBookings)} />
+                </InfoGrid>
+              </DetailCard>
+            )}
+
             <CommissionSection
               commissionPercent={propertyOwner.customCommissionPercent}
               onAdjust={async (payload) => {

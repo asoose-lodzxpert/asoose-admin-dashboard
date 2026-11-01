@@ -117,9 +117,15 @@ type WalletVariant = 'user' | 'earner' | 'vendor'
 
 /* ─── Wallet Tab ─────────────────────────────────────────── */
 
-function WalletTab({ userId, adjustWalletAction, variant }: { userId: string; adjustWalletAction?: WalletAdjustAction; variant: WalletVariant }) {
+function WalletTab({ userId, adjustWalletAction, variant, initialWallet, onWalletChange }: {
+  userId: string
+  adjustWalletAction?: WalletAdjustAction
+  variant: WalletVariant
+  initialWallet?: UserWallet
+  onWalletChange?: (wallet: UserWallet) => void
+}) {
   const toast = useToast()
-  const [wallet, setWallet] = useState<UserWallet | null>(null)
+  const [wallet, setWallet] = useState<UserWallet | null>(initialWallet ?? null)
   const [error, setError] = useState('')
   const [loading, startTransition] = useTransition()
   const fetched = useRef(false)
@@ -133,14 +139,15 @@ function WalletTab({ userId, adjustWalletAction, variant }: { userId: string; ad
   const [adjustPending, startAdjustTransition] = useTransition()
 
   useEffect(() => {
-    if (fetched.current) return
+    // A wallet already loaded by the caller (e.g. from a partner-specific endpoint) skips the generic fetch.
+    if (fetched.current || initialWallet) return
     fetched.current = true
     startTransition(async () => {
       const res = await getUserWallet(userId)
       if (res.error) setError(res.error)
       else if (res.data) setWallet(res.data)
     })
-  }, [userId])
+  }, [userId, initialWallet])
 
   const openAdjust = useCallback(() => {
     setMode('CREDIT_EARNINGS')
@@ -170,7 +177,10 @@ function WalletTab({ userId, adjustWalletAction, variant }: { userId: string; ad
         target: isEarner ? cfg.target : undefined,
       })
       if (res.error) { setAdjustError(res.error); toast.error(res.error); return }
-      if (res.data) setWallet(res.data)
+      if (res.data) {
+        setWallet(res.data)
+        onWalletChange?.(res.data)
+      }
       setShowAdjust(false)
       toast.success(cfg.done)
     })
@@ -797,10 +807,14 @@ export function UserFinanceSection({
   userId,
   adjustWalletAction,
   variant = 'user',
+  initialWallet,
+  onWalletChange,
 }: {
   userId: string
   adjustWalletAction?: WalletAdjustAction
   variant?: WalletVariant
+  initialWallet?: UserWallet
+  onWalletChange?: (wallet: UserWallet) => void
 }) {
   const [tab, setTab] = useState<Tab>('wallet')
 
@@ -831,7 +845,15 @@ export function UserFinanceSection({
 
       {/* Tab content */}
       <div className="px-6 py-5">
-        {tab === 'wallet' && <WalletTab userId={userId} adjustWalletAction={adjustWalletAction} variant={variant} />}
+        {tab === 'wallet' && (
+          <WalletTab
+            userId={userId}
+            adjustWalletAction={adjustWalletAction}
+            variant={variant}
+            initialWallet={initialWallet}
+            onWalletChange={onWalletChange}
+          />
+        )}
         {tab === 'bank-accounts' && <BankAccountsTab userId={userId} />}
         {tab === 'payouts' && <PayoutsTab userId={userId} />}
       </div>
