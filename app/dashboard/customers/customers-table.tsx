@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition, useRef } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { cn } from '@/app/lib/utils'
 import { Spinner } from '@/app/components/ui/spinner'
 import { useToast } from '@/app/components/ui/toast'
@@ -67,7 +67,6 @@ export function CustomersTable({
   initialParams?: InitialParams
   cities: City[]
 }) {
-  const router = useRouter()
   const { navigatingId, navigate } = useRowNav()
   const searchParams = useSearchParams()
   const toast = useToast()
@@ -96,7 +95,9 @@ export function CustomersTable({
       if (v !== undefined) sp.set(k, v)
       else sp.delete(k)
     }
-    router.replace(`?${sp}`, { scroll: false })
+    // Native history update: the table already refetches via the server action, so a
+    // router navigation would re-render the page on the server and hold isPending open.
+    window.history.replaceState(null, '', `?${sp}`)
   }
 
   function refetch(opts: { role?: UserListRole; cityId?: string; search?: string; status?: UserStatus | ''; page?: number }) {

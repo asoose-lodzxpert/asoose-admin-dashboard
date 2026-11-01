@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { getCatalogProducts } from '@/app/actions/catalog'
-import { getCategories } from '@/app/actions/configurations'
+import { getCategoryOptions } from '@/app/actions/configurations'
 import type { CatalogItem } from '@/app/lib/types'
 import { CatalogProductsTable } from './products-table'
 
@@ -20,14 +20,14 @@ export default async function CatalogProductsPage({
       type: (sp.type as CatalogItem['type']) || undefined,
       isFeatured: (sp.isFeatured as 'true' | 'false') || undefined,
     }),
-    getCategories(),
+    getCategoryOptions(),
   ])
   return (
     <CatalogProductsTable
       initialItems={items}
       initialPagination={pagination}
       initialParams={sp}
-      categories={categories.filter((category) => category.isActive)}
+      categories={categories}
     />
   )
 }

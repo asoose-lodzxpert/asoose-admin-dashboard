@@ -183,6 +183,16 @@ export interface Category {
   [key: string]: unknown
 }
 
+/** Active category as returned by the public `GET /categories` picker list. */
+export interface CategoryOption {
+  id: string
+  name: string
+}
+
+export interface CategoryTreeNode extends Category {
+  children: CategoryTreeNode[]
+}
+
 /* ─── Vendors ─────────────────────────────────────────── */
 
 export interface VendorStore {

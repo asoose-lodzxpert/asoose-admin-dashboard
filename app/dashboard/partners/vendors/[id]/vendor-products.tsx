@@ -4,7 +4,7 @@ import Image from 'next/image'
 import { useState, useTransition, useRef } from 'react'
 import { cn } from '@/app/lib/utils'
 import { getVendorProducts, createProduct, updateProduct, deleteProduct } from '@/app/actions/vendors'
-import type { Category, Product } from '@/app/lib/types'
+import type { CategoryOption, Product } from '@/app/lib/types'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
 import { ImageUploader } from '@/app/components/ui/image-uploader'
@@ -73,7 +73,7 @@ function ProductFormModal({
   onSaved: (p: Product) => void
   vendorId: string
   editing: Product | null
-  categories: Category[]
+  categories: CategoryOption[]
 }) {
   const toast = useToast()
   const [form, setForm] = useState<FormState>(() => editing ? productToForm(editing) : EMPTY_FORM)
@@ -416,7 +416,7 @@ interface Props {
   vendorId: string
   initialProducts: Product[]
   total: number
-  categories: Category[]
+  categories: CategoryOption[]
 }
 
 export function VendorProductsSection({

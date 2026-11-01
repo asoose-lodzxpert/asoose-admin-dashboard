@@ -3,7 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useState, useTransition, useRef } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { cn, formatNaira } from '@/app/lib/utils'
 import { getProperties } from '@/app/actions/properties'
 import { Button } from '@/app/components/ui/button'
@@ -80,7 +80,6 @@ export function PropertiesGrid({
   initialPagination: Pagination
   initialParams: InitialParams
 }) {
-  const router = useRouter()
   const searchParams = useSearchParams()
 
   const [properties, setProperties] = useState(initialProperties)
@@ -95,7 +94,9 @@ export function PropertiesGrid({
       if (v) params.set(k, v)
       else params.delete(k)
     }
-    router.replace(`/dashboard/properties?${params}`, { scroll: false })
+    // Native history update: the table already refetches via the server action, so a
+    // router navigation would re-render the page on the server and hold isPending open.
+    window.history.replaceState(null, '', `/dashboard/properties?${params}`)
   }
 
   function refetch(opts: { search?: string; page?: number }) {

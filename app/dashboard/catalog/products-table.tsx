@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import { useState, useTransition, useRef } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { cn } from '@/app/lib/utils'
 import { formatNaira } from '@/app/lib/utils'
 import { useToast } from '@/app/components/ui/toast'
@@ -14,7 +14,7 @@ import {
   updateAdminProduct,
 } from '@/app/actions/catalog'
 import { updateDish } from '@/app/actions/menu'
-import type { CatalogItem, CatalogPagination, Category } from '@/app/lib/types'
+import type { CatalogItem, CatalogPagination, CategoryOption } from '@/app/lib/types'
 
 /* ─── Star icon ──────────────────────────────────────── */
 
@@ -173,7 +173,7 @@ function EditCatalogItemModal({
   onSaved,
 }: {
   item: CatalogItem
-  categories: Category[]
+  categories: CategoryOption[]
   onClose: () => void
   onSaved: (patch: Partial<CatalogItem>) => void
 }) {
@@ -374,9 +374,8 @@ export function CatalogProductsTable({
   initialItems: CatalogItem[]
   initialPagination: CatalogPagination
   initialParams: InitialParams
-  categories: Category[]
+  categories: CategoryOption[]
 }) {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const toast = useToast()
 
@@ -397,7 +396,9 @@ export function CatalogProductsTable({
       if (v) params.set(k, v)
       else params.delete(k)
     }
-    router.replace(`/dashboard/catalog?${params}`, { scroll: false })
+    // Native history update: the table already refetches via the server action, so a
+    // router navigation would re-render the page on the server and hold isPending open.
+    window.history.replaceState(null, '', `/dashboard/catalog?${params}`)
   }
 
   /* ── Data fetch ── */

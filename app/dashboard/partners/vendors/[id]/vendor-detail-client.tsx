@@ -17,7 +17,7 @@ import { approveVendor, rejectVendor, suspendVendor, updateVendorStore, toggleVe
 import { uploadImage } from '@/app/actions/uploads'
 import { updateStorefrontBranding } from '@/app/actions/catalog'
 import { UserFinanceSection } from '@/app/components/user-finance-section'
-import type { VendorDetail, VendorMenu, Product, VendorStoreDetail, City, Category, VendorPickupAddress } from '@/app/lib/types'
+import type { VendorDetail, VendorMenu, Product, VendorStoreDetail, City, CategoryOption, VendorPickupAddress } from '@/app/lib/types'
 
 type VStatus = VendorDetail['verificationStatus']
 
@@ -50,7 +50,7 @@ interface Props {
   initialProducts: Product[]
   productTotal: number
   cities: City[]
-  categories: Category[]
+  categories: CategoryOption[]
   pickupAddress: VendorPickupAddress | null
   googleMapsApiKey: string
 }

@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import { getVendorDetail, getVendorProducts, getVendorPickupAddress } from '@/app/actions/vendors'
 import { getVendorMenu } from '@/app/actions/menu'
 import { getActiveCities } from '@/app/actions/cities'
-import { getCategories } from '@/app/actions/configurations'
+import { getCategoryOptions } from '@/app/actions/configurations'
 import { VendorDetailClient } from './vendor-detail-client'
 
 export const metadata: Metadata = { title: 'Vendor Detail' }
@@ -21,7 +21,7 @@ export default async function VendorDetailPage({
     vendor.businessType === 'RESTAURANT' ? getVendorMenu(vendor.id) : Promise.resolve(null),
     getVendorProducts(vendor.id, { page: 1, limit: 20 }),
     getActiveCities(),
-    getCategories(),
+    getCategoryOptions(),
     getVendorPickupAddress(vendor.id),
   ])
 
@@ -32,7 +32,7 @@ export default async function VendorDetailPage({
       initialProducts={products}
       productTotal={productPagination.total}
       cities={cities}
-      categories={categories.filter((category) => category.isActive)}
+      categories={categories}
       pickupAddress={pickupAddress}
       googleMapsApiKey={process.env.GOOGLE_MAPS_API_KEY?.trim() ?? ''}
     />

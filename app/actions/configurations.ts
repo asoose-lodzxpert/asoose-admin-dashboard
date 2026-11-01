@@ -9,6 +9,8 @@ import type {
   StoreType,
   Cuisine,
   Category,
+  CategoryOption,
+  CategoryTreeNode,
 } from "@/app/lib/types";
 
 async function token() {
@@ -326,15 +328,38 @@ export async function deleteCuisine(id: string): Promise<{ error?: string }> {
 
 /* ─── Categories ─────────────────────────────────────────── */
 
+/** Active categories only, as `{ id, name }` — for product category pickers. */
+export async function getCategoryOptions(): Promise<CategoryOption[]> {
+  try {
+    const result = await apiFetch<unknown>("/api/v1/categories", {
+      token: await token(),
+    });
+    return pluckArray<CategoryOption>(result, "categories");
+  } catch {
+    return [];
+  }
+}
+
+function flattenCategoryTree(nodes: CategoryTreeNode[]): Category[] {
+  return nodes.flatMap(({ children, ...category }) => [
+    category,
+    ...flattenCategoryTree(children ?? []),
+  ]);
+}
+
+/**
+ * Full category records, including inactive ones, for the admin config panel.
+ * The plain list endpoint only returns `{ id, name }`, so this reads the tree.
+ */
 export async function getCategories(): Promise<Category[]> {
   try {
     const result = await apiFetch<unknown>(
-      "/api/v1/categories?page=1&limit=100",
+      "/api/v1/categories/tree?includeInactive=true",
       {
         token: await token(),
       },
     );
-    return pluckArray<Category>(result, "categories");
+    return flattenCategoryTree(pluckArray<CategoryTreeNode>(result, "categories"));
   } catch {
     return [];
   }
