@@ -16,6 +16,7 @@ import {
   assignDriverToRide,
   requeueRide,
   forceCancelRide,
+  updateRideStatus,
   getRidePickupCode,
   regenerateRidePickupCode,
 } from '@/app/actions/rides'
@@ -34,6 +35,16 @@ const TERMINAL: RideStatus[] = [
   'COMPLETED', 'CANCELLED', 'CANCELLED_BY_USER',
   'CANCELLED_BY_DRIVER', 'CANCELLED_BY_SYSTEM', 'CANCELLED_SCHEDULED',
 ]
+
+/* Steps an admin can move a driver-assigned ride between, in order (COMPLETED is final). */
+const STATUS_PROGRESSION = ['DRIVER_ASSIGNED', 'DRIVER_ACCEPTED', 'ARRIVED', 'IN_PROGRESS', 'COMPLETED'] as const
+type AdminRideStatusTarget = (typeof STATUS_PROGRESSION)[number]
+
+function statusTargetLabel(target: AdminRideStatusTarget, currentIndex: number) {
+  const index = STATUS_PROGRESSION.indexOf(target)
+  if (target === 'DRIVER_ASSIGNED') return 'Driver Assigned (un-accept)'
+  return index < currentIndex ? `${formatStatus(target)} (move back)` : formatStatus(target)
+}
 
 const STATUS_STYLES: Record<RideStatus, string> = {
   REQUESTED:             'bg-amber-50 text-amber-700 ring-amber-600/20',
@@ -171,6 +182,11 @@ export function RideDetailClient({
   const canRequeue = !isTerminal && isPaid && !ride.driver
   const canCancel = !isTerminal
   const canRetrieveCode = !isTerminal
+  const progressionIndex = STATUS_PROGRESSION.indexOf(ride.status as (typeof STATUS_PROGRESSION)[number])
+  const statusTargets: AdminRideStatusTarget[] = progressionIndex === -1 || !ride.driver
+    ? []
+    : STATUS_PROGRESSION.filter((s) => s !== ride.status)
+  const canUpdateStatus = !isTerminal && statusTargets.length > 0
 
   /* assign driver modal */
   const [showAssign, setShowAssign] = useState(false)
@@ -183,6 +199,18 @@ export function RideDetailClient({
   const [showRequeue, setShowRequeue] = useState(false)
   const [requeueError, setRequeueError] = useState('')
   const [requeueSuccess, setRequeueSuccess] = useState(false)
+
+  /* update status modal */
+  const [showStatus, setShowStatus] = useState(false)
+  const [statusTarget, setStatusTarget] = useState<AdminRideStatusTarget | ''>('')
+  const [statusReason, setStatusReason] = useState('')
+  const [statusPaymentReceived, setStatusPaymentReceived] = useState(false)
+  const [statusError, setStatusError] = useState('')
+  const needsPaymentConfirmation = statusTarget === 'COMPLETED' && isPayOnArrival && !isPaid
+  const startIndex = STATUS_PROGRESSION.indexOf('IN_PROGRESS')
+  const revertsStart = statusTarget !== '' &&
+    progressionIndex >= startIndex &&
+    STATUS_PROGRESSION.indexOf(statusTarget) < startIndex
 
   /* force cancel modal */
   const [showCancel, setShowCancel] = useState(false)
@@ -239,6 +267,41 @@ export function RideDetailClient({
     })
   }
 
+  function openStatus() {
+    setStatusTarget(statusTargets.find((s) => STATUS_PROGRESSION.indexOf(s) > progressionIndex) ?? statusTargets[0] ?? '')
+    setStatusReason('')
+    setStatusPaymentReceived(false)
+    setStatusError('')
+    setShowStatus(true)
+  }
+
+  function handleUpdateStatus() {
+    if (!statusTarget) { setStatusError('Select a status.'); return }
+    const reason = statusReason.trim()
+    if (reason && reason.length < 3) { setStatusError('Reason must be at least 3 characters.'); return }
+    if (needsPaymentConfirmation && !statusPaymentReceived) {
+      setStatusError('Confirm that payment was received before completing this ride.')
+      return
+    }
+    startTransition(async () => {
+      const res = await updateRideStatus(
+        ride.id,
+        statusTarget,
+        reason || undefined,
+        needsPaymentConfirmation ? true : undefined
+      )
+      if (res.error) { setStatusError(res.error); toast.error(res.error); return }
+      setRide((prev) => ({
+        ...prev,
+        status: statusTarget,
+        ...(needsPaymentConfirmation && { paymentStatus: 'COMPLETED' }),
+      }))
+      setShowStatus(false)
+      toast.success(`Ride marked as ${formatStatus(statusTarget)}.`)
+      router.refresh()
+    })
+  }
+
   function handleForceCancel() {
     if (!cancelReason.trim()) { setCancelError('A reason is required.'); return }
     startTransition(async () => {
@@ -290,6 +353,11 @@ export function RideDetailClient({
                   <path fillRule="evenodd" d="M15.312 11.424a5.5 5.5 0 0 1-9.201 2.466l-.312-.311h2.433a.75.75 0 0 0 0-1.5H3.989a.75.75 0 0 0-.75.75v4.242a.75.75 0 0 0 1.5 0v-2.43l.31.31a7 7 0 0 0 11.712-3.138.75.75 0 0 0-1.449-.39Zm1.23-3.723a.75.75 0 0 0 .219-.53V2.929a.75.75 0 0 0-1.5 0V5.36l-.31-.31A7 7 0 0 0 3.239 8.188a.75.75 0 1 0 1.448.389A5.5 5.5 0 0 1 13.89 6.11l.311.31h-2.432a.75.75 0 0 0 0 1.5h4.243a.75.75 0 0 0 .53-.219Z" clipRule="evenodd" />
                 </svg>
                 Requeue
+              </Button>
+            )}
+            {canUpdateStatus && (
+              <Button variant="secondary" size="sm" onClick={openStatus} disabled={isPending}>
+                Update Status
               </Button>
             )}
             {canCancel && (
@@ -479,6 +547,68 @@ export function RideDetailClient({
           <p className="text-sm text-slate-600">
             This will re-trigger automatic driver matching for ride <span className="font-mono font-semibold text-slate-900">{ride.trackingId}</span>.
           </p>
+        )}
+      </Modal>
+
+      {/* Update status modal */}
+      <Modal
+        open={showStatus}
+        onClose={() => setShowStatus(false)}
+        title="Update Ride Status"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" size="sm" onClick={() => setShowStatus(false)}>Cancel</Button>
+            <Button size="sm" loading={isPending} onClick={handleUpdateStatus}>Update</Button>
+          </>
+        }
+      >
+        {statusError && (
+          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">{statusError}</div>
+        )}
+        <p className="mb-3 text-sm text-slate-600">
+          Move ride <span className="font-mono font-semibold text-slate-900">{ride.trackingId}</span> to another step on the driver&apos;s behalf, forwards or back. The pickup code is not required. Completed rides can&apos;t be reopened.
+        </p>
+        <label className="mb-1.5 block text-[13px] font-medium text-slate-700">
+          New status <span className="text-red-500">*</span>
+        </label>
+        <select
+          value={statusTarget}
+          onChange={(e) => { setStatusTarget(e.target.value as AdminRideStatusTarget); setStatusError('') }}
+          className={INPUT_CLS + ' mb-4'}
+        >
+          {statusTargets.map((s) => (
+            <option key={s} value={s}>{statusTargetLabel(s, progressionIndex)}</option>
+          ))}
+        </select>
+        <label className="mb-1.5 block text-[13px] font-medium text-slate-700">Reason</label>
+        <textarea
+          value={statusReason}
+          onChange={(e) => { setStatusReason(e.target.value); setStatusError('') }}
+          rows={3}
+          placeholder="e.g. Driver's app went offline mid-trip"
+          className={INPUT_CLS + ' resize-none'}
+        />
+        {statusTarget === 'DRIVER_ASSIGNED' && (
+          <p className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700 ring-1 ring-inset ring-amber-600/20">
+            The driver stays on this ride but must accept it again in their app. If they reject it, the ride goes back to matching.
+          </p>
+        )}
+        {revertsStart && (
+          <p className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700 ring-1 ring-inset ring-amber-600/20">
+            The used pickup code is cleared. The customer will get a new code, and the driver needs it to start the trip again.
+          </p>
+        )}
+        {needsPaymentConfirmation && (
+          <label className="mt-4 flex items-start gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={statusPaymentReceived}
+              onChange={(e) => { setStatusPaymentReceived(e.target.checked); setStatusError('') }}
+              className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            Payment was received from the customer (cash collected or paid by card)
+          </label>
         )}
       </Modal>
 

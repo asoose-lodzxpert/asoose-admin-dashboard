@@ -44,13 +44,16 @@ export async function getRideDetail(rideId: string): Promise<RideDetail | null> 
   } catch { return null }
 }
 
+// POST returns the active code, or generates one when the ride has none yet
+// (e.g. never issued, or cleared after an admin moved the ride back from
+// IN_PROGRESS). The GET variant only reads and fails with "not generated yet".
 export async function getRidePickupCode(
   rideId: string
 ): Promise<{ data?: RidePickupCode; error?: string }> {
   try {
     const data = await apiFetch<RidePickupCode>(
       `/api/v1/rides/admin/${encodeURIComponent(rideId)}/pickup-code`,
-      { token: await token() }
+      { method: 'POST', token: await token() }
     )
     return { data }
   } catch (err) {
@@ -121,5 +124,29 @@ export async function forceCancelRide(rideId: string, reason: string): Promise<{
     return {}
   } catch (err) {
     return { error: err instanceof ApiError ? err.message : 'Failed to cancel ride.' }
+  }
+}
+
+export async function updateRideStatus(
+  rideId: string,
+  status: 'DRIVER_ASSIGNED' | 'DRIVER_ACCEPTED' | 'ARRIVED' | 'IN_PROGRESS' | 'COMPLETED',
+  reason?: string,
+  paymentReceived?: boolean
+): Promise<{ error?: string }> {
+  try {
+    await apiFetch<unknown>(`/api/v1/rides/admin/${encodeURIComponent(rideId)}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        status,
+        ...(reason ? { reason } : {}),
+        ...(paymentReceived !== undefined ? { paymentReceived } : {}),
+      }),
+      token: await token(),
+    })
+    revalidatePath('/dashboard/rides')
+    revalidatePath(`/dashboard/rides/${rideId}`)
+    return {}
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'Failed to update ride status.' }
   }
 }
