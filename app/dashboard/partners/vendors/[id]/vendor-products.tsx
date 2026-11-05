@@ -1,7 +1,8 @@
 'use client'
 
 import Image from 'next/image'
-import { useState, useTransition, useRef } from 'react'
+import { useState, useTransition, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { cn } from '@/app/lib/utils'
 import { getVendorProducts, createProduct, updateProduct, deleteProduct } from '@/app/actions/vendors'
 import type { CategoryOption, Product } from '@/app/lib/types'
@@ -225,34 +226,165 @@ function ProductFormModal({
 
 /* ─── Product Detail Modal ────────────────────────────────── */
 
+function ChevronIcon({ dir }: { dir: 'left' | 'right' }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+      {dir === 'left' ? (
+        <path fillRule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
+      ) : (
+        <path fillRule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+      )}
+    </svg>
+  )
+}
+
+/** Full-screen image viewer. Portalled to <body> so it sits above the modal. */
+function ImageLightbox({
+  images,
+  index,
+  alt,
+  onIndexChange,
+  onClose,
+}: {
+  images: string[]
+  index: number
+  alt: string
+  onIndexChange: (i: number) => void
+  onClose: () => void
+}) {
+  const multi = images.length > 1
+  const prev = () => onIndexChange((index - 1 + images.length) % images.length)
+  const next = () => onIndexChange((index + 1) % images.length)
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') { e.stopPropagation(); onClose() }
+      else if (multi && e.key === 'ArrowLeft') onIndexChange((index - 1 + images.length) % images.length)
+      else if (multi && e.key === 'ArrowRight') onIndexChange((index + 1) % images.length)
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [index, images.length, multi, onClose, onIndexChange])
+
+  return createPortal(
+    <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-950/90" onClick={onClose}>
+      <div className="relative h-[85vh] w-[92vw]" onClick={e => e.stopPropagation()}>
+        <Image src={images[index]!} alt={alt} fill sizes="92vw" className="object-contain" unoptimized />
+      </div>
+
+      <button
+        onClick={onClose}
+        aria-label="Close preview"
+        className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+          <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+        </svg>
+      </button>
+
+      {multi && (
+        <>
+          <button
+            onClick={e => { e.stopPropagation(); prev() }}
+            aria-label="Previous image"
+            className="absolute left-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+          >
+            <ChevronIcon dir="left" />
+          </button>
+          <button
+            onClick={e => { e.stopPropagation(); next() }}
+            aria-label="Next image"
+            className="absolute right-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+          >
+            <ChevronIcon dir="right" />
+          </button>
+          <span className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white">
+            {index + 1} / {images.length}
+          </span>
+        </>
+      )}
+    </div>,
+    document.body
+  )
+}
+
 function ProductDetailModal({ product, onClose }: { product: Product; onClose: () => void }) {
   const [imgIdx, setImgIdx] = useState(0)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
   const images = product.images?.length > 0 ? product.images : (product.image ? [product.image] : [])
   const hasDiscount = product.comparePrice != null && product.comparePrice > product.price
+  const multi = images.length > 1
 
   return (
     <Modal open onClose={onClose} title={product.name} size="lg">
       <div className="space-y-4">
         {images.length > 0 ? (
           <div>
-            <div className="relative h-56 overflow-hidden rounded-xl bg-slate-100">
-              <Image src={images[imgIdx]!} alt={product.name} fill className="object-contain" unoptimized />
+            <div className="group relative aspect-4/3 max-h-[60vh] w-full overflow-hidden rounded-xl bg-slate-100">
+              <button
+                type="button"
+                onClick={() => setLightboxOpen(true)}
+                aria-label="View full size"
+                className="absolute inset-0 cursor-zoom-in"
+              >
+                <Image src={images[imgIdx]!} alt={product.name} fill sizes="(max-width: 672px) 100vw, 672px" className="object-contain" unoptimized />
+              </button>
+
+              <span className="pointer-events-none absolute right-3 top-3 flex items-center gap-1 rounded-full bg-slate-900/60 px-2.5 py-1 text-[11px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
+                  <path d="M13.28 7.78l3.22-3.22v2.69a.75.75 0 0 0 1.5 0v-4.5a.75.75 0 0 0-.75-.75h-4.5a.75.75 0 0 0 0 1.5h2.69l-3.22 3.22a.75.75 0 0 0 1.06 1.06ZM2 17.25v-4.5a.75.75 0 0 1 1.5 0v2.69l3.22-3.22a.75.75 0 0 1 1.06 1.06L4.56 16.5h2.69a.75.75 0 0 1 0 1.5h-4.5a.75.75 0 0 1-.75-.75Z" />
+                </svg>
+                Click to enlarge
+              </span>
+
+              {multi && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setImgIdx(i => (i - 1 + images.length) % images.length)}
+                    aria-label="Previous image"
+                    className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-sm transition hover:bg-white"
+                  >
+                    <ChevronIcon dir="left" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setImgIdx(i => (i + 1) % images.length)}
+                    aria-label="Next image"
+                    className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-sm transition hover:bg-white"
+                  >
+                    <ChevronIcon dir="right" />
+                  </button>
+                  <span className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-slate-900/60 px-2.5 py-0.5 text-[11px] font-medium text-white">
+                    {imgIdx + 1} / {images.length}
+                  </span>
+                </>
+              )}
             </div>
-            {images.length > 1 && (
+            {multi && (
               <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
                 {images.map((url, i) => (
                   <button
                     key={i}
                     onClick={() => setImgIdx(i)}
                     className={cn(
-                      'relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border-2 transition-colors',
+                      'relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2 transition-colors',
                       i === imgIdx ? 'border-indigo-500' : 'border-transparent opacity-60 hover:opacity-100'
                     )}
                   >
-                    <Image src={url} alt="" fill className="object-cover" unoptimized />
+                    <Image src={url} alt="" fill sizes="64px" className="object-cover" unoptimized />
                   </button>
                 ))}
               </div>
+            )}
+            {lightboxOpen && (
+              <ImageLightbox
+                images={images}
+                index={imgIdx}
+                alt={product.name}
+                onIndexChange={setImgIdx}
+                onClose={() => setLightboxOpen(false)}
+              />
             )}
           </div>
         ) : (
