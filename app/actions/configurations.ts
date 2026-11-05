@@ -328,10 +328,13 @@ export async function deleteCuisine(id: string): Promise<{ error?: string }> {
 
 /* ─── Categories ─────────────────────────────────────────── */
 
-/** Active categories only, as `{ id, name }` — for product category pickers. */
+/**
+ * Every active category as `{ id, name }` — for product category pickers.
+ * Uses the v2 endpoint, which is unpaginated (v1 caps at 20 per page).
+ */
 export async function getCategoryOptions(): Promise<CategoryOption[]> {
   try {
-    const result = await apiFetch<unknown>("/api/v1/categories", {
+    const result = await apiFetch<unknown>("/api/v2/categories", {
       token: await token(),
     });
     return pluckArray<CategoryOption>(result, "categories");
