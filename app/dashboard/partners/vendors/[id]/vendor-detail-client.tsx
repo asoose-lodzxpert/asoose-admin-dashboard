@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Modal } from '@/app/components/ui/modal'
 import { Button } from '@/app/components/ui/button'
 import { DetailCard, InfoRow, InfoGrid } from '@/app/components/ui/detail'
@@ -66,6 +67,7 @@ export function VendorDetailClient({
   googleMapsApiKey,
 }: Props) {
   const toast = useToast()
+  const router = useRouter()
   const [vendor, setVendor] = useState(initial)
   const [isPending, startTransition] = useTransition()
 
@@ -236,7 +238,16 @@ export function VendorDetailClient({
     <div className="min-h-full">
       {/* Sticky header */}
       <div className="sticky top-0 z-10 border-b border-slate-200 bg-white px-8 py-4">
-        <Link href="/dashboard/partners/vendors" className="mb-3 flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 transition-colors w-fit">
+        <Link
+          href="/dashboard/partners/vendors"
+          onClick={(e) => {
+            // Go back through history when possible so the cached list renders instantly;
+            // fall back to the link when the page was opened directly (new tab / pasted URL).
+            if (e.metaKey || e.ctrlKey || e.shiftKey || window.history.length <= 1) return
+            e.preventDefault()
+            router.back()
+          }}
+          className="mb-3 flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 transition-colors w-fit">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
             <path fillRule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
           </svg>
