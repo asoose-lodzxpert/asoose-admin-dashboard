@@ -412,6 +412,9 @@ function ProductCard({
 
 /* ─── Section ─────────────────────────────────────────────── */
 
+/** Must match the page size the server page uses for the initial fetch. */
+const PAGE_SIZE = 20
+
 interface Props {
   vendorId: string
   initialProducts: Product[]
@@ -428,6 +431,8 @@ export function VendorProductsSection({
   const toast = useToast()
   const [products, setProducts] = useState(initialProducts)
   const [count, setCount] = useState(total)
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(Math.max(1, Math.ceil(total / PAGE_SIZE)))
   const [search, setSearch] = useState('')
   const [availability, setAvailability] = useState<'' | 'true' | 'false'>('')
   const [isLoading, startLoad] = useTransition()
@@ -440,18 +445,32 @@ export function VendorProductsSection({
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null)
   const [deleteError, setDeleteError] = useState('')
 
-  function loadProducts(opts: { search?: string; availability?: '' | 'true' | 'false' }) {
+  function loadProducts(opts: { page?: number; search?: string; availability?: '' | 'true' | 'false' }) {
+    const p = opts.page ?? 1
     const s = opts.search ?? search
     const a = opts.availability ?? availability
     startLoad(async () => {
       const res = await getVendorProducts(vendorId, {
-        page: 1, limit: 20,
+        page: p, limit: PAGE_SIZE,
         search: s || undefined,
         isAvailable: a === '' ? undefined : a === 'true',
       })
+      // A delete can empty the last page — step back to the new last page.
+      const lastPage = Math.max(1, res.pagination.totalPages)
+      if (res.products.length === 0 && p > lastPage) {
+        loadProducts({ page: lastPage, search: s, availability: a })
+        return
+      }
       setProducts(res.products)
       setCount(res.pagination.total)
+      setPage(p)
+      setTotalPages(lastPage)
     })
+  }
+
+  function goToPage(p: number) {
+    if (p < 1 || p > totalPages || p === page) return
+    loadProducts({ page: p })
   }
 
   function onSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -491,9 +510,12 @@ export function VendorProductsSection({
         next[idx] = saved
         return next
       }
-      return [saved, ...prev]
+      return [saved, ...prev].slice(0, PAGE_SIZE)
     })
-    if (isNew) setCount(c => c + 1)
+    if (isNew) {
+      setCount(count + 1)
+      setTotalPages(Math.max(1, Math.ceil((count + 1) / PAGE_SIZE)))
+    }
   }
 
   function confirmDelete() {
@@ -505,10 +527,10 @@ export function VendorProductsSection({
         setDeleteError(result.error)
         toast.error(result.error)
       } else {
-        setProducts(prev => prev.filter(p => p.id !== deletingProduct.id))
-        setCount(c => c - 1)
         setDeletingProduct(null)
         toast.success('Product deleted.')
+        // Refetch so the next page's first item slides in to fill the gap.
+        loadProducts({ page })
       }
     })
   }
@@ -574,6 +596,37 @@ export function VendorProductsSection({
       ) : (
         <div className="grid grid-cols-1 gap-3 p-6 xl:grid-cols-2">
           {products.map(p => <ProductCard key={p.id} product={p} onView={setViewingProduct} onEdit={openEdit} onDelete={openDelete} />)}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between border-t border-slate-100 px-6 py-3">
+          <p className="text-sm text-slate-500">
+            Page {page} of {totalPages}
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => goToPage(page - 1)}
+              disabled={page <= 1 || isLoading}
+              className={cn(
+                'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+                page <= 1 || isLoading ? 'text-slate-300 cursor-not-allowed' : 'text-slate-700 hover:bg-slate-100'
+              )}
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => goToPage(page + 1)}
+              disabled={page >= totalPages || isLoading}
+              className={cn(
+                'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+                page >= totalPages || isLoading ? 'text-slate-300 cursor-not-allowed' : 'text-slate-700 hover:bg-slate-100'
+              )}
+            >
+              Next
+            </button>
+          </div>
         </div>
       )}
 
