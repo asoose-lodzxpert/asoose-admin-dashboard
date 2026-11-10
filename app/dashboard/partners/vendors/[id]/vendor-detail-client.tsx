@@ -13,6 +13,7 @@ import { VendorMenuSection } from './vendor-menu'
 import { VendorProductsSection } from './vendor-products'
 import { VendorPickupLocation } from './vendor-pickup-location'
 import { VendorCommission } from './vendor-commission'
+import { VendorOpeningHoursModal } from './vendor-opening-hours'
 import { cn } from '@/app/lib/utils'
 import { approveVendor, rejectVendor, suspendVendor, updateVendorStore, toggleVendorRestaurantStatus, updateVendorDocuments, assignVendorCity, adjustVendorWallet } from '@/app/actions/vendors'
 import { uploadImage } from '@/app/actions/uploads'
@@ -79,6 +80,7 @@ export function VendorDetailClient({
   const [showSuspend, setShowSuspend] = useState(false)
   const [showEditStore, setShowEditStore] = useState(false)
   const [showBranding, setShowBranding] = useState(false)
+  const [showOpeningHours, setShowOpeningHours] = useState(false)
   const [brandingPending, setBrandingPending] = useState(false)
   const [reason, setReason] = useState('')
   const [actionError, setActionError] = useState('')
@@ -428,11 +430,17 @@ export function VendorDetailClient({
                   <InfoRow label="Delivery Fee" value={store.deliveryFee != null ? `₦${store.deliveryFee.toLocaleString()}` : null} />
                 </InfoGrid>
               </div>
-              {store.openingHours && store.openingHours.length > 0 && (
-                <div className="border-t border-slate-100 px-6 py-5">
-                  <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Opening Hours</p>
+              <div className="border-t border-slate-100 px-6 py-5">
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Opening Hours</p>
+                  <button type="button" onClick={() => setShowOpeningHours(true)}
+                    className="text-xs font-medium text-indigo-600 hover:text-indigo-700">
+                    {store.openingHours?.length ? 'Edit' : 'Set hours'}
+                  </button>
+                </div>
+                {store.openingHours && store.openingHours.length > 0 ? (
                   <div className="grid grid-cols-2 gap-x-8 gap-y-1.5 sm:grid-cols-3 lg:grid-cols-4">
-                    {store.openingHours.map((h) => {
+                    {[...store.openingHours].sort((a, b) => a.dayOfWeek - b.dayOfWeek).map((h) => {
                       const day = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][h.dayOfWeek]
                       return (
                         <div key={h.dayOfWeek} className="flex items-center justify-between gap-2 text-sm">
@@ -445,8 +453,10 @@ export function VendorDetailClient({
                       )
                     })}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <p className="text-sm text-slate-400">No opening hours set.</p>
+                )}
+              </div>
             </>
           ) : (
             <div className="flex items-center justify-center py-10">
@@ -680,6 +690,17 @@ export function VendorDetailClient({
           </div>
         </div>
       </Modal>
+
+      {/* Opening hours modal */}
+      {store && (
+        <VendorOpeningHoursModal
+          open={showOpeningHours}
+          onClose={() => setShowOpeningHours(false)}
+          vendorId={vendor.id}
+          openingHours={store.openingHours}
+          onSaved={(d) => setVendor((v) => v.store ? { ...v, store: { ...v.store, ...d } } : v)}
+        />
+      )}
 
       {/* Branding modal */}
       <Modal open={showBranding} onClose={() => setShowBranding(false)} title="Storefront Branding" size="md">

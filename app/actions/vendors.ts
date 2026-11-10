@@ -206,6 +206,52 @@ export async function updateVendorStore(
   }
 }
 
+export type OpeningHourInput = {
+  dayOfWeek: number
+  openTime: string
+  closeTime: string
+  isClosed: boolean
+}
+
+interface UpdateOpeningHoursResponse {
+  vendorId: string
+  storeId: string
+  isOpen: boolean
+  isOpenNow: boolean
+  openingHours: VendorStoreDetail['openingHours']
+}
+
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
+
+export async function updateVendorOpeningHours(
+  vendorId: string,
+  openingHours: OpeningHourInput[]
+): Promise<{ data?: UpdateOpeningHoursResponse; error?: string }> {
+  const days = new Set<number>()
+  for (const h of openingHours) {
+    if (!Number.isInteger(h.dayOfWeek) || h.dayOfWeek < 0 || h.dayOfWeek > 6 || days.has(h.dayOfWeek)) {
+      return { error: 'Each day of the week can only appear once.' }
+    }
+    days.add(h.dayOfWeek)
+    if (!TIME_RE.test(h.openTime) || !TIME_RE.test(h.closeTime)) {
+      return { error: 'Times must be in HH:MM (24-hour) format.' }
+    }
+    if (!h.isClosed && h.openTime === h.closeTime) {
+      return { error: 'Open and close times cannot be the same for an open day.' }
+    }
+  }
+  try {
+    const data = await apiFetch<UpdateOpeningHoursResponse>(
+      `/api/v1/vendors/admin/${encodeURIComponent(vendorId)}/store/opening-hours`,
+      { method: 'PUT', body: JSON.stringify({ openingHours }), token: await token() }
+    )
+    revalidatePath(`/dashboard/partners/vendors/${vendorId}`)
+    return { data }
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'Failed to update opening hours.' }
+  }
+}
+
 export async function toggleVendorRestaurantStatus(
   vendorId: string,
   isOpen: boolean
