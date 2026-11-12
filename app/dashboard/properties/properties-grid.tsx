@@ -131,7 +131,7 @@ export function PropertiesGrid({
           <h1 className="text-2xl font-bold text-slate-900">Properties</h1>
           <p className="mt-0.5 text-sm text-slate-500">{pagination.total.toLocaleString()} properties listed.</p>
         </div>
-        <div className="flex items-center gap-2">
+        {/* <div className="flex items-center gap-2">
           <Link href="/dashboard/partners/property-owners/create">
             <Button size="sm" variant="secondary">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
@@ -148,7 +148,7 @@ export function PropertiesGrid({
               New Property
             </Button>
           </Link>
-        </div>
+        </div> */}
       </div>
 
       <div className="mb-6 relative w-72">
