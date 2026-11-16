@@ -7,7 +7,7 @@ import { formatNaira } from '@/app/lib/utils'
 import { Spinner } from '@/app/components/ui/spinner'
 import { useRowNav } from '@/app/lib/hooks/use-row-nav'
 import { getParcels } from '@/app/actions/parcels'
-import type { ParcelSummary, ParcelStatus, Pagination } from '@/app/lib/types'
+import type { ParcelSummary, ParcelStatus, Pagination, RideAddress } from '@/app/lib/types'
 
 const STATUS_STYLES: Record<ParcelStatus, string> = {
   SCHEDULED:            'bg-violet-50 text-violet-700 ring-violet-600/20',
@@ -35,6 +35,10 @@ const STATUS_DOT: Record<ParcelStatus, string> = {
   CANCELLED_BY_USER:    'bg-red-500',
   CANCELLED_BY_RIDER:   'bg-red-500',
   CANCELLED_BY_SYSTEM:  'bg-red-500',
+}
+
+function formatAddress(address: RideAddress | null) {
+  return address?.address || address?.street || 'Address unavailable'
 }
 
 function formatStatus(s: string) {
@@ -186,11 +190,11 @@ export function ParcelsTable({
                     <td className="px-5 py-3.5 max-w-[220px]">
                       <p className="truncate text-xs text-slate-700">
                         <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-[9px] font-bold text-indigo-700 mr-1">A</span>
-                        {parcel.pickupAddress.address || parcel.pickupAddress.street}
+                        {formatAddress(parcel.pickupAddress)}
                       </p>
                       <p className="truncate text-xs text-slate-400 mt-0.5">
                         <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-100 text-[9px] font-bold text-red-600 mr-1">B</span>
-                        {parcel.dropoffAddress.address || parcel.dropoffAddress.street}
+                        {formatAddress(parcel.dropoffAddress)}
                       </p>
                     </td>
                     <td className="px-5 py-3.5 text-xs text-slate-500">{parcel.city?.name ?? '—'}</td>

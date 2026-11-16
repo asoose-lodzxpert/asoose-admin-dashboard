@@ -1149,8 +1149,8 @@ export interface ParcelSummary {
   senderName: string | null
   senderPhone: string | null
   customer: ParcelCustomer | null
-  pickupAddress: RideAddress
-  dropoffAddress: RideAddress
+  pickupAddress: RideAddress | null
+  dropoffAddress: RideAddress | null
   rider: { name: string; phone: string } | null
   proofOfDelivery: string | null
   createdAt: string

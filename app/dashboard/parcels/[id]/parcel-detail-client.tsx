@@ -55,6 +55,15 @@ function formatDateTime(d: string | null) {
 
 function RouteMap({ parcel }: { parcel: ParcelDetail }) {
   const { pickupAddress: pickup, dropoffAddress: dropoff } = parcel
+  if (!pickup || !dropoff) {
+    return (
+      <DetailCard title="Route Map">
+        <div className="flex h-32 items-center justify-center rounded-xl border border-slate-100 bg-slate-50 text-sm text-slate-400">
+          {!pickup && !dropoff ? 'Pickup and dropoff addresses unavailable' : !pickup ? 'Pickup address unavailable' : 'Dropoff address unavailable'}
+        </div>
+      </DetailCard>
+    )
+  }
   const mapsDirectionsUrl = `https://www.google.com/maps/dir/${pickup.latitude},${pickup.longitude}/${dropoff.latitude},${dropoff.longitude}`
 
   return (
