@@ -15,7 +15,7 @@ import { VendorPickupLocation } from './vendor-pickup-location'
 import { VendorCommission } from './vendor-commission'
 import { VendorOpeningHoursModal } from './vendor-opening-hours'
 import { cn } from '@/app/lib/utils'
-import { approveVendor, rejectVendor, suspendVendor, updateVendorStore, toggleVendorRestaurantStatus, updateVendorDocuments, assignVendorCity, adjustVendorWallet } from '@/app/actions/vendors'
+import { approveVendor, rejectVendor, suspendVendor, updateVendorStore, toggleVendorRestaurantStatus, updateVendorDocuments, assignVendorCity, adjustVendorWallet, resetVendorPassword, type VendorPasswordResetResult } from '@/app/actions/vendors'
 import { uploadImage } from '@/app/actions/uploads'
 import { updateStorefrontBranding } from '@/app/actions/catalog'
 import { UserFinanceSection } from '@/app/components/user-finance-section'
@@ -207,6 +207,32 @@ export function VendorDetailClient({
     })
   }
 
+  const [showPasswordReset, setShowPasswordReset] = useState(false)
+  const [passwordResetResult, setPasswordResetResult] = useState<VendorPasswordResetResult | null>(null)
+  const [passwordResetError, setPasswordResetError] = useState('')
+  const [passwordResetPending, startPasswordResetTransition] = useTransition()
+
+  function closePasswordReset() {
+    if (passwordResetPending) return
+    setShowPasswordReset(false)
+    setPasswordResetResult(null)
+    setPasswordResetError('')
+  }
+
+  function handlePasswordReset() {
+    startPasswordResetTransition(async () => {
+      setPasswordResetError('')
+      const res = await resetVendorPassword(vendor.id)
+      if (res.error) { setPasswordResetError(res.error); toast.error(res.error); return }
+      if (!res.data) {
+        const error = 'The password was reset, but no temporary password was returned.'
+        setPasswordResetError(error); toast.error(error); return
+      }
+      setPasswordResetResult(res.data)
+      toast.success('Vendor password reset successfully.')
+    })
+  }
+
   async function handleBrandingUpload(field: 'logo' | 'banner', file: File) {
     setBrandingPending(true)
     try {
@@ -281,6 +307,7 @@ export function VendorDetailClient({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            <Button variant="secondary" size="sm" onClick={() => { setPasswordResetError(''); setPasswordResetResult(null); setShowPasswordReset(true) }}>Reset Password</Button>
             <Button variant="secondary" size="sm" onClick={() => { setStoreFormError(''); setShowEditStore(true) }}>Edit Store</Button>
             {vendor.verificationStatus === 'PENDING' && (
               <>
@@ -809,6 +836,49 @@ export function VendorDetailClient({
         <label className="mb-1.5 block text-[13px] font-medium text-slate-700">Reason (optional)</label>
         <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3}
           className="w-full resize-none rounded-xl border-0 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none" />
+      </Modal>
+
+      {/* Reset Password modal */}
+      <Modal
+        open={showPasswordReset}
+        onClose={closePasswordReset}
+        title={passwordResetResult ? 'Password Reset Successful' : 'Reset Vendor Password'}
+        description={passwordResetResult
+          ? 'Save or share this credential securely before closing.'
+          : `This will replace the current password for ${vendor.businessName}.`}
+        size="sm"
+        footer={passwordResetResult ? (
+          <Button size="sm" onClick={closePasswordReset}>Done</Button>
+        ) : (
+          <>
+            <Button variant="secondary" size="sm" disabled={passwordResetPending} onClick={closePasswordReset}>Cancel</Button>
+            <Button size="sm" loading={passwordResetPending} onClick={handlePasswordReset}>Reset Password</Button>
+          </>
+        )}
+      >
+        {passwordResetResult ? (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <p className="mb-1.5 text-xs font-semibold text-amber-800">Temporary Password</p>
+              <p className="break-all font-mono text-lg font-bold tracking-wider text-amber-900">
+                {passwordResetResult.temporaryPassword}
+              </p>
+              <p className="mt-2 text-xs text-amber-700">This password will not be shown again after this dialog closes.</p>
+            </div>
+            <p className={cn('text-sm', passwordResetResult.emailSent ? 'text-emerald-700' : 'text-amber-700')}>
+              {passwordResetResult.emailSent
+                ? `The temporary password was emailed to ${vendor.userEmail ?? vendor.businessEmail}.`
+                : 'The email could not be sent. Share the temporary password securely with the vendor.'}
+            </p>
+          </div>
+        ) : (
+          <div>
+            <p className="text-sm leading-6 text-slate-600">
+              The vendor&apos;s current password will stop working immediately. A new temporary password will be generated.
+            </p>
+            {passwordResetError && <p className="mt-3 text-sm text-red-600">{passwordResetError}</p>}
+          </div>
+        )}
       </Modal>
 
       {/* Assign City modal */}

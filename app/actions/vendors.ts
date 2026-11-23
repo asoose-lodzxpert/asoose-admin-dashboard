@@ -190,6 +190,25 @@ export async function suspendVendor(
   }
 }
 
+export interface VendorPasswordResetResult {
+  temporaryPassword: string
+  emailSent: boolean
+}
+
+export async function resetVendorPassword(
+  vendorId: string
+): Promise<{ data?: VendorPasswordResetResult; error?: string }> {
+  try {
+    const data = await apiFetch<VendorPasswordResetResult>(
+      `/api/v1/vendors/admin/${vendorId}/reset-password`,
+      { method: 'POST', token: await token() }
+    )
+    return { data }
+  } catch (err) {
+    return { error: err instanceof ApiError ? err.message : 'Failed to reset vendor password.' }
+  }
+}
+
 export async function updateVendorStore(
   vendorId: string,
   data: StoreUpdateData
